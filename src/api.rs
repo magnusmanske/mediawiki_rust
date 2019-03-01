@@ -1,0 +1,115 @@
+extern crate reqwest;
+
+use serde_json::Value;
+use std::collections::HashMap;
+use urlencoding::encode;
+
+#[derive(Debug)]
+pub struct Api {
+    api_url: String,
+    siteinfo: Option<Value>,
+}
+
+impl Api {
+    pub fn new(api_url: &str) -> Api {
+        let ret = Api {
+            api_url: api_url.to_string(),
+            siteinfo: None,
+        };
+        ret
+    }
+
+    pub fn site_info(&self) -> &Option<Value> {
+        return &self.siteinfo;
+    }
+
+    pub fn load_site_info(&mut self) {
+        self.siteinfo = self.get_site_info().ok();
+    }
+
+    fn json2string(v: &serde_json::Value) -> String {
+        serde_json::from_value(v.clone()).unwrap()
+    }
+
+    fn get_site_info(&self) -> Result<Value, Box<::std::error::Error>> {
+        let mut params = HashMap::new();
+        params.insert("action", "query");
+        params.insert("meta", "siteinfo");
+        params.insert(
+            "siprop",
+            "general|namespaces|namespacealiases|libraries|extensions|statistics",
+        );
+        self.get_query_api_json(&params)
+    }
+
+    pub fn get_query_api_json_all(
+        &self,
+        params: &HashMap<&str, &str>,
+    ) -> Result<Vec<Value>, Box<::std::error::Error>> {
+        let mut cont = HashMap::<String, String>::new();
+        let mut ret = Vec::<Value>::new();
+        loop {
+            let mut params_cont = params.clone();
+            for (k, v) in &cont {
+                params_cont.insert(k, v);
+            }
+            let result = self.get_query_api_json(&params_cont)?;
+            cont.clear();
+            let conti = result["continue"].clone();
+            match &conti {
+                serde_json::Value::Object(obj) => {
+                    for (k, v) in obj {
+                        if k != "continue" {
+                            let s: String = serde_json::from_value(v.clone()).unwrap(); //self.json2string(&v);
+                            println!("{:#?} => {:#?}", k, s);
+                            cont.insert(k.clone(), s);
+                        }
+                    }
+                }
+                _ => {
+                    break;
+                }
+            }
+            ret.push(result.clone());
+            println!("{:#?}", &cont);
+        }
+        Ok(ret)
+    }
+
+    pub fn get_query_api_json(
+        &self,
+        params: &HashMap<&str, &str>,
+    ) -> Result<Value, Box<::std::error::Error>> {
+        let t = self.get_query_api_raw(params)?;
+        let v: Value = serde_json::from_str(&t)?;
+        Ok(v)
+    }
+
+    pub fn get_query_api_raw(
+        &self,
+        params: &HashMap<&str, &str>,
+    ) -> Result<String, Box<::std::error::Error>> {
+        let mut url = self.api_url.clone();
+        url += "?format=json"; // Enforce JSON
+        params.into_iter().for_each(|x| {
+            if *x.0 != "format" {
+                url += "&";
+                url += x.0;
+                url += "=";
+                url += &encode(x.1);
+            }
+        });
+
+        let mut resp = reqwest::get(&url)?;
+        let t = resp.text()?;
+        Ok(t)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
