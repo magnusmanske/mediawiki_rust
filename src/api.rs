@@ -27,8 +27,26 @@ impl Api {
         self.siteinfo = self.get_site_info().ok();
     }
 
-    fn json2string(v: &serde_json::Value) -> String {
+    fn json2string(v: &Value) -> String {
         serde_json::from_value(v.clone()).unwrap()
+    }
+
+    fn json_merge(&self, a: &mut Value, b: Value) {
+        match (a, b) {
+            (a @ &mut Value::Object(_), Value::Object(b)) => {
+                let a = a.as_object_mut().unwrap();
+                for (k, v) in b {
+                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                }
+            }
+            (a @ &mut Value::Array(_), Value::Array(b)) => {
+                let a = a.as_array_mut().unwrap();
+                for v in b {
+                    a.push(v);
+                }
+            }
+            (a, b) => *a = b,
+        }
     }
 
     fn get_site_info(&self) -> Result<Value, Box<::std::error::Error>> {
@@ -45,9 +63,9 @@ impl Api {
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<&str, &str>,
-    ) -> Result<Vec<Value>, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<::std::error::Error>> {
         let mut cont = HashMap::<String, String>::new();
-        let mut ret = Vec::<Value>::new();
+        let mut ret = serde_json::json!({});
         loop {
             let mut params_cont = params.clone();
             for (k, v) in &cont {
@@ -56,13 +74,12 @@ impl Api {
             let result = self.get_query_api_json(&params_cont)?;
             cont.clear();
             let conti = result["continue"].clone();
-            match &conti {
-                serde_json::Value::Object(obj) => {
+            self.json_merge(&mut ret, result);
+            match conti {
+                Value::Object(obj) => {
                     for (k, v) in obj {
                         if k != "continue" {
-                            let s: String = serde_json::from_value(v.clone()).unwrap(); //self.json2string(&v);
-                            println!("{:#?} => {:#?}", k, s);
-                            cont.insert(k.clone(), s);
+                            cont.insert(k.clone(), Self::json2string(&v));
                         }
                     }
                 }
@@ -70,8 +87,6 @@ impl Api {
                     break;
                 }
             }
-            ret.push(result.clone());
-            println!("{:#?}", &cont);
         }
         Ok(ret)
     }
@@ -99,7 +114,7 @@ impl Api {
                 url += &encode(x.1);
             }
         });
-
+        println!("{}", &url);
         let mut resp = reqwest::get(&url)?;
         let t = resp.text()?;
         Ok(t)
