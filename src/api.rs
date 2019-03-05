@@ -88,6 +88,7 @@ impl Api {
                 }
             }
         }
+        ret.as_object_mut().unwrap().remove("continue");
         Ok(ret)
     }
 

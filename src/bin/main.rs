@@ -9,6 +9,7 @@ fn main() {
     params.insert("action", "query");
     params.insert("prop", "categories");
     params.insert("titles", "Albert Einstein");
+    params.insert("cllimit", "500");
     let x = api.get_query_api_json_all(&params).unwrap();
 
     println!("{}", x);
