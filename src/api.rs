@@ -1,13 +1,27 @@
 extern crate reqwest;
 
+//use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
+use reqwest::StatusCode;
+use reqwest::Url;
 use serde_json::Value;
 use std::collections::HashMap;
 use urlencoding::encode;
 
-#[derive(Debug)]
+#[macro_export]
+macro_rules! hashmap {
+    ($( $key: expr => $val: expr ),*) => {{
+         let mut map = ::std::collections::HashMap::new();
+         $( map.insert($key, $val); )*
+         map
+    }}
+}
+
+//#[derive(Debug)]
 pub struct Api {
     api_url: String,
     siteinfo: Option<Value>,
+    //    client: reqwest::Client,
+    session: user_agent::Session<reqwest::Client>,
 }
 
 impl Api {
@@ -15,6 +29,7 @@ impl Api {
         let ret = Api {
             api_url: api_url.to_string(),
             siteinfo: None,
+            session: user_agent::Session::new(reqwest::Client::new()),
         };
         ret
     }
@@ -49,31 +64,30 @@ impl Api {
         }
     }
 
-    fn get_site_info(&self) -> Result<Value, Box<::std::error::Error>> {
-        let mut params = HashMap::new();
-        params.insert("action", "query");
-        params.insert("meta", "siteinfo");
-        params.insert(
-            "siprop",
-            "general|namespaces|namespacealiases|libraries|extensions|statistics",
-        );
-        self.get_query_api_json(&params)
+    fn get_site_info(&mut self) -> Result<Value, Box<::std::error::Error>> {
+        self.get_query_api_json(&hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"])
     }
 
-    pub fn get_token(&self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
-        let mut params = HashMap::new();
-        params.insert("action", "query");
-        params.insert("meta", "tokens");
-        params.insert("type", token_type);
-        let x = self.get_query_api_json_all(&params).unwrap();
-        match &x["query"]["tokens"]["logintoken"] {
+    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
+        let mut params = hashmap!["action"=>"query","meta"=>"tokens"];
+        if token_type.len() != 0 {
+            params.insert("type", token_type);
+        }
+        let mut key = token_type.to_string();
+        key += &"token".to_string();
+        if token_type.len() == 0 {
+            key = "csrftoken".into()
+        }
+        dbg!(&key);
+        let x = dbg!(self.get_query_api_json_all(&params)?);
+        match &x["query"]["tokens"][&key] {
             serde_json::Value::String(s) => Ok(s.to_string()),
-            _ => Err(From::from("!!")),
+            _ => Err(From::from("Could not get token")),
         }
     }
 
     pub fn get_query_api_json_all(
-        &self,
+        &mut self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut cont = HashMap::<String, String>::new();
@@ -105,32 +119,74 @@ impl Api {
     }
 
     pub fn get_query_api_json(
-        &self,
+        &mut self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
-        let t = self.get_query_api_raw(params)?;
+        let mut params = params.clone();
+        params.insert("format", "json");
+        let t = self.query_api_raw(&params, "GET")?;
         let v: Value = serde_json::from_str(&t)?;
         Ok(v)
     }
 
-    pub fn get_query_api_raw(
-        &self,
+    pub fn post_query_api_json(
+        &mut self,
         params: &HashMap<&str, &str>,
-    ) -> Result<String, Box<::std::error::Error>> {
-        let mut url = self.api_url.clone();
-        url += "?format=json"; // Enforce JSON
+    ) -> Result<Value, Box<::std::error::Error>> {
+        let mut params = params.clone();
+        params.insert("format", "json");
+        let t = self.query_api_raw(&params, "POST")?;
+        let v: Value = serde_json::from_str(&t)?;
+        Ok(v)
+    }
+
+    pub fn generate_parameter_string(&self, params: &HashMap<&str, &str>) -> String {
+        let mut ret = "".to_string();
         params.into_iter().for_each(|x| {
-            if *x.0 != "format" {
-                url += "&";
-                url += x.0;
-                url += "=";
-                url += &encode(x.1);
+            if !ret.is_empty() {
+                ret += "&";
             }
+            ret += x.0;
+            ret += "=";
+            ret += &encode(x.1);
         });
-        println!("{}", &url);
-        let mut resp = reqwest::get(&url)?;
-        let t = resp.text()?;
-        Ok(t)
+        ret
+    }
+
+    pub fn query_api_raw(
+        &mut self,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<String, Box<::std::error::Error>> {
+        let mut resp;
+        if method == "GET" {
+            let url = Url::parse(&self.api_url)?;
+            resp = self
+                .session
+                .get_with(url, |r| dbg!(r.query(params)))
+                .unwrap();
+        } else if method == "POST" {
+            let url = Url::parse(&self.api_url)?;
+            resp = self
+                .session
+                .post_with(url, |r| dbg!(r.form(params)))
+                .unwrap();
+        } else {
+            panic!("Unsupported method");
+        }
+
+        match resp.status() {
+            StatusCode::OK => Ok(resp.text().unwrap()),
+            _ => Err(From::from("Bad things happened")),
+        }
+    }
+
+    pub fn login(&mut self, lgname: &str, lgpassword: &str) {
+        let lgtoken = self.get_token("login").unwrap();
+        let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
+        let _res = self.post_query_api_json(&params).unwrap(); // TODO check error
+        dbg!(_res);
+        // dbg!(&self.session.store);
     }
 }
 
@@ -138,6 +194,6 @@ impl Api {
 mod tests {
     #[test]
     fn it_works() {
-        assert_eq!(2 + 2, 4);
+        assert_eq!(2 + 2, 4); // TODO
     }
 }
