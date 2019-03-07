@@ -5,7 +5,7 @@ use std::collections::HashMap;
 fn main() {
     let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php");
 
-    let token = api.get_token("login");
+    let token = api.get_token("login").unwrap();
 
     //    let token = x["query"]["tokens"]["logintoken"].clone();
     dbg!(token);
