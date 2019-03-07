@@ -60,6 +60,20 @@ impl Api {
         self.get_query_api_json(&params)
     }
 
+    pub fn get_token(&self, token_type: &str) -> String {
+        let mut params = HashMap::new();
+        params.insert("action", "query");
+        params.insert("meta", "tokens");
+        params.insert("type", token_type);
+        let x = self.get_query_api_json_all(&params).unwrap();
+        let token;
+        match &x["query"]["tokens"]["logintoken"] {
+            serde_json::Value::String(s) => token = s,
+            _ => panic!("No token!"),
+        }
+        token.to_string()
+    }
+
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<&str, &str>,
