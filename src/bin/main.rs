@@ -62,6 +62,6 @@ fn _wikidata_edit() {
 
 fn main() {
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
-    let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ) ;
-    dbg!(res);
+    let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
+    println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
 }

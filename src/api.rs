@@ -256,9 +256,8 @@ impl Api {
         let site_info = self.site_info().clone();
         match site_info {
             Some(si) => {
-                let query_api_url =
-                    dbg!(si["query"]["general"]["wikibase-sparql"].as_str().unwrap());
-                let params = dbg!(hashmap!["query"=>query,"format"=>"json"]);
+                let query_api_url = si["query"]["general"]["wikibase-sparql"].as_str().unwrap();
+                let params = hashmap!["query"=>query,"format"=>"json"];
                 let ret = self.query_raw(query_api_url, &params, "GET").unwrap();
                 let v: Value = serde_json::from_str(&ret).unwrap();
                 Some(v)
@@ -284,5 +283,12 @@ mod tests {
             ),
             _ => panic!("Oh no"),
         }
+    }
+
+    #[test]
+    fn sparql_query() {
+        let mut api = Api::new("https://www.wikidata.org/w/api.php");
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
+        assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
 }
