@@ -67,7 +67,10 @@ impl Api {
     }
 
     pub fn load_site_info(&mut self) {
-        self.siteinfo = self.get_site_info().ok();
+        match self.siteinfo {
+            None => self.siteinfo = self.get_site_info().ok(),
+            _ => {} // Already exists
+        }
     }
 
     pub fn json2string(v: &Value) -> String {
@@ -197,11 +200,21 @@ impl Api {
         params: &HashMap<&str, &str>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
+        let api_url = self.api_url.clone();
+        self.query_raw(api_url.as_str(), params, method)
+    }
+
+    pub fn query_raw(
+        &mut self,
+        api_url: &str,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<String, Box<::std::error::Error>> {
         let mut resp;
         if method == "GET" {
             resp = self
                 .client
-                .get(self.api_url.as_str())
+                .get(api_url)
                 .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .query(&params)
                 .send()?;
@@ -209,7 +222,7 @@ impl Api {
         } else if method == "POST" {
             resp = self
                 .client
-                .post(self.api_url.as_str())
+                .post(api_url)
                 .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .form(&params)
                 .send()?;
@@ -235,6 +248,22 @@ impl Api {
             Ok(())
         } else {
             panic!("Login failed") // TODO proper error return
+        }
+    }
+
+    pub fn sparql_query(&mut self, query: &str) -> Option<Value> {
+        self.load_site_info();
+        let site_info = self.site_info().clone();
+        match site_info {
+            Some(si) => {
+                let query_api_url =
+                    dbg!(si["query"]["general"]["wikibase-sparql"].as_str().unwrap());
+                let params = dbg!(hashmap!["query"=>query,"format"=>"json"]);
+                let ret = self.query_raw(query_api_url, &params, "GET").unwrap();
+                let v: Value = serde_json::from_str(&ret).unwrap();
+                Some(v)
+            }
+            None => None,
         }
     }
 }

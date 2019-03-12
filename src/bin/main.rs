@@ -4,39 +4,40 @@ extern crate mediawiki;
 use config::*;
 use std::collections::HashMap;
 
-fn main() {
-    /*
-        let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php");
+fn _einstein_categories() {
+    let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php");
 
-        // Query parameters
-        let params: HashMap<_, _> = vec![
-            ("action", "query"),
-            ("prop", "categories"),
-            ("titles", "Albert Einstein"),
-            ("cllimit", "500"),
-        ]
-        .into_iter()
+    // Query parameters
+    let params: HashMap<_, _> = vec![
+        ("action", "query"),
+        ("prop", "categories"),
+        ("titles", "Albert Einstein"),
+        ("cllimit", "500"),
+    ]
+    .into_iter()
+    .collect();
+
+    // Run query
+    let res = api.get_query_api_json_all(&params).unwrap();
+
+    // Parse result
+    let categories: Vec<&str> = res["query"]["pages"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .flat_map(|(_page_id, page)| {
+            page["categories"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| c["title"].as_str().unwrap())
+        })
         .collect();
 
-        // Run query
-        let res = api.get_query_api_json_all(&params).unwrap();
+    dbg!(&categories);
+}
 
-        // Parse result
-        let categories: Vec<&str> = res["query"]["pages"]
-            .as_object()
-            .unwrap()
-            .iter()
-            .flat_map(|(_page_id, page)| {
-                page["categories"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|c| c["title"].as_str().unwrap())
-            })
-            .collect();
-
-        dbg!(&categories);
-    */
+fn _wikidata_edit() {
     let mut settings = Config::default();
     // File::with_name(..) is shorthand for File::from(Path::new(..))
     settings.merge(File::with_name("test.ini")).unwrap();
@@ -57,4 +58,10 @@ fn main() {
     .collect();
     let _res = api.post_query_api_json(&params).unwrap();
     //    dbg!(res["success"].as_u64().unwrap());
+}
+
+fn main() {
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
+    let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ) ;
+    dbg!(res);
 }
