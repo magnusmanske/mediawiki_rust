@@ -1,6 +1,7 @@
 # A MediaWiki client library in Rust
 
-## Get all categories of "Albert Einstein" on English WIkipedia
+## Examples
+Get all categories of "Albert Einstein" on English Wikipedia:
 ```
 let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php");
 
@@ -34,7 +35,7 @@ let categories: Vec<&str> = res["query"]["pages"]
 dbg!(&categories);
 ```
 
-## Edit the Wikidata Sandbox Item (as a bot)
+Edit the Wikidata Sandbox Item (as a bot):
 ```
 let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
 api.login("MY BOT USER NAME", "MY BOT PASSWORD").unwrap();

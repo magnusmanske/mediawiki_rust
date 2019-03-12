@@ -1,5 +1,10 @@
 [package]
 name = "mediawiki"
+description = "A MediaWiki client library"
+keywords = ["MediaWiki","API"]
+categories = ["api-bindings","authentication"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/magnusmanske/mediawiki_rust"
 version = "0.1.0"
 authors = ["Magnus Manske <magnusmanske@googlemail.com>"]
 edition = "2018"
