@@ -241,8 +241,19 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
+    use super::Api;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4); // TODO
+    fn site_info() {
+        let mut api = Api::new("https://www.wikidata.org/w/api.php");
+        api.load_site_info();
+        let site_info = api.site_info();
+        match site_info {
+            Some(info) => assert_eq!(
+                info["query"]["general"]["sitename"].as_str().unwrap(),
+                "Wikidata"
+            ),
+            _ => panic!("Oh no"),
+        }
     }
 }
