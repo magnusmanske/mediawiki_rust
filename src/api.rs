@@ -1,8 +1,8 @@
 extern crate reqwest;
 
-//use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
-use reqwest::StatusCode;
-use reqwest::Url;
+//use reqwest::StatusCode;
+//use reqwest::Url;
+//use reqwest::header::HeaderValue;
 use serde_json::Value;
 use std::collections::HashMap;
 use urlencoding::encode;
@@ -16,12 +16,39 @@ macro_rules! hashmap {
     }}
 }
 
+struct MyCookieJar {
+    cookies: Vec<String>,
+}
+
+impl MyCookieJar {
+    pub fn new() -> MyCookieJar {
+        MyCookieJar { cookies: vec![] }
+    }
+
+    pub fn from_response(&mut self, resp: &reqwest::Response) {
+        self.cookies = resp
+            .headers()
+            .get_all(reqwest::header::SET_COOKIE)
+            .iter()
+            .map(|v| v.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+    }
+
+    pub fn to_string(&self) -> String {
+        self.cookies
+            .iter()
+            .map(|c| c.split(';').next().unwrap())
+            .collect::<Vec<&str>>()
+            .join("; ")
+    }
+}
+
 //#[derive(Debug)]
 pub struct Api {
     api_url: String,
-    siteinfo: Option<Value>,
-    //    client: reqwest::Client,
-    session: user_agent::Session<reqwest::Client>,
+    siteinfo: Option<serde_json::Value>,
+    client: reqwest::Client,
+    cookie_jar: MyCookieJar,
 }
 
 impl Api {
@@ -29,7 +56,8 @@ impl Api {
         let ret = Api {
             api_url: api_url.to_string(),
             siteinfo: None,
-            session: user_agent::Session::new(reqwest::Client::new()),
+            client: reqwest::Client::builder().build().unwrap(),
+            cookie_jar: MyCookieJar::new(),
         };
         ret
     }
@@ -42,7 +70,7 @@ impl Api {
         self.siteinfo = self.get_site_info().ok();
     }
 
-    fn json2string(v: &Value) -> String {
+    pub fn json2string(v: &Value) -> String {
         serde_json::from_value(v.clone()).unwrap()
     }
 
@@ -78,8 +106,7 @@ impl Api {
         if token_type.len() == 0 {
             key = "csrftoken".into()
         }
-        dbg!(&key);
-        let x = dbg!(self.get_query_api_json_all(&params)?);
+        let x = self.get_query_api_json_all(&params)?;
         match &x["query"]["tokens"][&key] {
             serde_json::Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from("Could not get token")),
@@ -141,16 +168,11 @@ impl Api {
     }
 
     pub fn generate_parameter_string(&self, params: &HashMap<&str, &str>) -> String {
-        let mut ret = "".to_string();
-        params.into_iter().for_each(|x| {
-            if !ret.is_empty() {
-                ret += "&";
-            }
-            ret += x.0;
-            ret += "=";
-            ret += &encode(x.1);
-        });
-        ret
+        let params_string: Vec<String> = params
+            .iter()
+            .map(|(k, v)| k.to_string() + "=" + &encode(v))
+            .collect();
+        params_string.join("&")
     }
 
     pub fn query_api_raw(
@@ -159,34 +181,43 @@ impl Api {
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         let mut resp;
+        //        let params_string = self.generate_parameter_string(params);
         if method == "GET" {
-            let url = Url::parse(&self.api_url)?;
             resp = self
-                .session
-                .get_with(url, |r| dbg!(r.query(params)))
+                .client
+                .get(self.api_url.as_str())
+                .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
+                .query(&params)
+                .send()
                 .unwrap();
+            self.cookie_jar.from_response(&resp);
         } else if method == "POST" {
-            let url = Url::parse(&self.api_url)?;
             resp = self
-                .session
-                .post_with(url, |r| dbg!(r.form(params)))
-                .unwrap();
+                .client
+                .post(self.api_url.as_str())
+                .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
+                .form(&params)
+                .send()
+                .expect("POST request failed to be sent");
+            self.cookie_jar.from_response(&resp);
         } else {
             panic!("Unsupported method");
         }
 
-        match resp.status() {
-            StatusCode::OK => Ok(resp.text().unwrap()),
-            _ => Err(From::from("Bad things happened")),
-        }
+        Ok(resp.text().unwrap())
+        /*
+                match resp.status() {
+                    StatusCode::OK => Ok(resp.text().unwrap()),
+                    _ => Err(From::from("Bad things happened")),
+                }
+        */
     }
 
     pub fn login(&mut self, lgname: &str, lgpassword: &str) {
         let lgtoken = self.get_token("login").unwrap();
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
         let _res = self.post_query_api_json(&params).unwrap(); // TODO check error
-        dbg!(_res);
-        // dbg!(&self.session.store);
+        dbg!(&_res);
     }
 }
 
