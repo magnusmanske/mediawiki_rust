@@ -1,5 +1,7 @@
+extern crate cookie;
 extern crate reqwest;
 
+use cookie::{Cookie, CookieJar};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -39,39 +41,13 @@ impl MWuser {
     }
 }
 
-struct MyCookieJar {
-    cookies: Vec<String>,
-}
-
-impl MyCookieJar {
-    pub fn new() -> MyCookieJar {
-        MyCookieJar { cookies: vec![] }
-    }
-
-    pub fn from_response(&mut self, resp: &reqwest::Response) {
-        self.cookies = resp
-            .headers()
-            .get_all(reqwest::header::SET_COOKIE)
-            .iter()
-            .map(|v| v.to_str().unwrap().to_string())
-            .collect::<Vec<String>>();
-    }
-
-    pub fn to_string(&self) -> String {
-        self.cookies
-            .iter()
-            .map(|c| c.split(';').next().unwrap())
-            .collect::<Vec<&str>>()
-            .join("; ")
-    }
-}
-
 //#[derive(Debug)]
 pub struct Api {
     api_url: String,
     siteinfo: Option<serde_json::Value>,
     client: reqwest::Client,
-    cookie_jar: MyCookieJar,
+    cookie_jar: CookieJar,
+    //cookie_jar: MyCookieJar,
     user: MWuser,
 }
 
@@ -81,7 +57,8 @@ impl Api {
             api_url: api_url.to_string(),
             siteinfo: None,
             client: reqwest::Client::builder().build().unwrap(),
-            cookie_jar: MyCookieJar::new(),
+            //cookie_jar: MyCookieJar::new(),
+            cookie_jar: CookieJar::new(),
             user: MWuser::new(),
         };
         ret
@@ -192,6 +169,27 @@ impl Api {
         Ok(v)
     }
 
+    pub fn set_cookies_from_response(&mut self, resp: &reqwest::Response) {
+        let cookie_strings = resp
+            .headers()
+            .get_all(reqwest::header::SET_COOKIE)
+            .iter()
+            .map(|v| v.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        for cs in cookie_strings {
+            let cookie = Cookie::parse(cs.clone()).unwrap();
+            self.cookie_jar.add(cookie);
+        }
+    }
+
+    pub fn cookies_to_string(&self) -> String {
+        self.cookie_jar
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join("; ")
+    }
+
     pub fn query_api_raw(
         &mut self,
         params: &HashMap<&str, &str>,
@@ -202,18 +200,18 @@ impl Api {
             resp = self
                 .client
                 .get(self.api_url.as_str())
-                .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .query(&params)
                 .send()?;
-            self.cookie_jar.from_response(&resp);
+            self.set_cookies_from_response(&resp);
         } else if method == "POST" {
             resp = self
                 .client
                 .post(self.api_url.as_str())
-                .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .form(&params)
                 .send()?;
-            self.cookie_jar.from_response(&resp);
+            self.set_cookies_from_response(&resp);
         } else {
             panic!("Unsupported method");
         }

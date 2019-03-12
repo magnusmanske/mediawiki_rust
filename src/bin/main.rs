@@ -16,11 +16,10 @@ fn main() {
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
     api.login(&lgname, &lgpassword).unwrap();
 
-    let token = api.get_token("edit").unwrap();
-    dbg!(&token);
-    let mut params = hashmap!("action"=>"wbeditentity","id"=>"Q4115189","lgtoken"=>&token);
-    let data = r#"{"claims":[{"mainsnak":{"snaktype":"value","property":"P56","datavalue":{"value":"ExampleString","type":"string"}},"type":"statement","rank":"normal"}]}"# ;
+    let token = api.get_token("csrf").unwrap();
+    let mut params = hashmap!("action"=>"wbeditentity","id"=>"Q4115189","token"=>&token);
+    let data = r#"{"claims":[{"mainsnak":{"snaktype":"value","property":"P1810","datavalue":{"value":"ExampleString","type":"string"}},"type":"statement","rank":"normal"}]}"# ;
     params.insert("data", data);
-    dbg!(&params);
-    api.post_query_api_json(&params).unwrap();
+    let res = api.post_query_api_json(&params).unwrap();
+    dbg!(res);
 }
