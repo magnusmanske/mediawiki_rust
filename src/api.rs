@@ -32,8 +32,8 @@ impl MWuser {
 
     pub fn set_from_login(&mut self, login: &serde_json::Value) {
         if login["result"] == "Success" {
-            self.lgusername = serde_json::from_value(login["lgusername"].clone()).unwrap();
-            self.lguserid = serde_json::from_value(login["lguserid"].clone()).unwrap();
+            self.lgusername = login["lgusername"].as_str().unwrap().to_string();
+            self.lguserid = login["lguserid"].as_u64().unwrap();
             self.is_logged_in = true;
         } else {
             self.is_logged_in = false;
@@ -47,7 +47,6 @@ pub struct Api {
     siteinfo: Option<serde_json::Value>,
     client: reqwest::Client,
     cookie_jar: CookieJar,
-    //cookie_jar: MyCookieJar,
     user: MWuser,
 }
 
@@ -57,7 +56,6 @@ impl Api {
             api_url: api_url.to_string(),
             siteinfo: None,
             client: reqwest::Client::builder().build().unwrap(),
-            //cookie_jar: MyCookieJar::new(),
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
         };
@@ -73,7 +71,7 @@ impl Api {
     }
 
     pub fn json2string(v: &Value) -> String {
-        serde_json::from_value(v.clone()).unwrap()
+        v.as_str().unwrap().to_string()
     }
 
     fn json_merge(&self, a: &mut Value, b: Value) {
@@ -113,6 +111,10 @@ impl Api {
             serde_json::Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from("Could not get token")),
         }
+    }
+
+    pub fn get_edit_token(&mut self) -> Result<String, Box<::std::error::Error>> {
+        self.get_token("csrf")
     }
 
     pub fn get_query_api_json_all(
