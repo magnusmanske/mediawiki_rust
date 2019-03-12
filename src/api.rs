@@ -2,7 +2,6 @@ extern crate reqwest;
 
 use serde_json::Value;
 use std::collections::HashMap;
-//use urlencoding::encode;
 
 #[macro_export]
 macro_rules! hashmap {
