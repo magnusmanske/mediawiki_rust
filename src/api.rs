@@ -13,6 +13,33 @@ macro_rules! hashmap {
     }}
 }
 
+#[derive(Debug)]
+struct MWuser {
+    lgusername: String,
+    lguserid: u64,
+    is_logged_in: bool,
+}
+
+impl MWuser {
+    pub fn new() -> MWuser {
+        MWuser {
+            lgusername: "".into(),
+            lguserid: 0,
+            is_logged_in: false,
+        }
+    }
+
+    pub fn set_from_login(&mut self, login: &serde_json::Value) {
+        if login["result"] == "Success" {
+            self.lgusername = serde_json::from_value(login["lgusername"].clone()).unwrap();
+            self.lguserid = serde_json::from_value(login["lguserid"].clone()).unwrap();
+            self.is_logged_in = true;
+        } else {
+            self.is_logged_in = false;
+        }
+    }
+}
+
 struct MyCookieJar {
     cookies: Vec<String>,
 }
@@ -46,6 +73,7 @@ pub struct Api {
     siteinfo: Option<serde_json::Value>,
     client: reqwest::Client,
     cookie_jar: MyCookieJar,
+    user: MWuser,
 }
 
 impl Api {
@@ -55,6 +83,7 @@ impl Api {
             siteinfo: None,
             client: reqwest::Client::builder().build().unwrap(),
             cookie_jar: MyCookieJar::new(),
+            user: MWuser::new(),
         };
         ret
     }
@@ -164,17 +193,6 @@ impl Api {
         Ok(v)
     }
 
-    /*
-        // Obsolete?
-        pub fn generate_parameter_string(&self, params: &HashMap<&str, &str>) -> String {
-            let params_string: Vec<String> = params
-                .iter()
-                .map(|(k, v)| k.to_string() + "=" + &encode(v))
-                .collect();
-            params_string.join("&")
-        }
-    */
-
     pub fn query_api_raw(
         &mut self,
         params: &HashMap<&str, &str>,
@@ -212,9 +230,13 @@ impl Api {
     ) -> Result<(), Box<::std::error::Error>> {
         let lgtoken = self.get_token("login")?;
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
-        let _res = self.post_query_api_json(&params)?;
-        dbg!(&_res);
-        Ok(())
+        let res = self.post_query_api_json(&params)?;
+        if res["login"]["result"] == "Success" {
+            self.user.set_from_login(&res["login"]);
+            Ok(())
+        } else {
+            panic!("Login failed") // TODO proper error return
+        }
     }
 }
 
