@@ -1,11 +1,8 @@
 extern crate reqwest;
 
-//use reqwest::StatusCode;
-//use reqwest::Url;
-//use reqwest::header::HeaderValue;
 use serde_json::Value;
 use std::collections::HashMap;
-use urlencoding::encode;
+//use urlencoding::encode;
 
 #[macro_export]
 macro_rules! hashmap {
@@ -167,13 +164,16 @@ impl Api {
         Ok(v)
     }
 
-    pub fn generate_parameter_string(&self, params: &HashMap<&str, &str>) -> String {
-        let params_string: Vec<String> = params
-            .iter()
-            .map(|(k, v)| k.to_string() + "=" + &encode(v))
-            .collect();
-        params_string.join("&")
-    }
+    /*
+        // Obsolete?
+        pub fn generate_parameter_string(&self, params: &HashMap<&str, &str>) -> String {
+            let params_string: Vec<String> = params
+                .iter()
+                .map(|(k, v)| k.to_string() + "=" + &encode(v))
+                .collect();
+            params_string.join("&")
+        }
+    */
 
     pub fn query_api_raw(
         &mut self,
@@ -181,15 +181,13 @@ impl Api {
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         let mut resp;
-        //        let params_string = self.generate_parameter_string(params);
         if method == "GET" {
             resp = self
                 .client
                 .get(self.api_url.as_str())
                 .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
                 .query(&params)
-                .send()
-                .unwrap();
+                .send()?;
             self.cookie_jar.from_response(&resp);
         } else if method == "POST" {
             resp = self
@@ -197,27 +195,26 @@ impl Api {
                 .post(self.api_url.as_str())
                 .header(reqwest::header::COOKIE, self.cookie_jar.to_string())
                 .form(&params)
-                .send()
-                .expect("POST request failed to be sent");
+                .send()?;
             self.cookie_jar.from_response(&resp);
         } else {
             panic!("Unsupported method");
         }
 
-        Ok(resp.text().unwrap())
-        /*
-                match resp.status() {
-                    StatusCode::OK => Ok(resp.text().unwrap()),
-                    _ => Err(From::from("Bad things happened")),
-                }
-        */
+        let t = resp.text()?;
+        Ok(t)
     }
 
-    pub fn login(&mut self, lgname: &str, lgpassword: &str) {
-        let lgtoken = self.get_token("login").unwrap();
+    pub fn login(
+        &mut self,
+        lgname: &str,
+        lgpassword: &str,
+    ) -> Result<(), Box<::std::error::Error>> {
+        let lgtoken = self.get_token("login")?;
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
-        let _res = self.post_query_api_json(&params).unwrap(); // TODO check error
+        let _res = self.post_query_api_json(&params)?;
         dbg!(&_res);
+        Ok(())
     }
 }
 

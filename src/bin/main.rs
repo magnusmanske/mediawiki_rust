@@ -12,5 +12,5 @@ fn main() {
     let lgpassword = settings.get_str("user.pass").unwrap();
 
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
-    api.login(&lgname, &lgpassword);
+    api.login(&lgname, &lgpassword).unwrap();
 }
