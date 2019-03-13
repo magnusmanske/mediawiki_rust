@@ -60,8 +60,12 @@ fn _wikidata_edit() {
     //    dbg!(res["success"].as_u64().unwrap());
 }
 
-fn main() {
+fn _wikidata_sparql() {
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
     println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+}
+
+fn main() {
+    _wikidata_sparql();
 }

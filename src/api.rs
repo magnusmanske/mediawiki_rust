@@ -44,7 +44,7 @@ impl MWuser {
 //#[derive(Debug)]
 pub struct Api {
     api_url: String,
-    siteinfo: Option<serde_json::Value>,
+    site_info: Value,
     client: reqwest::Client,
     cookie_jar: CookieJar,
     user: MWuser,
@@ -52,25 +52,43 @@ pub struct Api {
 
 impl Api {
     pub fn new(api_url: &str) -> Api {
-        let ret = Api {
+        let mut ret = Api {
             api_url: api_url.to_string(),
-            siteinfo: None,
+            site_info: serde_json::from_str(r"{}").unwrap(),
             client: reqwest::Client::builder().build().unwrap(),
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
         };
+        ret.load_site_info()
+            .expect("Could not load site info for API");
         ret
     }
 
-    pub fn site_info(&self) -> &Option<Value> {
-        return &self.siteinfo;
+    pub fn get_site_info(&self) -> &Value {
+        return &self.site_info;
     }
 
-    pub fn load_site_info(&mut self) {
-        match self.siteinfo {
-            None => self.siteinfo = self.get_site_info().ok(),
-            _ => {} // Already exists
+    pub fn get_site_info_value(&self, k1: &str, k2: &str) -> Value {
+        let site_info = self.get_site_info();
+        site_info["query"][k1][k2].clone()
+    }
+
+    pub fn get_site_info_string(
+        &self,
+        k1: &str,
+        k2: &str,
+    ) -> Result<String, Box<::std::error::Error>> {
+        let site_info = self.get_site_info();
+        match site_info["query"][k1][k2].as_str() {
+            Some(s) => Ok(s.to_string()),
+            None => panic!("No query.general.wikibase-sparql value in site info"),
         }
+    }
+
+    fn load_site_info(&mut self) -> Result<&Value, Box<::std::error::Error>> {
+        let params = hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"];
+        self.site_info = self.get_query_api_json(&params)?;
+        Ok(&self.site_info)
     }
 
     pub fn json2string(v: &Value) -> String {
@@ -93,10 +111,6 @@ impl Api {
             }
             (a, b) => *a = b,
         }
-    }
-
-    fn get_site_info(&mut self) -> Result<Value, Box<::std::error::Error>> {
-        self.get_query_api_json(&hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"])
     }
 
     pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
@@ -251,19 +265,11 @@ impl Api {
         }
     }
 
-    pub fn sparql_query(&mut self, query: &str) -> Option<Value> {
-        self.load_site_info();
-        let site_info = self.site_info().clone();
-        match site_info {
-            Some(si) => {
-                let query_api_url = si["query"]["general"]["wikibase-sparql"].as_str().unwrap();
-                let params = hashmap!["query"=>query,"format"=>"json"];
-                let ret = self.query_raw(query_api_url, &params, "GET").unwrap();
-                let v: Value = serde_json::from_str(&ret).unwrap();
-                Some(v)
-            }
-            None => None,
-        }
+    pub fn sparql_query(&mut self, query: &str) -> Result<Value, Box<::std::error::Error>> {
+        let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
+        let params = hashmap!["query"=>query,"format"=>"json"];
+        let result = self.query_raw(&query_api_url, &params, "GET")?;
+        Ok(serde_json::from_str(&result)?)
     }
 }
 
@@ -273,16 +279,11 @@ mod tests {
 
     #[test]
     fn site_info() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php");
-        api.load_site_info();
-        let site_info = api.site_info();
-        match site_info {
-            Some(info) => assert_eq!(
-                info["query"]["general"]["sitename"].as_str().unwrap(),
-                "Wikidata"
-            ),
-            _ => panic!("Oh no"),
-        }
+        let api = Api::new("https://www.wikidata.org/w/api.php");
+        assert_eq!(
+            api.get_site_info_string("general", "sitename").unwrap(),
+            "Wikidata"
+        );
     }
 
     #[test]
