@@ -1,6 +1,9 @@
 //use serde_json::Value;
 use crate::api::Api;
 use std::collections::HashMap;
+//use std::sync::Mutex;
+use std::sync::mpsc;
+use std::thread;
 use wikibase;
 
 /// A container of `Entity` values
@@ -16,7 +19,7 @@ impl EntityContainer {
     }
 
     // Loads (new) entities from the MediaWiki API
-    pub fn load_entities(&mut self, api: &mut Api, entity_ids: &Vec<String>) {
+    pub fn load_entities(&mut self, api: &Api, entity_ids: &Vec<String>) {
         let to_load = entity_ids
             .iter()
             .filter(|entity_id| !entity_id.is_empty())
@@ -24,17 +27,38 @@ impl EntityContainer {
             .map(|entity_id| entity_id.to_owned())
             .collect::<Vec<String>>();
 
-        // TODO multi-threaded
+        //println!("To load: {} entities", entity_ids.len());
+        let (tx, rx) = mpsc::channel();
+        let mut chunks: u64 = 0;
         for chunk in to_load.chunks(50) {
+            chunks = chunks + 1;
             let ids = chunk.join("|");
-            let params: HashMap<_, _> = vec![("action", "wbgetentities"), ("ids", &ids)]
-                .into_iter()
-                .collect();
+            let params: HashMap<_, _> = vec![
+                ("action", "wbgetentities"),
+                ("ids", &ids),
+                ("format", "json"),
+            ]
+            .into_iter()
+            .collect();
+            let req = api
+                .get_api_request_builder(&params, "GET")
+                .expect("GET failed");
 
-            let j = api.get_query_api_json(&params).unwrap();
-            //println!("{}", ::serde_json::to_string_pretty(&j).unwrap());
-            for (entity_id, entity_json) in j["entities"].as_object().unwrap() {
-                match wikibase::from_json::entity_from_json(entity_json) {
+            let tx = mpsc::Sender::clone(&tx);
+            thread::spawn(move || {
+                let response = req.send().expect("Getting response from API failed");
+                tx.send(response).expect("Sending of result failed");
+            });
+        }
+
+        for _ in 0..chunks {
+            let mut response = rx.recv().unwrap();
+            let j: serde_json::Value = response.json().expect("Parsing response into JSON failed");
+            for (entity_id, entity_json) in j["entities"]
+                .as_object()
+                .expect("Accessing entities failed")
+            {
+                match wikibase::from_json::entity_from_json(&entity_json) {
                     Ok(entity) => {
                         self.entities.insert(entity_id.to_string(), entity);
                     }
@@ -42,6 +66,7 @@ impl EntityContainer {
                 }
             }
         }
-        dbg!(&self.entities);
+
+        //println!("{} entities loaded", self.entities.len());
     }
 }

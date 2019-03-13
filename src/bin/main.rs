@@ -5,7 +5,7 @@ use config::*;
 use std::collections::HashMap;
 
 fn _einstein_categories() {
-    let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
 
     // Query parameters
     let params: HashMap<_, _> = vec![
@@ -61,7 +61,7 @@ fn _wikidata_edit() {
 }
 
 fn _wikidata_sparql() {
-    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
     //println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
 
@@ -76,9 +76,11 @@ fn _wikidata_sparql() {
     }
     //println!("{}: {:?}", qs.len(), qs);
     let mut ec = mediawiki::entity_container::EntityContainer::new();
-    ec.load_entities(&mut api, &qs);
+    ec.load_entities(&api, &qs);
 }
 
 fn main() {
+    //_einstein_categories();
+    //_wikidata_edit();
     _wikidata_sparql();
 }
