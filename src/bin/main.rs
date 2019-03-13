@@ -63,7 +63,20 @@ fn _wikidata_edit() {
 fn _wikidata_sparql() {
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
-    println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+    //println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+
+    let mut qs = vec![];
+    for b in res["results"]["bindings"].as_array().unwrap() {
+        match b["q"]["value"].as_str() {
+            Some(entity_url) => {
+                qs.push(api.extract_entity_from_uri(entity_url).unwrap());
+            }
+            None => {}
+        }
+    }
+    //println!("{}: {:?}", qs.len(), qs);
+    let mut ec = mediawiki::entity_container::EntityContainer::new();
+    ec.load_entities(&mut api, &qs);
 }
 
 fn main() {

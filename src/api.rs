@@ -80,7 +80,6 @@ impl Api {
             user: MWuser::new(),
         };
         ret.load_site_info()?;
-        //            .expect("Could not load site info for API");
         Ok(ret)
     }
 
@@ -301,7 +300,7 @@ impl Api {
             self.user.set_from_login(&res["login"])?;
             Ok(())
         } else {
-            panic!("Login failed") // TODO proper error return
+            Err(From::from("Login failed"))
         }
     }
 
@@ -312,6 +311,19 @@ impl Api {
         let params = hashmap!["query"=>query,"format"=>"json"];
         let result = self.query_raw(&query_api_url, &params, "GET")?;
         Ok(serde_json::from_str(&result)?)
+    }
+
+    /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
+    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<::std::error::Error>> {
+        let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
+        if uri.starts_with(concept_base_uri.as_str()) {
+            Ok(uri[concept_base_uri.len()..].to_string())
+        } else {
+            Err(From::from(format!(
+                "{} does not start with {}",
+                uri, concept_base_uri
+            )))
+        }
     }
 }
 
