@@ -5,7 +5,7 @@ use config::*;
 use std::collections::HashMap;
 
 fn _einstein_categories() {
-    let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php");
+    let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
 
     // Query parameters
     let params: HashMap<_, _> = vec![
@@ -44,7 +44,7 @@ fn _wikidata_edit() {
     let lgname = settings.get_str("user.user").unwrap();
     let lgpassword = settings.get_str("user.pass").unwrap();
 
-    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     api.login(&lgname, &lgpassword).unwrap();
 
     let token = api.get_edit_token().unwrap();
@@ -61,7 +61,7 @@ fn _wikidata_edit() {
 }
 
 fn _wikidata_sparql() {
-    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
     println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
 }

@@ -1,3 +1,7 @@
+/*!
+The `Api` class serves as a univeral interface to a MediaWiki API.
+*/
+
 extern crate cookie;
 extern crate reqwest;
 
@@ -6,6 +10,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 #[macro_export]
+/// To quickle create a hashmap.
+/// Example: `hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"]`
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
          let mut map = ::std::collections::HashMap::new();
@@ -14,6 +20,7 @@ macro_rules! hashmap {
     }}
 }
 
+/// `MWuser` contains the login data for the `Api`
 #[derive(Debug)]
 struct MWuser {
     lgusername: String,
@@ -22,6 +29,7 @@ struct MWuser {
 }
 
 impl MWuser {
+    /// Returns a new, blank, not-logged-in user
     pub fn new() -> MWuser {
         MWuser {
             lgusername: "".into(),
@@ -30,18 +38,28 @@ impl MWuser {
         }
     }
 
-    pub fn set_from_login(&mut self, login: &serde_json::Value) {
+    /// Tries to set user information from the `Api` call
+    pub fn set_from_login(&mut self, login: &serde_json::Value) -> Result<(), String> {
         if login["result"] == "Success" {
-            self.lgusername = login["lgusername"].as_str().unwrap().to_string();
-            self.lguserid = login["lguserid"].as_u64().unwrap();
+            match login["lgusername"].as_str() {
+                Some(s) => self.lgusername = s.to_string(),
+                None => return Err("No lgusername in login result".to_string()),
+            }
+            match login["lguserid"].as_u64() {
+                Some(u) => self.lguserid = u,
+                None => return Err("No lguserid in login result".to_string()),
+            }
+
             self.is_logged_in = true;
         } else {
             self.is_logged_in = false;
         }
+        Ok(())
     }
 }
 
-//#[derive(Debug)]
+/// `Api` is the main class to interact with a MediaWiki API
+#[derive(Debug)]
 pub struct Api {
     api_url: String,
     site_info: Value,
@@ -51,50 +69,53 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn new(api_url: &str) -> Api {
+    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// This is done both to get basic information about the site, and to test the API.
+    pub fn new(api_url: &str) -> Result<Api, Box<::std::error::Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
-            site_info: serde_json::from_str(r"{}").unwrap(),
-            client: reqwest::Client::builder().build().unwrap(),
+            site_info: serde_json::from_str(r"{}")?,
+            client: reqwest::Client::builder().build()?,
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
         };
-        ret.load_site_info()
-            .expect("Could not load site info for API");
-        ret
+        ret.load_site_info()?;
+        //            .expect("Could not load site info for API");
+        Ok(ret)
     }
 
+    /// Returns a reference to the serde_json Value containing the site info
     pub fn get_site_info(&self) -> &Value {
         return &self.site_info;
     }
 
+    /// Returns a serde_json Value in site info, within the `["query"]` object.
+    /// The value is a cloned copy.
     pub fn get_site_info_value(&self, k1: &str, k2: &str) -> Value {
         let site_info = self.get_site_info();
         site_info["query"][k1][k2].clone()
     }
 
-    pub fn get_site_info_string(
-        &self,
-        k1: &str,
-        k2: &str,
-    ) -> Result<String, Box<::std::error::Error>> {
+    /// Returns a String from the site info, matching `["query"][k1][k2]`
+    pub fn get_site_info_string(&self, k1: &str, k2: &str) -> Result<String, String> {
         let site_info = self.get_site_info();
         match site_info["query"][k1][k2].as_str() {
             Some(s) => Ok(s.to_string()),
-            None => panic!("No query.general.wikibase-sparql value in site info"),
+            None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
         }
     }
 
+    /// Loads the site info.
+    /// Should only ever be called from `new()`
     fn load_site_info(&mut self) -> Result<&Value, Box<::std::error::Error>> {
         let params = hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"];
         self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
     }
 
-    pub fn json2string(v: &Value) -> String {
-        v.as_str().unwrap().to_string()
-    }
-
+    /// Merges two JSON objects that are MediaWiki API results.
+    /// If an array already exists in the `a` object, it will be expanded with the array from the `b` object
+    /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
             (a @ &mut Value::Object(_), Value::Object(b)) => {
@@ -113,6 +134,7 @@ impl Api {
         }
     }
 
+    /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
     pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
         let mut params = hashmap!["action"=>"query","meta"=>"tokens"];
         if token_type.len() != 0 {
@@ -130,10 +152,12 @@ impl Api {
         }
     }
 
+    /// Calls `get_token()` to return an edit token
     pub fn get_edit_token(&mut self) -> Result<String, Box<::std::error::Error>> {
         self.get_token("csrf")
     }
 
+    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
     pub fn get_query_api_json_all(
         &mut self,
         params: &HashMap<&str, &str>,
@@ -153,7 +177,8 @@ impl Api {
                 Value::Object(obj) => {
                     for (k, v) in obj {
                         if k != "continue" {
-                            cont.insert(k.clone(), Self::json2string(&v));
+                            let x = v.as_str().unwrap().to_string();
+                            cont.insert(k.clone(), x);
                         }
                     }
                 }
@@ -166,28 +191,37 @@ impl Api {
         Ok(ret)
     }
 
+    /// Runs a query against the MediaWiki API, using `method` GET or POST.
+    /// Parameters are a hashmap; `format=json` is enforced.
+    pub fn query_api_json(
+        &mut self,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<Value, Box<::std::error::Error>> {
+        let mut params = params.clone();
+        params.insert("format", "json");
+        let t = self.query_api_raw(&params, method)?;
+        let v: Value = serde_json::from_str(&t)?;
+        Ok(v)
+    }
+
+    /// GET wrapper for `query_api_json`
     pub fn get_query_api_json(
         &mut self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
-        let mut params = params.clone();
-        params.insert("format", "json");
-        let t = self.query_api_raw(&params, "GET")?;
-        let v: Value = serde_json::from_str(&t)?;
-        Ok(v)
+        self.query_api_json(params, "GET")
     }
 
+    /// POST wrapper for `query_api_json`
     pub fn post_query_api_json(
         &mut self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
-        let mut params = params.clone();
-        params.insert("format", "json");
-        let t = self.query_api_raw(&params, "POST")?;
-        let v: Value = serde_json::from_str(&t)?;
-        Ok(v)
+        self.query_api_json(params, "POST")
     }
 
+    /// Adds or replaces cookies in the cookie jar from a http `Response`
     pub fn set_cookies_from_response(&mut self, resp: &reqwest::Response) {
         let cookie_strings = resp
             .headers()
@@ -201,6 +235,7 @@ impl Api {
         }
     }
 
+    /// Generates a single string to pass as COOKIE parameter in a http `Request`
     pub fn cookies_to_string(&self) -> String {
         self.cookie_jar
             .iter()
@@ -209,6 +244,8 @@ impl Api {
             .join("; ")
     }
 
+    /// Runs a query against the MediaWiki API, and returns a text.
+    /// Uses `query_raw`
     pub fn query_api_raw(
         &mut self,
         params: &HashMap<&str, &str>,
@@ -218,6 +255,7 @@ impl Api {
         self.query_raw(api_url.as_str(), params, method)
     }
 
+    /// Runs a query against a generic URL, and returns a text
     pub fn query_raw(
         &mut self,
         api_url: &str,
@@ -249,6 +287,8 @@ impl Api {
         Ok(t)
     }
 
+    /// Performs a login against the MediaWiki API.
+    /// If successful, user information is stored in `MWuser`, and in the cookie jar
     pub fn login(
         &mut self,
         lgname: &str,
@@ -258,13 +298,15 @@ impl Api {
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
         let res = self.post_query_api_json(&params)?;
         if res["login"]["result"] == "Success" {
-            self.user.set_from_login(&res["login"]);
+            self.user.set_from_login(&res["login"])?;
             Ok(())
         } else {
             panic!("Login failed") // TODO proper error return
         }
     }
 
+    /// Performs a SPARQL query against a wikibase installation.
+    /// Tries to get the SPARQL endpoint URL from the site info
     pub fn sparql_query(&mut self, query: &str) -> Result<Value, Box<::std::error::Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query"=>query,"format"=>"json"];
@@ -279,7 +321,7 @@ mod tests {
 
     #[test]
     fn site_info() {
-        let api = Api::new("https://www.wikidata.org/w/api.php");
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -288,7 +330,7 @@ mod tests {
 
     #[test]
     fn sparql_query() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php");
+        let mut api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
