@@ -12,13 +12,14 @@ pub struct EntityContainer {
 }
 
 impl EntityContainer {
+    /// Generates a new, empty `EntityContainer`
     pub fn new() -> EntityContainer {
         EntityContainer {
             entities: HashMap::<String, wikibase::Entity>::new(),
         }
     }
 
-    // Loads (new) entities from the MediaWiki API
+    /// Loads (new) entities from the MediaWiki API
     pub fn load_entities(&mut self, api: &Api, entity_ids: &Vec<String>) {
         let to_load = entity_ids
             .iter()
@@ -27,7 +28,6 @@ impl EntityContainer {
             .map(|entity_id| entity_id.to_owned())
             .collect::<Vec<String>>();
 
-        //println!("To load: {} entities", entity_ids.len());
         let (tx, rx) = mpsc::channel();
         let mut chunks: u64 = 0;
         for chunk in to_load.chunks(50) {
@@ -66,7 +66,29 @@ impl EntityContainer {
                 }
             }
         }
+    }
 
-        //println!("{} entities loaded", self.entities.len());
+    /// Returns `Some(entity)` with that ID from the cache, or `None`.
+    /// This will _not_ load entities via the API!
+    pub fn get_entity(&self, entity_id: &str) -> Option<&wikibase::Entity> {
+        self.entities.get(entity_id)
+    }
+
+    /// Removes the entity with the given key from the cache, and returns `Some(entity)` or `None`
+    pub fn remove_entity(&mut self, entity_id: &str) -> Option<wikibase::Entity> {
+        self.entities.remove(entity_id)
+    }
+
+    /// Removes the entities with the given keys from the cache
+    pub fn remove_entities(&mut self, entity_ids: &Vec<String>) {
+        for entity_id in entity_ids {
+            self.remove_entity(entity_id);
+        }
+    }
+
+    /// Removes the entities with the given keys from the cache, then reloads them from the API
+    pub fn reload_entities(&mut self, api: &Api, entity_ids: &Vec<String>) {
+        self.remove_entities(entity_ids);
+        self.load_entities(api, entity_ids);
     }
 }
