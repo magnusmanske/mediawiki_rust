@@ -1,12 +1,11 @@
-//use serde_json::Value;
 use crate::api::Api;
 use std::collections::HashMap;
-//use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 use wikibase;
 
 /// A container of `Entity` values
+#[derive(Debug, Default)]
 pub struct EntityContainer {
     pub entities: HashMap<String, wikibase::Entity>,
 }
@@ -20,7 +19,11 @@ impl EntityContainer {
     }
 
     /// Loads (new) entities from the MediaWiki API
-    pub fn load_entities(&mut self, api: &Api, entity_ids: &Vec<String>) {
+    pub fn load_entities(
+        &mut self,
+        api: &Api,
+        entity_ids: &Vec<String>,
+    ) -> Result<(), Box<::std::error::Error>> {
         let to_load = entity_ids
             .iter()
             .filter(|entity_id| !entity_id.is_empty())
@@ -52,20 +55,17 @@ impl EntityContainer {
         }
 
         for _ in 0..chunks {
-            let mut response = rx.recv().unwrap();
-            let j: serde_json::Value = response.json().expect("Parsing response into JSON failed");
+            let mut response = rx.recv()?;
+            let j: serde_json::Value = response.json()?;
             for (entity_id, entity_json) in j["entities"]
                 .as_object()
                 .expect("Accessing entities failed")
             {
-                match wikibase::from_json::entity_from_json(&entity_json) {
-                    Ok(entity) => {
-                        self.entities.insert(entity_id.to_string(), entity);
-                    }
-                    Err(e) => println!("{:?}", e),
-                }
+                let entity = wikibase::from_json::entity_from_json(&entity_json)?;
+                self.entities.insert(entity_id.to_string(), entity);
             }
         }
+        Ok(())
     }
 
     /// Returns `Some(entity)` with that ID from the cache, or `None`.
@@ -87,8 +87,46 @@ impl EntityContainer {
     }
 
     /// Removes the entities with the given keys from the cache, then reloads them from the API
-    pub fn reload_entities(&mut self, api: &Api, entity_ids: &Vec<String>) {
+    pub fn reload_entities(
+        &mut self,
+        api: &Api,
+        entity_ids: &Vec<String>,
+    ) -> Result<(), Box<::std::error::Error>> {
         self.remove_entities(entity_ids);
-        self.load_entities(api, entity_ids);
+        self.load_entities(api, entity_ids)?;
+        Ok(())
+    }
+
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
+    pub fn clear(&mut self) {
+        self.entities.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Api;
+    use super::EntityContainer;
+
+    #[test]
+    fn misc() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let mut ec = EntityContainer::new();
+        assert_eq!(ec.len(), 0);
+        ec.load_entities(&api, &vec!["Q42".to_string(), "Q12345".to_string()])
+            .unwrap();
+        assert_eq!(ec.len(), 2);
+        ec.reload_entities(&api, &vec!["Q12345".to_string()])
+            .unwrap();
+        assert_eq!(ec.len(), 2);
+        let q42 = ec.get_entity(&"Q42".to_string());
+        assert_eq!(q42.unwrap().id(), "Q42");
+        ec.remove_entity(&"Q42".to_string());
+        assert_eq!(ec.len(), 1);
+        ec.clear();
+        assert_eq!(ec.len(), 0);
     }
 }

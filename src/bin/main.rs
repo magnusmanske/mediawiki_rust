@@ -76,7 +76,7 @@ fn _wikidata_sparql() {
     }
     //println!("{}: {:?}", qs.len(), qs);
     let mut ec = mediawiki::entity_container::EntityContainer::new();
-    ec.load_entities(&api, &qs);
+    ec.load_entities(&api, &qs).unwrap();
 }
 
 fn main() {
