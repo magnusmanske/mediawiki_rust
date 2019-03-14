@@ -70,12 +70,12 @@ impl EntityContainer {
 
     /// Returns `Some(entity)` with that ID from the cache, or `None`.
     /// This will _not_ load entities via the API!
-    pub fn get_entity(&self, entity_id: &str) -> Option<&wikibase::Entity> {
+    pub fn get_entity(&self, entity_id: &String) -> Option<&wikibase::Entity> {
         self.entities.get(entity_id)
     }
 
     /// Removes the entity with the given key from the cache, and returns `Some(entity)` or `None`
-    pub fn remove_entity(&mut self, entity_id: &str) -> Option<wikibase::Entity> {
+    pub fn remove_entity(&mut self, entity_id: &String) -> Option<wikibase::Entity> {
         self.entities.remove(entity_id)
     }
 
