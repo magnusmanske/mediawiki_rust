@@ -132,6 +132,7 @@ mod tests {
         assert_eq!(ec.len(), 2);
         ec.reload_entities(&api, &vec!["Q12345".to_string()])
             .unwrap();
+        assert!(ec.has_entity(&"Q12345".to_string()));
         assert_eq!(ec.len(), 2);
         let q42 = ec.get_entity(&"Q42".to_string());
         assert_eq!(q42.unwrap().id(), "Q42");
