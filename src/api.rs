@@ -395,6 +395,23 @@ impl Api {
             )))
         }
     }
+
+    pub fn entities_from_sparql_result(
+        &self,
+        sparql_result: &serde_json::Value,
+        variable_name: &str,
+    ) -> Vec<String> {
+        let mut entities = vec![];
+        for b in sparql_result["results"]["bindings"].as_array().unwrap() {
+            match b[variable_name]["value"].as_str() {
+                Some(entity_url) => {
+                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                }
+                None => {}
+            }
+        }
+        entities
+    }
 }
 
 #[cfg(test)]
