@@ -74,6 +74,15 @@ impl EntityContainer {
         self.entities.get(entity_id)
     }
 
+    /// Checks if an entity is in the cache.
+    /// Returns true or false.
+    pub fn has_entity(&self, entity_id: &String) -> bool {
+        match self.entities.get(entity_id) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     /// Removes the entity with the given key from the cache, and returns `Some(entity)` or `None`
     pub fn remove_entity(&mut self, entity_id: &String) -> Option<wikibase::Entity> {
         self.entities.remove(entity_id)
@@ -97,10 +106,12 @@ impl EntityContainer {
         Ok(())
     }
 
+    /// Returns the number of cached entities
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
+    /// Clears the cache
     pub fn clear(&mut self) {
         self.entities.clear();
     }
