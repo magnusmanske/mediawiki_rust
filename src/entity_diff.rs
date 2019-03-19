@@ -36,14 +36,14 @@ impl EntityDiffParam {
         }
     }
 
-    pub fn valid(&self, key: &String, action: &str) -> bool {
+    pub fn valid<S: Into<String>>(&self, key: S, action: &str) -> bool {
         lazy_static! {
             static ref STAR: String = "*".to_string();
         }
         match action {
-            "add" => self.add.contains(key) || self.add.contains(&STAR),
-            "remove" => self.remove.contains(key) || self.add.contains(&STAR),
-            "alter" => self.alter.contains(key) || self.add.contains(&STAR),
+            "add" => self.add.contains(&key.into()) || self.add.contains(&STAR),
+            "remove" => self.remove.contains(&key.into()) || self.add.contains(&STAR),
+            "alter" => self.alter.contains(&key.into()) || self.add.contains(&STAR),
             _ => panic!("Bad mode '{}' in EntityDiffParam::valid", &action),
         }
     }
@@ -101,7 +101,32 @@ impl EntityDiff {
         self.diff_descriptions(i1, i2, params);
         self.diff_aliases(i1, i2, params);
         //self.diff_claims(i1, i2, params);
-        //self.diff_sitelinks(i1, i2, params);
+        self.diff_sitelinks(i1, i2, params);
+    }
+
+    fn diff_sitelinks(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
+        match (i1.sitelinks(), i2.sitelinks()) {
+            (Some(sl1), Some(sl2)) => {}
+            (Some(sl1), None) => {
+                // Remove all sitelinks
+                for sl in sl1 {
+                    if params.sitelinks.valid(sl.site().as_str(), "remove") {
+                        self.j["sitelinks"][sl.site()] =
+                            json!({"site":sl.site(),"title":sl.title(),"remove":""});
+                    }
+                }
+            }
+            (None, Some(sl2)) => {
+                // Add all sitelinks
+                for sl in sl2 {
+                    if params.sitelinks.valid(sl.site().as_str(), "add") {
+                        self.j["sitelinks"][sl.site()] =
+                            json!({"site":sl.site(),"title":sl.title()});
+                    }
+                }
+            }
+            (None, None) => {}
+        }
     }
 
     fn diff_labels(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
@@ -135,15 +160,13 @@ impl EntityDiff {
                 if s1.language() == s2.language() {
                     if s1.value() == s2.value() {
                         found = true;
-                    } else if mode != "aliases" && params.valid(&s1.language().to_string(), "alter")
-                    {
-                        // ALTERED s1 => s2 (not for aliases)
+                    } else if mode != "aliases" && params.valid(s1.language(), "alter") {
                         self.j[mode][s2.language()] =
                             json!({"language":s2.language(),"value":s2.value()});
                     }
                 }
             }
-            if !found && params.valid(&s1.language().to_string(), "remove") {
+            if !found && params.valid(s1.language(), "remove") {
                 if mode == "alias" {
                     panic!("TODO: EntityDiff.diff_locales REMOVE for aliases");
                 } else {
@@ -161,7 +184,7 @@ impl EntityDiff {
                     found = true;
                 }
             }
-            if !found && params.valid(&s2.language().to_string(), "add") {
+            if !found && params.valid(s2.language(), "add") {
                 if mode == "alias" {
                     panic!("TODO: EntityDiff.diff_locales ADD for aliases");
                 } else {

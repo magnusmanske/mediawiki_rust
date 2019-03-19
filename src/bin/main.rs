@@ -4,6 +4,7 @@ extern crate mediawiki;
 use config::*;
 use mediawiki::entity_diff::*;
 use std::collections::HashMap;
+use wikibase::{Entity, LocaleString};
 
 fn _einstein_categories() {
     let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
@@ -85,9 +86,12 @@ fn _wikidata_item_tester() {
     let mut ec = mediawiki::entity_container::EntityContainer::new();
     let i = ec.load_entity(&api, &"Q42".to_string()).unwrap();
     //let p31 = i.claims_with_property(&"P31".to_string());
-    let new_i = wikibase::Entity::new_empty();
+    let mut new_i = Entity::new_empty();
+    new_i.set_label(LocaleString::new("en", "testing"));
+
     let mut params = EntityDiffParams::none();
-    params.labels.remove = vec!["en".to_string()];
+    params.labels = EntityDiffParam::some(&vec!["en".to_string()]);
+
     let diff = EntityDiff::new(&i, &new_i, &params);
     println!("{}", serde_json::to_string_pretty(diff.actions()).unwrap());
 }
