@@ -7,7 +7,7 @@ use wikibase;
 /// A container of `Entity` values
 #[derive(Debug, Default)]
 pub struct EntityContainer {
-    pub entities: HashMap<String, wikibase::Entity>,
+    entities: HashMap<String, wikibase::Entity>,
 }
 
 impl EntityContainer {
@@ -66,6 +66,18 @@ impl EntityContainer {
             }
         }
         Ok(())
+    }
+
+    pub fn load_entity(
+        &mut self,
+        api: &Api,
+        entity: &String,
+    ) -> Result<&wikibase::Entity, Box<::std::error::Error>> {
+        self.load_entities(api, &vec![entity.clone()])?;
+        match self.get_entity(entity) {
+            Some(e) => Ok(e),
+            None => Err(From::from(format!("No such entity '{}'", &entity))),
+        }
     }
 
     /// Returns `Some(entity)` with that ID from the cache, or `None`.

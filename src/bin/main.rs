@@ -2,6 +2,7 @@ extern crate config;
 extern crate mediawiki;
 
 use config::*;
+use mediawiki::entity_diff::*;
 use std::collections::HashMap;
 
 fn _einstein_categories() {
@@ -79,8 +80,21 @@ fn _wikidata_sparql() {
     ec.load_entities(&api, &qs).unwrap();
 }
 
+fn _wikidata_item_tester() {
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let mut ec = mediawiki::entity_container::EntityContainer::new();
+    let i = ec.load_entity(&api, &"Q42".to_string()).unwrap();
+    //let p31 = i.claims_with_property(&"P31".to_string());
+    let new_i = wikibase::Entity::new_empty();
+    let mut params = EntityDiffParams::none();
+    params.labels.remove = vec!["en".to_string()];
+    let diff = EntityDiff::new(&i, &new_i, &params);
+    println!("{}", serde_json::to_string_pretty(diff.actions()).unwrap());
+}
+
 fn main() {
     //_einstein_categories();
     //_wikidata_edit();
-    _wikidata_sparql();
+    //_wikidata_sparql();
+    _wikidata_item_tester();
 }
