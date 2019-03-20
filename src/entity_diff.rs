@@ -106,7 +106,36 @@ impl EntityDiff {
 
     fn diff_sitelinks(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
         match (i1.sitelinks(), i2.sitelinks()) {
-            (Some(sl1), Some(sl2)) => {}
+            (Some(sl1), Some(sl2)) => {
+                // Round 1: Remove old, and alter existing
+                for s1 in sl1 {
+                    let mut found = false;
+                    for s2 in sl2 {
+                        if s1 == s2 {
+                            found = true;
+                        } else if s1.site() == s2.site() {
+                            self.j["sitelinks"][s1.site()] = serde_json::to_value(&s2).unwrap();
+                        }
+                    }
+                    if !found {
+                        self.j["sitelinks"][s1.site()] = serde_json::to_value(&s1).unwrap();
+                        self.j["sitelinks"][s1.site()]["remove"] = json!("");
+                    }
+                }
+
+                // Round 2: Add new
+                for s2 in sl2 {
+                    let mut found = false;
+                    for s1 in sl1 {
+                        if s1 == s2 {
+                            found = true;
+                        }
+                    }
+                    if !found {
+                        self.j["sitelinks"][s2.site()] = serde_json::to_value(&s2).unwrap();
+                    }
+                }
+            }
             (Some(sl1), None) => {
                 // Remove all sitelinks
                 for sl in sl1 {
@@ -120,8 +149,7 @@ impl EntityDiff {
                 // Add all sitelinks
                 for sl in sl2 {
                     if params.sitelinks.valid(sl.site().as_str(), "add") {
-                        self.j["sitelinks"][sl.site()] =
-                            json!({"site":sl.site(),"title":sl.title()});
+                        self.j["sitelinks"][sl.site()] = serde_json::to_value(&sl).unwrap();
                     }
                 }
             }
@@ -153,7 +181,7 @@ impl EntityDiff {
         params: &EntityDiffParam,
         mode: &str,
     ) {
-        // Round 1: Add new (all modes) or alter existing (all modes except aliases) language values
+        // Round 1:  Remove old (all modes) or alter existing (all modes except aliases) language values
         for s1 in l1 {
             let mut found = false;
             for s2 in l2 {
@@ -176,7 +204,7 @@ impl EntityDiff {
             }
         }
 
-        // Round 2: Remove old lanugage values
+        // Round 2: Add new lanugage values
         for s2 in l2 {
             let mut found = false;
             for s1 in l1 {
