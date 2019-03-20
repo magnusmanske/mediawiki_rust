@@ -4,7 +4,7 @@ extern crate mediawiki;
 use config::*;
 use mediawiki::entity_diff::*;
 use std::collections::HashMap;
-use wikibase::{Entity, LocaleString};
+use wikibase::Entity;
 
 fn _einstein_categories() {
     let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
@@ -84,16 +84,17 @@ fn _wikidata_sparql() {
 fn _wikidata_item_tester() {
     let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     let mut ec = mediawiki::entity_container::EntityContainer::new();
-    let i = ec.load_entity(&api, &"Q42".to_string()).unwrap();
-    //let p31 = i.claims_with_property(&"P31".to_string());
+    let i = ec.load_entity(&api, "Q42").unwrap();
+    //let p31 = i.claims_with_property("P31");
     let mut new_i = Entity::new_empty();
-    new_i.set_label(LocaleString::new("en", "testing"));
+    //new_i.set_label(LocaleString::new("en", "Douglas Adams"));
+    new_i.set_sitelink(wikibase::SiteLink::new("enwiki", "Test123", vec![]));
 
     let mut params = EntityDiffParams::none();
-    params.labels = EntityDiffParam::some(&vec!["en".to_string()]);
+    params.sitelinks = EntityDiffParam::some(&vec!["enwiki".to_string()]);
 
     let diff = EntityDiff::new(&i, &new_i, &params);
-    println!("{}", serde_json::to_string_pretty(diff.actions()).unwrap());
+    println!("{}", serde_json::to_string(diff.actions()).unwrap());
 }
 
 fn main() {

@@ -2,7 +2,7 @@ extern crate lazy_static;
 
 //use crate::api::Api;
 //use std::collections::HashMap;
-use wikibase::{Entity, LocaleString};
+use wikibase::*;
 
 #[derive(Debug, Default)]
 pub struct EntityDiffParam {
@@ -80,6 +80,12 @@ impl EntityDiffParams {
     }
 }
 
+enum EntityDiffClaimComparison {
+    Same,
+    Similar,
+    Different,
+}
+
 #[derive(Debug, Default)]
 pub struct EntityDiff {
     j: serde_json::Value,
@@ -100,8 +106,205 @@ impl EntityDiff {
         self.diff_labels(i1, i2, params);
         self.diff_descriptions(i1, i2, params);
         self.diff_aliases(i1, i2, params);
-        //self.diff_claims(i1, i2, params);
+        self.diff_claims(i1, i2, params);
         self.diff_sitelinks(i1, i2, params);
+    }
+
+    fn compare_snak_values(
+        &self,
+        value1: &Value,
+        value2: &Value,
+        _params: &EntityDiffParams,
+    ) -> EntityDiffClaimComparison {
+        match (value1, value2) {
+            (Value::Coordinate(v1), Value::Coordinate(v2)) => {
+                // Ignoting altitude and precision
+                if v1.globe() == v2.globe()
+                    && v1.latitude() == v2.latitude()
+                    && v1.longitude() == v2.longitude()
+                {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            (Value::MonoLingual(v1), Value::MonoLingual(v2)) => {
+                if v1 == v2 {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            (Value::Entity(v1), Value::Entity(v2)) => {
+                if v1 == v2 {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            (Value::Quantity(v1), Value::Quantity(v2)) => {
+                // Ignoring upper and lower bound
+                if v1.amount() == v2.amount() && v1.unit() == v2.unit() {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            (Value::StringValue(v1), Value::StringValue(v2)) => {
+                if v1 == v2 {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            (Value::Time(v1), Value::Time(v2)) => {
+                // Ignoring before/after/timezone
+                if v1.calendarmodel() == v2.calendarmodel()
+                    && v1.precision() == v2.precision()
+                    && v1.time() == v2.time()
+                {
+                    return EntityDiffClaimComparison::Same;
+                }
+            }
+            _ => {}
+        }
+        // Not the same => different
+        EntityDiffClaimComparison::Different
+    }
+
+    fn compare_snaks(
+        &self,
+        s1: &Snak,
+        s2: &Snak,
+        params: &EntityDiffParams,
+    ) -> EntityDiffClaimComparison {
+        // TODO params
+        if s1.property() != s2.property() {
+            return EntityDiffClaimComparison::Different;
+        }
+        if s1.datatype() != s2.datatype() {
+            return EntityDiffClaimComparison::Different;
+        }
+        if s1.snak_type() != s2.snak_type() {
+            return EntityDiffClaimComparison::Different;
+        }
+        match (s1.data_value(), s2.data_value()) {
+            (None, None) => EntityDiffClaimComparison::Same,
+            (None, Some(_)) => EntityDiffClaimComparison::Different,
+            (Some(_), None) => EntityDiffClaimComparison::Different,
+            (Some(dv1), Some(dv2)) => {
+                if dv1.value_type() != dv2.value_type() {
+                    return EntityDiffClaimComparison::Different;
+                }
+                self.compare_snak_values(dv1.value(), dv2.value(), params);
+                EntityDiffClaimComparison::Different
+            }
+        }
+    }
+
+    fn compare_qualifiers(
+        &self,
+        qualifiers1: &Vec<Snak>,
+        qualifiers2: &Vec<Snak>,
+        params: &EntityDiffParams,
+    ) -> EntityDiffClaimComparison {
+        for q1 in qualifiers1 {
+            let mut found = false;
+            for q2 in qualifiers2 {
+                match self.compare_snaks(q1, q2, params) {
+                    EntityDiffClaimComparison::Same => found = true,
+                    _ => {}
+                }
+            }
+            if !found {
+                return EntityDiffClaimComparison::Similar;
+            }
+        }
+        for q2 in qualifiers2 {
+            let mut found = false;
+            for q1 in qualifiers1 {
+                match self.compare_snaks(q1, q2, params) {
+                    EntityDiffClaimComparison::Same => found = true,
+                    _ => {}
+                }
+            }
+            if !found {
+                return EntityDiffClaimComparison::Similar;
+            }
+        }
+        EntityDiffClaimComparison::Same
+    }
+
+    fn compare_references(
+        &self,
+        _references1: &Vec<Reference>,
+        _references2: &Vec<Reference>,
+        _params: &EntityDiffParams,
+    ) -> EntityDiffClaimComparison {
+        // TODO
+        EntityDiffClaimComparison::Different
+    }
+
+    fn compare_claims(
+        &self,
+        s1: &Statement,
+        s2: &Statement,
+        params: &EntityDiffParams,
+    ) -> EntityDiffClaimComparison {
+        if s1.claim_type() != s2.claim_type() {
+            return EntityDiffClaimComparison::Different;
+        }
+        match self.compare_snaks(s1.main_snak(), s2.main_snak(), params) {
+            EntityDiffClaimComparison::Same => {}
+            ret => return ret,
+        }
+        // Now either Same or Similar; return Similar if mismatch is found
+        if s1.rank() != s2.rank() {
+            return EntityDiffClaimComparison::Similar;
+        }
+        match self.compare_qualifiers(s1.qualifiers(), s2.qualifiers(), params) {
+            EntityDiffClaimComparison::Same => {}
+            ret => return ret,
+        }
+        match self.compare_references(s1.references(), s2.references(), params) {
+            EntityDiffClaimComparison::Same => {}
+            ret => return ret,
+        }
+        EntityDiffClaimComparison::Same
+    }
+
+    fn get_claim_property(&self, s: &Statement) -> String {
+        s.main_snak().property().to_string()
+    }
+
+    fn diff_claims(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
+        // Round 1: Remove old, and alter existing
+        for c1 in i1.claims() {
+            let mut found = false;
+            for c2 in i2.claims() {
+                match self.compare_claims(&c1, &c2, &params) {
+                    EntityDiffClaimComparison::Same => found = true,
+                    EntityDiffClaimComparison::Similar => {
+                        if params.claims.valid(self.get_claim_property(&c1), "alter") {
+                            // TODO alter c1 => c2
+                        }
+                        found = true;
+                    }
+                    EntityDiffClaimComparison::Different => {}
+                }
+            }
+            if !found {
+                if params.claims.valid(self.get_claim_property(&c1), "remove") {
+                    // TODO remove c1
+                }
+            }
+        }
+
+        // Round 2: Add new
+        for c2 in i2.claims() {
+            let mut found = false;
+            for c1 in i1.claims() {
+                match self.compare_claims(&c1, &c2, params) {
+                    EntityDiffClaimComparison::Same => found = true,
+                    _ => {}
+                }
+            }
+            if !found {
+                if params.claims.valid(self.get_claim_property(&c2), "add") {
+                    // TODO add c2
+                }
+            }
+        }
     }
 
     fn diff_sitelinks(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
@@ -113,11 +316,14 @@ impl EntityDiff {
                     for s2 in sl2 {
                         if s1 == s2 {
                             found = true;
-                        } else if s1.site() == s2.site() {
+                        } else if s1.site() == s2.site()
+                            && params.sitelinks.valid(s2.site().as_str(), "alter")
+                        {
                             self.j["sitelinks"][s1.site()] = serde_json::to_value(&s2).unwrap();
+                            found = true;
                         }
                     }
-                    if !found {
+                    if !found && params.sitelinks.valid(s1.site().as_str(), "remove") {
                         self.j["sitelinks"][s1.site()] = serde_json::to_value(&s1).unwrap();
                         self.j["sitelinks"][s1.site()]["remove"] = json!("");
                     }
@@ -131,7 +337,7 @@ impl EntityDiff {
                             found = true;
                         }
                     }
-                    if !found {
+                    if !found && params.sitelinks.valid(s2.site().as_str(), "add") {
                         self.j["sitelinks"][s2.site()] = serde_json::to_value(&s2).unwrap();
                     }
                 }
@@ -191,6 +397,7 @@ impl EntityDiff {
                     } else if mode != "aliases" && params.valid(s1.language(), "alter") {
                         self.j[mode][s2.language()] =
                             json!({"language":s2.language(),"value":s2.value()});
+                        found = true;
                     }
                 }
             }
@@ -221,5 +428,50 @@ impl EntityDiff {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EntityDiff, EntityDiffParam, EntityDiffParams};
+    use crate::api;
+    use crate::entity_container;
+    use wikibase::Entity;
+
+    #[test]
+    fn misc() {
+        let api = api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let mut ec = entity_container::EntityContainer::new();
+        let i = ec.load_entity(&api, "Q42").unwrap();
+
+        //
+        let mut new_i = Entity::new_empty();
+        new_i.set_label(wikibase::LocaleString::new("en", "testing"));
+
+        let mut params = EntityDiffParams::none();
+        params.labels = EntityDiffParam::some(&vec!["en".to_string()]);
+
+        let diff = EntityDiff::new(&i, &new_i, &params);
+        assert_eq!(
+            r#"{"labels":{"en":{"language":"en","value":"testing"}}}"#,
+            serde_json::to_string(diff.actions()).unwrap()
+        );
+
+        //
+        let mut new_i = Entity::new_empty();
+        new_i.set_label(wikibase::LocaleString::new("en", "Douglas Adams"));
+        let diff = EntityDiff::new(&i, &new_i, &params);
+        assert_eq!(r#"{}"#, serde_json::to_string(diff.actions()).unwrap());
+
+        //
+        let mut new_i = Entity::new_empty();
+        new_i.set_sitelink(wikibase::SiteLink::new("enwiki", "Test123", vec![]));
+        let mut params = EntityDiffParams::none();
+        params.sitelinks = EntityDiffParam::some(&vec!["enwiki".to_string()]);
+        let diff = EntityDiff::new(&i, &new_i, &params);
+        assert_eq!(
+            r#"{"sitelinks":{"enwiki":{"badges":[],"site":"enwiki","title":"Test123"}}}"#,
+            serde_json::to_string(diff.actions()).unwrap()
+        );
     }
 }

@@ -68,13 +68,14 @@ impl EntityContainer {
         Ok(())
     }
 
-    pub fn load_entity(
+    pub fn load_entity<S: Into<String>>(
         &mut self,
         api: &Api,
-        entity: &String,
+        entity: S,
     ) -> Result<&wikibase::Entity, Box<::std::error::Error>> {
+        let entity: String = entity.into();
         self.load_entities(api, &vec![entity.clone()])?;
-        match self.get_entity(entity) {
+        match self.get_entity(entity.as_str()) {
             Some(e) => Ok(e),
             None => Err(From::from(format!("No such entity '{}'", &entity))),
         }
@@ -82,28 +83,31 @@ impl EntityContainer {
 
     /// Returns `Some(entity)` with that ID from the cache, or `None`.
     /// This will _not_ load entities via the API!
-    pub fn get_entity(&self, entity_id: &String) -> Option<&wikibase::Entity> {
-        self.entities.get(entity_id)
+    pub fn get_entity<S: Into<String>>(&self, entity_id: S) -> Option<&wikibase::Entity> {
+        let entity_id: String = entity_id.into();
+        self.entities.get(&entity_id)
     }
 
     /// Checks if an entity is in the cache.
     /// Returns true or false.
-    pub fn has_entity(&self, entity_id: &String) -> bool {
-        match self.entities.get(entity_id) {
+    pub fn has_entity<S: Into<String>>(&self, entity_id: S) -> bool {
+        let entity_id: String = entity_id.into();
+        match self.entities.get(&entity_id) {
             Some(_) => true,
             None => false,
         }
     }
 
     /// Removes the entity with the given key from the cache, and returns `Some(entity)` or `None`
-    pub fn remove_entity(&mut self, entity_id: &String) -> Option<wikibase::Entity> {
-        self.entities.remove(entity_id)
+    pub fn remove_entity<S: Into<String>>(&mut self, entity_id: S) -> Option<wikibase::Entity> {
+        let entity_id: String = entity_id.into();
+        self.entities.remove(&entity_id)
     }
 
     /// Removes the entities with the given keys from the cache
     pub fn remove_entities(&mut self, entity_ids: &Vec<String>) {
         for entity_id in entity_ids {
-            self.remove_entity(entity_id);
+            self.remove_entity(entity_id.to_string());
         }
     }
 
@@ -144,11 +148,11 @@ mod tests {
         assert_eq!(ec.len(), 2);
         ec.reload_entities(&api, &vec!["Q12345".to_string()])
             .unwrap();
-        assert!(ec.has_entity(&"Q12345".to_string()));
+        assert!(ec.has_entity("Q12345"));
         assert_eq!(ec.len(), 2);
-        let q42 = ec.get_entity(&"Q42".to_string());
+        let q42 = ec.get_entity("Q42");
         assert_eq!(q42.unwrap().id(), "Q42");
-        ec.remove_entity(&"Q42".to_string());
+        ec.remove_entity("Q42");
         assert_eq!(ec.len(), 1);
         ec.clear();
         assert_eq!(ec.len(), 0);
