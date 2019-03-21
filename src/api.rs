@@ -358,11 +358,13 @@ impl Api {
 
     /// Performs a login against the MediaWiki API.
     /// If successful, user information is stored in `MWuser`, and in the cookie jar
-    pub fn login(
+    pub fn login<S: Into<String>>(
         &mut self,
-        lgname: &str,
-        lgpassword: &str,
+        lgname: S,
+        lgpassword: S,
     ) -> Result<(), Box<::std::error::Error>> {
+        let lgname: &str = &lgname.into();
+        let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
         let res = self.query_api_json_mut(&params, "POST")?;

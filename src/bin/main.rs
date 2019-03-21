@@ -47,7 +47,7 @@ fn _wikidata_edit() {
     let lgpassword = settings.get_str("user.pass").unwrap();
 
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-    api.login(&lgname, &lgpassword).unwrap();
+    api.login(lgname, lgpassword).unwrap();
 
     let token = api.get_edit_token().unwrap();
     let params: HashMap<_, _> = vec![
