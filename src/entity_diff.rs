@@ -1,7 +1,7 @@
 extern crate lazy_static;
 
-//use crate::api::Api;
-//use std::collections::HashMap;
+use crate::api::Api;
+use std::collections::HashMap;
 use wikibase::*;
 
 #[derive(Debug, Default)]
@@ -80,6 +80,7 @@ impl EntityDiffParams {
     }
 }
 
+#[derive(Debug)]
 enum EntityDiffClaimComparison {
     Same,
     Similar,
@@ -190,8 +191,7 @@ impl EntityDiff {
                 if dv1.value_type() != dv2.value_type() {
                     return EntityDiffClaimComparison::Different;
                 }
-                self.compare_snak_values(dv1.value(), dv2.value(), params);
-                EntityDiffClaimComparison::Different
+                self.compare_snak_values(dv1.value(), dv2.value(), params)
             }
         }
     }
@@ -236,7 +236,7 @@ impl EntityDiff {
         _params: &EntityDiffParams,
     ) -> EntityDiffClaimComparison {
         // TODO
-        EntityDiffClaimComparison::Different
+        EntityDiffClaimComparison::Same
     }
 
     fn compare_claims(
@@ -252,6 +252,7 @@ impl EntityDiff {
             EntityDiffClaimComparison::Same => {}
             ret => return ret,
         }
+
         // Now either Same or Similar; return Similar if mismatch is found
         if s1.rank() != s2.rank() {
             return EntityDiffClaimComparison::Similar;
@@ -300,6 +301,7 @@ impl EntityDiff {
             for c1 in i1.claims() {
                 match self.compare_claims(&c1, &c2, params) {
                     EntityDiffClaimComparison::Same => found = true,
+                    EntityDiffClaimComparison::Similar => found = true, // Taken care of in Round 1
                     _ => {}
                 }
             }
@@ -446,6 +448,60 @@ impl EntityDiff {
             }
         }
     }
+
+    pub fn apply_diff(
+        mw_api: &mut Api,
+        diff: &EntityDiff,
+        edit_target: EditTarget,
+    ) -> Result<serde_json::Value, Box<::std::error::Error>> {
+        let json = diff.as_str().unwrap();
+        let token = mw_api.get_edit_token().unwrap();
+        let mut params: HashMap<_, _> = vec![
+            ("action", "wbeditentity"),
+            //            ("id", &q),
+            ("data", &json),
+            ("token", &token),
+        ]
+        .into_iter()
+        .collect();
+
+        match edit_target {
+            EditTarget::Entity(id) => {
+                let id_string = id.to_owned();
+                params.insert("id", &id_string.as_str())
+            }
+            EditTarget::New(entity_type) => params.insert("new", entity_type.as_str()),
+        };
+
+        panic!("{:?}", &params);
+
+        let res = mw_api.post_query_api_json(&params)?;
+
+        match res["success"].as_i64() {
+            Some(num) => {
+                if num == 1 {
+                    // Success, now use updated item JSON
+                    match &res["entity"] {
+                        serde_json::Value::Null => {}
+                        entity_json => {
+                            return Ok(entity_json.to_owned());
+                        }
+                    };
+                }
+            }
+            None => {}
+        }
+
+        Err(From::from(format!(
+            "Failed to apply diff '{:?}', result:{:?}",
+            &diff, &res
+        )))
+    }
+}
+
+pub enum EditTarget {
+    Entity(String),
+    New(String),
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ extern crate mediawiki;
 use config::*;
 use mediawiki::entity_diff::*;
 use std::collections::HashMap;
-use wikibase::Entity;
+use wikibase::*;
 
 fn _einstein_categories() {
     let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
@@ -82,19 +82,47 @@ fn _wikidata_sparql() {
 }
 
 fn _wikidata_item_tester() {
-    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let mut settings = Config::default();
+    // File::with_name(..) is shorthand for File::from(Path::new(..))
+    settings.merge(File::with_name("test.ini")).unwrap();
+    let lgname = settings.get_str("user.user").unwrap();
+    let lgpassword = settings.get_str("user.pass").unwrap();
+
+    // Create API and log in
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    api.login(lgname, lgpassword).unwrap();
+
+    // Load existing item
+    let q = "Q4115189"; // Sandbox item
     let mut ec = mediawiki::entity_container::EntityContainer::new();
-    let i = ec.load_entity(&api, "Q42").unwrap();
-    //let p31 = i.claims_with_property("P31");
-    let mut new_i = Entity::new_empty();
-    //new_i.set_label(LocaleString::new("en", "Douglas Adams"));
-    new_i.set_sitelink(wikibase::SiteLink::new("enwiki", "Test123", vec![]));
+    let orig_i = ec.load_entity(&api, q).unwrap().clone();
+    let mut i = orig_i.clone();
 
-    let mut params = EntityDiffParams::none();
-    params.sitelinks = EntityDiffParam::some(&vec!["enwiki".to_string()]);
+    // Alter item
+    i.add_claim(Statement::new(
+        "statement",
+        StatementRank::Normal,
+        Snak::new(
+            "wikibase-item",
+            "P31",
+            SnakType::Value,
+            Some(DataValue::new(
+                DataValueType::EntityId,
+                wikibase::Value::Entity(EntityValue::new(EntityType::Item, "Q12345")),
+            )),
+        ),
+        vec![],
+        vec![],
+    ));
 
-    let diff = EntityDiff::new(&i, &new_i, &params);
-    println!("{}", serde_json::to_string(diff.actions()).unwrap());
+    // Compute diff between old and new item
+    let mut diff_params = EntityDiffParams::none();
+    diff_params.claims.add = vec!["P31".to_string()];
+    let diff = EntityDiff::new(&orig_i, &i, &diff_params);
+    println!("{}\n", diff.as_str().unwrap());
+
+    // Apply diff
+    EntityDiff::apply_diff(&mut api, &diff, EditTarget::Entity(q.to_string())).unwrap();
 }
 
 fn main() {
