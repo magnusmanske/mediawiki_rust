@@ -102,6 +102,10 @@ impl EntityDiff {
         &self.j
     }
 
+    pub fn as_str(&self) -> Result<String, serde_json::Error> {
+        ::serde_json::to_string(&self.j)
+    }
+
     fn diff(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
         self.diff_labels(i1, i2, params);
         self.diff_descriptions(i1, i2, params);
@@ -301,7 +305,11 @@ impl EntityDiff {
             }
             if !found {
                 if params.claims.valid(self.get_claim_property(&c2), "add") {
-                    // TODO add c2
+                    if !self.j["claims"].is_array() {
+                        self.j["claims"] = json!([]);
+                    }
+                    let v = c2.as_stripped_json();
+                    self.j["claims"].as_array_mut().unwrap().push(v);
                 }
             }
         }
@@ -402,8 +410,13 @@ impl EntityDiff {
                 }
             }
             if !found && params.valid(s1.language(), "remove") {
-                if mode == "alias" {
-                    panic!("TODO: EntityDiff.diff_locales REMOVE for aliases");
+                if mode == "aliases" {
+                    // TODO check this
+                    let v = json!({"language":s1.language(),"value":s1.value(),"remove":""});
+                    if !self.j[mode].is_array() {
+                        self.j[mode] = json!([]);
+                    }
+                    self.j[mode].as_array_mut().unwrap().push(v);
                 } else {
                     self.j[mode][s1.language()] =
                         json!({"language":s1.language(),"value":s1.value(),"remove":""});
@@ -420,11 +433,15 @@ impl EntityDiff {
                 }
             }
             if !found && params.valid(s2.language(), "add") {
-                if mode == "alias" {
-                    panic!("TODO: EntityDiff.diff_locales ADD for aliases");
+                if mode == "aliases" {
+                    // TODO check this
+                    let v = json!({"language":s2.language(),"value":s2.value()});
+                    if !self.j[mode].is_array() {
+                        self.j[mode] = json!([]);
+                    }
+                    self.j[mode].as_array_mut().unwrap().push(v);
                 } else {
-                    self.j[mode][s2.language()] =
-                        json!({"language":s2.language(),"value":s2.value()});
+                    self.j[mode] = json!({"language":s2.language(),"value":s2.value()});
                 }
             }
         }
