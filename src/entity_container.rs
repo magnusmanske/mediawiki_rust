@@ -57,14 +57,31 @@ impl EntityContainer {
         for _ in 0..chunks {
             let mut response = rx.recv()?;
             let j: serde_json::Value = response.json()?;
-            for (entity_id, entity_json) in j["entities"]
+            for (_entity_id, entity_json) in j["entities"]
                 .as_object()
                 .expect("Accessing entities failed")
             {
-                let entity = wikibase::from_json::entity_from_json(&entity_json)?;
-                self.entities.insert(entity_id.to_string(), entity);
+                self.set_entity_from_json(entity_json)?;
             }
         }
+        Ok(())
+    }
+
+    pub fn set_entity_from_json(
+        &mut self,
+        entity_json: &serde_json::Value,
+    ) -> Result<(), Box<::std::error::Error>> {
+        let entity_id = match &entity_json["id"] {
+            serde_json::Value::String(s) => s.to_string(),
+            _ => {
+                return Err(From::from(format!(
+                    "Entity has no 'id' (string) field:{}",
+                    &entity_json
+                )));
+            }
+        };
+        let entity = wikibase::from_json::entity_from_json(&entity_json)?;
+        self.entities.insert(entity_id.to_string(), entity);
         Ok(())
     }
 
@@ -82,10 +99,17 @@ impl EntityContainer {
     }
 
     /// Returns `Some(entity)` with that ID from the cache, or `None`.
-    /// This will _not_ load entities via the API!
+    /// This will _not_ load entities via the API! Use `load_entity` for that
     pub fn get_entity<S: Into<String>>(&self, entity_id: S) -> Option<&wikibase::Entity> {
         let entity_id: String = entity_id.into();
-        self.entities.get(&entity_id)
+        for (k, v) in &self.entities {
+            println!("{}:{}", k, entity_id);
+            if *k == entity_id {
+                return Some(&v);
+            }
+        }
+        None
+        //self.entities.get(&entity_id)
     }
 
     /// Checks if an entity is in the cache.
