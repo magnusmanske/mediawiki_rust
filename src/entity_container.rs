@@ -102,14 +102,7 @@ impl EntityContainer {
     /// This will _not_ load entities via the API! Use `load_entity` for that
     pub fn get_entity<S: Into<String>>(&self, entity_id: S) -> Option<&wikibase::Entity> {
         let entity_id: String = entity_id.into();
-        for (k, v) in &self.entities {
-            println!("{}:{}", k, entity_id);
-            if *k == entity_id {
-                return Some(&v);
-            }
-        }
-        None
-        //self.entities.get(&entity_id)
+        self.entities.get(&entity_id)
     }
 
     /// Checks if an entity is in the cache.
