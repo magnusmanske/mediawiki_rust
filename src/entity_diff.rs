@@ -458,22 +458,25 @@ impl EntityDiff {
         let token = mw_api.get_edit_token().unwrap();
         let mut params: HashMap<_, _> = vec![
             ("action", "wbeditentity"),
-            //            ("id", &q),
             ("data", &json),
             ("token", &token),
         ]
         .into_iter()
         .collect();
 
+        let nk: String;
+        let nv: String;
         match edit_target {
             EditTarget::Entity(id) => {
-                let id_string = id.to_owned();
-                params.insert("id", &id_string.as_str())
+                nk = "id".to_string();
+                nv = id;
             }
-            EditTarget::New(entity_type) => params.insert("new", entity_type.as_str()),
+            EditTarget::New(entity_type) => {
+                nk = "new".to_string();
+                nv = entity_type;
+            }
         };
-
-        panic!("{:?}", &params);
+        params.insert(nk.as_str(), nv.as_str());
 
         let res = mw_api.post_query_api_json(&params)?;
 
@@ -496,6 +499,13 @@ impl EntityDiff {
             "Failed to apply diff '{:?}', result:{:?}",
             &diff, &res
         )))
+    }
+
+    pub fn get_entity_id(entity_json: &serde_json::Value) -> Option<String> {
+        match &entity_json["id"] {
+            serde_json::Value::String(s) => Some(s.to_string()),
+            _ => None,
+        }
     }
 }
 

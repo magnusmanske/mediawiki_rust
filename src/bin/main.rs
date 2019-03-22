@@ -122,7 +122,12 @@ fn _wikidata_item_tester() {
     println!("{}\n", diff.as_str().unwrap());
 
     // Apply diff
-    EntityDiff::apply_diff(&mut api, &diff, EditTarget::Entity(q.to_string())).unwrap();
+    let new_json =
+        EntityDiff::apply_diff(&mut api, &diff, EditTarget::Entity(q.to_string())).unwrap();
+    let entity_id = EntityDiff::get_entity_id(&new_json).unwrap();
+    println!("=> {}", &entity_id);
+
+    //println!("{}", ::serde_json::to_string_pretty(&new_json).unwrap());
 }
 
 fn main() {
