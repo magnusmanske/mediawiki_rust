@@ -412,16 +412,18 @@ impl EntityDiff {
                 }
             }
             if !found && params.valid(s1.language(), "remove") {
+                let v = json!({"language":s1.language(),"value":s1.value(),"remove":""});
                 if mode == "aliases" {
                     // TODO check this
-                    let v = json!({"language":s1.language(),"value":s1.value(),"remove":""});
                     if !self.j[mode].is_array() {
                         self.j[mode] = json!([]);
                     }
                     self.j[mode].as_array_mut().unwrap().push(v);
                 } else {
-                    self.j[mode][s1.language()] =
-                        json!({"language":s1.language(),"value":s1.value(),"remove":""});
+                    if !self.j[mode].is_array() {
+                        self.j[mode] = json!([]);
+                    }
+                    self.j[mode].as_array_mut().unwrap().push(v);
                 }
             }
         }
@@ -435,15 +437,18 @@ impl EntityDiff {
                 }
             }
             if !found && params.valid(s2.language(), "add") {
+                let v = json!({"language":s2.language(),"value":s2.value()});
                 if mode == "aliases" {
                     // TODO check this
-                    let v = json!({"language":s2.language(),"value":s2.value()});
                     if !self.j[mode].is_array() {
                         self.j[mode] = json!([]);
                     }
                     self.j[mode].as_array_mut().unwrap().push(v);
                 } else {
-                    self.j[mode] = json!({"language":s2.language(),"value":s2.value()});
+                    if !self.j[mode].is_array() {
+                        self.j[mode] = json!([]);
+                    }
+                    self.j[mode].as_array_mut().unwrap().push(v);
                 }
             }
         }
