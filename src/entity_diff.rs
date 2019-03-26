@@ -107,6 +107,14 @@ impl EntityDiff {
         ::serde_json::to_string(&self.j)
     }
 
+    pub fn to_string_pretty(&self) -> Result<String, serde_json::Error> {
+        ::serde_json::to_string_pretty(&self.j)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.j.as_object().unwrap().is_empty()
+    }
+
     fn diff(&mut self, i1: &Entity, i2: &Entity, params: &EntityDiffParams) {
         self.diff_labels(i1, i2, params);
         self.diff_descriptions(i1, i2, params);
@@ -290,7 +298,16 @@ impl EntityDiff {
             }
             if !found {
                 if params.claims.valid(self.get_claim_property(&c1), "remove") {
-                    // TODO remove c1
+                    match c1.id() {
+                        Some(id) => {
+                            if !self.j["claims"].is_array() {
+                                self.j["claims"] = json!([]);
+                            }
+                            let v = json!({"id":id,"remove":""});
+                            self.j["claims"].as_array_mut().unwrap().push(v);
+                        }
+                        None => {}
+                    }
                 }
             }
         }
@@ -514,6 +531,7 @@ impl EntityDiff {
     }
 }
 
+#[derive(Debug)]
 pub enum EditTarget {
     Entity(String),
     New(String),
