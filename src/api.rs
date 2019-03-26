@@ -107,8 +107,8 @@ impl Api {
     /// Loads the site info.
     /// Should only ever be called from `new()`
     fn load_site_info(&mut self) -> Result<&Value, Box<::std::error::Error>> {
-        let params = hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"];
-        self.site_info = self.get_query_api_json(params)?;
+        let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
+        self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
     }
 
@@ -135,16 +135,16 @@ impl Api {
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
     pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
-        let mut params = hashmap!["action"=>"query","meta"=>"tokens"];
+        let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
         if token_type.len() != 0 {
-            params.insert("type", token_type);
+            params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
         key += &"token".to_string();
         if token_type.len() == 0 {
             key = "csrftoken".into()
         }
-        let x = self.query_api_json_mut(params, "GET")?;
+        let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
             serde_json::Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from("Could not get token")),
@@ -159,16 +159,16 @@ impl Api {
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
     pub fn get_query_api_json_all(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut cont = HashMap::<String, String>::new();
         let mut ret = serde_json::json!({});
         loop {
             let mut params_cont = params.clone();
             for (k, v) in &cont {
-                params_cont.insert(k, v);
+                params_cont.insert(k.to_string(), v.to_string());
             }
-            let result = self.get_query_api_json(params_cont)?;
+            let result = self.get_query_api_json(&params_cont)?;
             cont.clear();
             let conti = result["continue"].clone();
             self.json_merge(&mut ret, result);
@@ -194,12 +194,12 @@ impl Api {
     /// Parameters are a hashmap; `format=json` is enforced.
     pub fn query_api_json(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut params = params.clone();
-        params.insert("format", "json");
-        let t = self.query_api_raw(params, method)?;
+        params.insert("format".to_string(), "json".to_string());
+        let t = self.query_api_raw(&params, method)?;
         let v: Value = serde_json::from_str(&t)?;
         Ok(v)
     }
@@ -208,12 +208,12 @@ impl Api {
     /// Parameters are a hashmap; `format=json` is enforced.
     fn query_api_json_mut(
         &mut self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut params = params.clone();
-        params.insert("format", "json");
-        let t = self.query_api_raw_mut(params, method)?;
+        params.insert("format".to_string(), "json".to_string());
+        let t = self.query_api_raw_mut(&params, method)?;
         let v: Value = serde_json::from_str(&t)?;
         Ok(v)
     }
@@ -221,7 +221,7 @@ impl Api {
     /// GET wrapper for `query_api_json`
     pub fn get_query_api_json(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
     ) -> Result<Value, Box<::std::error::Error>> {
         self.query_api_json(params, "GET")
     }
@@ -229,7 +229,7 @@ impl Api {
     /// POST wrapper for `query_api_json`
     pub fn post_query_api_json(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
     ) -> Result<Value, Box<::std::error::Error>> {
         self.query_api_json(params, "POST")
     }
@@ -238,7 +238,7 @@ impl Api {
     /// Requires `&mut self`, for sassion cookie storage
     pub fn post_query_api_json_mut(
         &mut self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
     ) -> Result<Value, Box<::std::error::Error>> {
         self.query_api_json_mut(params, "POST")
     }
@@ -270,7 +270,7 @@ impl Api {
     /// Uses `query_raw`
     pub fn query_api_raw(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         self.query_raw(&self.api_url.clone(), params, method)
@@ -280,7 +280,7 @@ impl Api {
     /// Uses `query_raw_mut`
     fn query_api_raw_mut(
         &mut self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         self.query_raw_mut(&self.api_url.clone(), params, method)
@@ -288,7 +288,7 @@ impl Api {
 
     pub fn get_api_request_builder(
         &self,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
         self.get_request_builder(&self.api_url.clone(), params, method)
@@ -297,7 +297,7 @@ impl Api {
     fn get_request_builder(
         &self,
         api_url: &str,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
         let mut req;
@@ -322,7 +322,7 @@ impl Api {
     fn query_raw_response(
         &self,
         api_url: &str,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::Response, Box<::std::error::Error>> {
         let req = self.get_request_builder(api_url, params, method)?;
@@ -335,7 +335,7 @@ impl Api {
     fn query_raw_mut(
         &mut self,
         api_url: &String,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         let mut resp = self.query_raw_response(api_url, params, method)?;
@@ -349,7 +349,7 @@ impl Api {
     pub fn query_raw(
         &self,
         api_url: &str,
-        params: HashMap<&str, &str>,
+        params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
         let mut resp = self.query_raw_response(api_url, params, method)?;
@@ -366,8 +366,8 @@ impl Api {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
-        let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
-        let res = self.query_api_json_mut(params, "POST")?;
+        let params = hashmap!("action".to_string()=>"login".to_string(),"lgname".to_string()=>lgname.into(),"lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken.into());
+        let res = self.query_api_json_mut(&params, "POST")?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
             Ok(())
@@ -380,8 +380,8 @@ impl Api {
     /// Tries to get the SPARQL endpoint URL from the site info
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<::std::error::Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
-        let params = hashmap!["query"=>query,"format"=>"json"];
-        let result = self.query_raw(&query_api_url, params, "GET")?;
+        let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
+        let result = self.query_raw(&query_api_url, &params, "GET")?;
         Ok(serde_json::from_str(&result)?)
     }
 
