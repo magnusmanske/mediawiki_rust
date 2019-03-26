@@ -80,7 +80,6 @@ impl Api {
             user: MWuser::new(),
         };
         ret.load_site_info()?;
-        //            .expect("Could not load site info for API");
         Ok(ret)
     }
 
@@ -145,7 +144,7 @@ impl Api {
         if token_type.len() == 0 {
             key = "csrftoken".into()
         }
-        let x = self.get_query_api_json_all(&params)?;
+        let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
             serde_json::Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from("Could not get token")),
@@ -159,7 +158,7 @@ impl Api {
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
     pub fn get_query_api_json_all(
-        &mut self,
+        &self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut cont = HashMap::<String, String>::new();
@@ -194,7 +193,7 @@ impl Api {
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
     /// Parameters are a hashmap; `format=json` is enforced.
     pub fn query_api_json(
-        &mut self,
+        &self,
         params: &HashMap<&str, &str>,
         method: &str,
     ) -> Result<Value, Box<::std::error::Error>> {
@@ -205,9 +204,23 @@ impl Api {
         Ok(v)
     }
 
+    /// Runs a query against the MediaWiki API, using `method` GET or POST.
+    /// Parameters are a hashmap; `format=json` is enforced.
+    fn query_api_json_mut(
+        &mut self,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<Value, Box<::std::error::Error>> {
+        let mut params = params.clone();
+        params.insert("format", "json");
+        let t = self.query_api_raw_mut(&params, method)?;
+        let v: Value = serde_json::from_str(&t)?;
+        Ok(v)
+    }
+
     /// GET wrapper for `query_api_json`
     pub fn get_query_api_json(
-        &mut self,
+        &self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
         self.query_api_json(params, "GET")
@@ -215,10 +228,19 @@ impl Api {
 
     /// POST wrapper for `query_api_json`
     pub fn post_query_api_json(
-        &mut self,
+        &self,
         params: &HashMap<&str, &str>,
     ) -> Result<Value, Box<::std::error::Error>> {
         self.query_api_json(params, "POST")
+    }
+
+    /// POST wrapper for `query_api_json`.
+    /// Requires `&mut self`, for sassion cookie storage
+    pub fn post_query_api_json_mut(
+        &mut self,
+        params: &HashMap<&str, &str>,
+    ) -> Result<Value, Box<::std::error::Error>> {
+        self.query_api_json_mut(params, "POST")
     }
 
     /// Adds or replaces cookies in the cookie jar from a http `Response`
@@ -247,71 +269,150 @@ impl Api {
     /// Runs a query against the MediaWiki API, and returns a text.
     /// Uses `query_raw`
     pub fn query_api_raw(
+        &self,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<String, Box<::std::error::Error>> {
+        self.query_raw(&self.api_url.clone(), params, method)
+    }
+
+    /// Runs a query against the MediaWiki API, and returns a text.
+    /// Uses `query_raw_mut`
+    fn query_api_raw_mut(
         &mut self,
         params: &HashMap<&str, &str>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
-        let api_url = self.api_url.clone();
-        self.query_raw(api_url.as_str(), params, method)
+        self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
-    /// Runs a query against a generic URL, and returns a text
-    pub fn query_raw(
+    pub fn get_api_request_builder(
+        &self,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        self.get_request_builder(&self.api_url.clone(), params, method)
+    }
+
+    fn get_request_builder(
+        &self,
+        api_url: &str,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        let mut req;
+        if method == "GET" {
+            req = self
+                .client
+                .get(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .query(&params);
+        } else if method == "POST" {
+            req = self
+                .client
+                .post(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .form(&params);
+        } else {
+            panic!("Unsupported method");
+        }
+        Ok(req)
+    }
+
+    fn query_raw_response(
+        &self,
+        api_url: &str,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<reqwest::Response, Box<::std::error::Error>> {
+        let req = self.get_request_builder(api_url, params, method)?;
+        let resp = req.send()?;
+        return Ok(resp);
+    }
+
+    /// Runs a query against a generic URL, stores cookies, and returns a text
+    /// Used for non-stateless queries, such as logins
+    fn query_raw_mut(
         &mut self,
+        api_url: &String,
+        params: &HashMap<&str, &str>,
+        method: &str,
+    ) -> Result<String, Box<::std::error::Error>> {
+        let mut resp = self.query_raw_response(api_url, params, method)?;
+        self.set_cookies_from_response(&resp);
+        Ok(resp.text()?)
+    }
+
+    /// Runs a query against a generic URL, and returns a text.
+    /// Does not store cookies, but also does not require `&self` to be mutable.
+    /// Used for simple queries
+    pub fn query_raw(
+        &self,
         api_url: &str,
         params: &HashMap<&str, &str>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
-        let mut resp;
-        if method == "GET" {
-            resp = self
-                .client
-                .get(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .query(&params)
-                .send()?;
-            self.set_cookies_from_response(&resp);
-        } else if method == "POST" {
-            resp = self
-                .client
-                .post(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .form(&params)
-                .send()?;
-            self.set_cookies_from_response(&resp);
-        } else {
-            panic!("Unsupported method");
-        }
-
-        let t = resp.text()?;
-        Ok(t)
+        let mut resp = self.query_raw_response(api_url, params, method)?;
+        Ok(resp.text()?)
     }
 
     /// Performs a login against the MediaWiki API.
     /// If successful, user information is stored in `MWuser`, and in the cookie jar
-    pub fn login(
+    pub fn login<S: Into<String>>(
         &mut self,
-        lgname: &str,
-        lgpassword: &str,
+        lgname: S,
+        lgpassword: S,
     ) -> Result<(), Box<::std::error::Error>> {
+        let lgname: &str = &lgname.into();
+        let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
         let params = hashmap!("action"=>"login","lgname"=>&lgname,"lgpassword"=>&lgpassword,"lgtoken"=>&lgtoken);
-        let res = self.post_query_api_json(&params)?;
+        let res = self.query_api_json_mut(&params, "POST")?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
             Ok(())
         } else {
-            panic!("Login failed") // TODO proper error return
+            Err(From::from("Login failed"))
         }
     }
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
-    pub fn sparql_query(&mut self, query: &str) -> Result<Value, Box<::std::error::Error>> {
+    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<::std::error::Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query"=>query,"format"=>"json"];
         let result = self.query_raw(&query_api_url, &params, "GET")?;
         Ok(serde_json::from_str(&result)?)
+    }
+
+    /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
+    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<::std::error::Error>> {
+        let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
+        if uri.starts_with(concept_base_uri.as_str()) {
+            Ok(uri[concept_base_uri.len()..].to_string())
+        } else {
+            Err(From::from(format!(
+                "{} does not start with {}",
+                uri, concept_base_uri
+            )))
+        }
+    }
+
+    pub fn entities_from_sparql_result(
+        &self,
+        sparql_result: &serde_json::Value,
+        variable_name: &str,
+    ) -> Vec<String> {
+        let mut entities = vec![];
+        for b in sparql_result["results"]["bindings"].as_array().unwrap() {
+            match b[variable_name]["value"].as_str() {
+                Some(entity_url) => {
+                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                }
+                None => {}
+            }
+        }
+        entities
     }
 }
 
@@ -330,7 +431,7 @@ mod tests {
 
     #[test]
     fn sparql_query() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }

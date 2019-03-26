@@ -1,11 +1,15 @@
+/*
 extern crate config;
 extern crate mediawiki;
+extern crate wikibase;
 
 use config::*;
 use std::collections::HashMap;
+use wikibase::entity_diff::*;
+use wikibase::*;
 
 fn _einstein_categories() {
-    let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
 
     // Query parameters
     let params: HashMap<_, _> = vec![
@@ -45,7 +49,7 @@ fn _wikidata_edit() {
     let lgpassword = settings.get_str("user.pass").unwrap();
 
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-    api.login(&lgname, &lgpassword).unwrap();
+    api.login(lgname, lgpassword).unwrap();
 
     let token = api.get_edit_token().unwrap();
     let params: HashMap<_, _> = vec![
@@ -61,11 +65,79 @@ fn _wikidata_edit() {
 }
 
 fn _wikidata_sparql() {
-    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
-    println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+    //println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+
+    let mut qs = vec![];
+    for b in res["results"]["bindings"].as_array().unwrap() {
+        match b["q"]["value"].as_str() {
+            Some(entity_url) => {
+                qs.push(api.extract_entity_from_uri(entity_url).unwrap());
+            }
+            None => {}
+        }
+    }
+    //println!("{}: {:?}", qs.len(), qs);
+    let mut ec = wikibase::entity_container::EntityContainer::new();
+    ec.load_entities(&api, &qs).unwrap();
+}
+
+fn _wikidata_item_tester() {
+    let mut settings = Config::default();
+    // File::with_name(..) is shorthand for File::from(Path::new(..))
+    settings.merge(File::with_name("test.ini")).unwrap();
+    let lgname = settings.get_str("user.user").unwrap();
+    let lgpassword = settings.get_str("user.pass").unwrap();
+
+    // Create API and log in
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    api.login(lgname, lgpassword).unwrap();
+
+    // Load existing item
+    let q = "Q4115189"; // Sandbox item
+    let mut ec = wikibase::entity_container::EntityContainer::new();
+    let orig_i = ec.load_entity(&api, q).unwrap().clone();
+    let mut i = orig_i.clone();
+
+    // Alter item
+    i.add_claim(Statement::new(
+        "statement",
+        StatementRank::Normal,
+        Snak::new(
+            "wikibase-item",
+            "P31",
+            SnakType::Value,
+            Some(DataValue::new(
+                DataValueType::EntityId,
+                wikibase::Value::Entity(EntityValue::new(EntityType::Item, "Q12345")),
+            )),
+        ),
+        vec![],
+        vec![],
+    ));
+
+    // Compute diff between old and new item
+    let mut diff_params = EntityDiffParams::none();
+    diff_params.claims.add = vec!["P31".to_string()];
+    let diff = EntityDiff::new(&orig_i, &i, &diff_params);
+    println!("{}\n", diff.as_str().unwrap());
+
+    // Apply diff
+    let new_json =
+        EntityDiff::apply_diff(&mut api, &diff, EditTarget::Entity(q.to_string())).unwrap();
+    let entity_id = EntityDiff::get_entity_id(&new_json).unwrap();
+    println!("=> {}", &entity_id);
+
+    //println!("{}", ::serde_json::to_string_pretty(&new_json).unwrap());
 }
 
 fn main() {
-    _wikidata_sparql();
+    //_einstein_categories();
+    //_wikidata_edit();
+    //_wikidata_sparql();
+    _wikidata_item_tester();
 }
+*/
+
+fn main() {}
