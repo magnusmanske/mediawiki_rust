@@ -1,9 +1,11 @@
+/*
 extern crate config;
 extern crate mediawiki;
+extern crate wikibase;
 
 use config::*;
-use mediawiki::entity_diff::*;
 use std::collections::HashMap;
+use wikibase::entity_diff::*;
 use wikibase::*;
 
 fn _einstein_categories() {
@@ -77,7 +79,7 @@ fn _wikidata_sparql() {
         }
     }
     //println!("{}: {:?}", qs.len(), qs);
-    let mut ec = mediawiki::entity_container::EntityContainer::new();
+    let mut ec = wikibase::entity_container::EntityContainer::new();
     ec.load_entities(&api, &qs).unwrap();
 }
 
@@ -94,7 +96,7 @@ fn _wikidata_item_tester() {
 
     // Load existing item
     let q = "Q4115189"; // Sandbox item
-    let mut ec = mediawiki::entity_container::EntityContainer::new();
+    let mut ec = wikibase::entity_container::EntityContainer::new();
     let orig_i = ec.load_entity(&api, q).unwrap().clone();
     let mut i = orig_i.clone();
 
@@ -136,3 +138,6 @@ fn main() {
     //_wikidata_sparql();
     _wikidata_item_tester();
 }
+*/
+
+fn main() {}
