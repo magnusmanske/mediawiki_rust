@@ -151,6 +151,7 @@ fn main() {
 
         // Create API and log in
         let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        api.set_user_agent("Rust mediawiki crate test script");
         api.login(lgname, lgpassword).unwrap();
 
         let q = "Q4115189"; // Sandbox item
