@@ -5,6 +5,7 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 extern crate cookie;
 extern crate reqwest;
 
+use crate::title::Title;
 use cookie::{Cookie, CookieJar};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ macro_rules! hashmap {
 }
 
 /// `MWuser` contains the login data for the `Api`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MWuser {
     lgusername: String,
     lguserid: u64,
@@ -59,7 +60,7 @@ impl MWuser {
 }
 
 /// `Api` is the main class to interact with a MediaWiki API
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Api {
     api_url: String,
     site_info: Value,
@@ -133,6 +134,19 @@ impl Api {
             }
             (a, b) => *a = b,
         }
+    }
+
+    /// Turns a Vec of str tuples into a Hashmap of String, to be used in API calls
+    pub fn params_into(&self, params: &Vec<(&str, &str)>) -> HashMap<String, String> {
+        params
+            .into_iter()
+            .map(|tuple| (tuple.0.to_string(), tuple.1.to_string()))
+            .collect()
+    }
+
+    /// Returns an empty parameter HashMap
+    pub fn no_params(&self) -> HashMap<String, String> {
+        self.params_into(&vec![])
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
@@ -388,6 +402,24 @@ impl Api {
         }
     }
 
+    /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
+    pub fn result_array_to_titles(data: &serde_json::Value) -> Vec<Title> {
+        // See if it's the "root" of the result, then try each sub-object separately
+        if data.is_object() {
+            return data
+                .as_object()
+                .unwrap()
+                .iter()
+                .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
+                .collect();
+        }
+        data.as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|v| Title::new_from_api_result(&v))
+            .collect()
+    }
+
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<::std::error::Error>> {
@@ -410,6 +442,7 @@ impl Api {
         }
     }
 
+    /// Returns a vector of entity IDs (as String) from a SPARQL result, given a variable name
     pub fn entities_from_sparql_result(
         &self,
         sparql_result: &serde_json::Value,
