@@ -1,11 +1,13 @@
-/*
 extern crate config;
-extern crate mediawiki;
-extern crate wikibase;
 
 use config::*;
 use std::collections::HashMap;
+
+/*
+extern crate mediawiki;
+extern crate wikibase;
 use wikibase::entity_diff::*;
+
 use wikibase::*;
 
 fn _einstein_categories() {
@@ -137,7 +139,37 @@ fn main() {
     //_wikidata_edit();
     //_wikidata_sparql();
     _wikidata_item_tester();
-}
-*/
+}*/
 
-fn main() {}
+fn main() {
+    if false {
+        let mut settings = Config::default();
+        // File::with_name(..) is shorthand for File::from(Path::new(..))
+        settings.merge(File::with_name("test.ini")).unwrap();
+        let lgname = settings.get_str("user.user").unwrap();
+        let lgpassword = settings.get_str("user.pass").unwrap();
+
+        // Create API and log in
+        let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        api.login(lgname, lgpassword).unwrap();
+
+        let q = "Q4115189"; // Sandbox item
+        let token = api.get_edit_token().unwrap();
+        let params: HashMap<String, String> = vec![
+            ("action".to_string(), "wbcreateclaim".to_string()),
+            ("entity".to_string(), q.to_string()),
+            ("property".to_string(), "P31".to_string()),
+            ("snaktype".to_string(), "value".to_string()),
+            (
+                "value".to_string(),
+                "{\"entity-type\":\"item\",\"id\":\"Q12345\"}".to_string(),
+            ),
+            ("token".to_string(), token.to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        let res = api.post_query_api_json(&params).unwrap();
+        dbg!(&res);
+    }
+}

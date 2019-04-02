@@ -66,6 +66,7 @@ pub struct Api {
     client: reqwest::Client,
     cookie_jar: CookieJar,
     user: MWuser,
+    user_agent: String,
 }
 
 impl Api {
@@ -78,6 +79,7 @@ impl Api {
             client: reqwest::Client::builder().build()?,
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
+            user_agent: "Rust mediawiki API".to_string(),
         };
         ret.load_site_info()?;
         Ok(ret)
@@ -294,6 +296,14 @@ impl Api {
         self.get_request_builder(&self.api_url.clone(), params, method)
     }
 
+    pub fn user_agent(&self) -> &String {
+        &self.user_agent
+    }
+
+    pub fn set_user_agent<S: Into<String>>(&mut self, agent: S) {
+        self.user_agent = agent.into();
+    }
+
     fn get_request_builder(
         &self,
         api_url: &str,
@@ -306,12 +316,14 @@ impl Api {
                 .client
                 .get(api_url)
                 .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent.clone())
                 .query(&params);
         } else if method == "POST" {
             req = self
                 .client
                 .post(api_url)
                 .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent.clone())
                 .form(&params);
         } else {
             panic!("Unsupported method");
