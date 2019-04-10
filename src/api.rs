@@ -23,10 +23,11 @@ macro_rules! hashmap {
 
 /// `MWuser` contains the login data for the `Api`
 #[derive(Debug, Clone)]
-struct MWuser {
+pub struct MWuser {
     lgusername: String,
     lguserid: u64,
     is_logged_in: bool,
+    user_info: Option<serde_json::Value>,
 }
 
 impl MWuser {
@@ -36,6 +37,77 @@ impl MWuser {
             lgusername: "".into(),
             lguserid: 0,
             is_logged_in: false,
+            user_info: None,
+        }
+    }
+
+    pub fn logged_in(&self) -> bool {
+        self.is_logged_in
+    }
+
+    pub fn has_right(&self, right: &str) -> bool {
+        if !self.logged_in() {
+            return false;
+        }
+        match &self.user_info {
+            Some(ui) => {
+                ui["query"]["userinfo"]["rights"]
+                    .as_array()
+                    .unwrap_or(&vec![])
+                    .iter()
+                    .filter(|x| x.as_str().unwrap_or("") == right)
+                    .count()
+                    > 0
+            }
+            None => false,
+        }
+    }
+
+    pub fn is_bot(&self) -> bool {
+        self.has_right("bot")
+    }
+
+    pub fn is_autoconfirmed(&self) -> bool {
+        self.has_right("autoconfirmed")
+    }
+
+    pub fn can_edit(&self) -> bool {
+        self.has_right("edit")
+    }
+
+    pub fn can_create_page(&self) -> bool {
+        self.has_right("createpage")
+    }
+
+    pub fn can_upload(&self) -> bool {
+        self.has_right("upload")
+    }
+
+    pub fn can_move(&self) -> bool {
+        self.has_right("move")
+    }
+
+    pub fn can_patrol(&self) -> bool {
+        self.has_right("patrol")
+    }
+
+    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<::std::error::Error>> {
+        match self.user_info {
+            Some(_) => return Ok(()),
+            None => {
+                //let params = hashmap!("action".to_string()=>"query".to_string(),"meta".to_string()=>"userinfo","lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken.into());
+                let params: HashMap<String, String> = vec![
+                    ("action", "query"),
+                    ("meta", "userinfo"),
+                    ("uiprop", "blockinfo|groups|groupmemberships|implicitgroups|rights|options|ratelimits|realname|registrationdate|unreadcount|centralids|hasmsg"),
+                ]
+                .iter()
+                .map(|x| (x.0.to_string(), x.1.to_string()))
+                .collect();
+                let res = api.query_api_json(&params, "GET")?;
+                self.user_info = Some(res);
+                Ok(())
+            }
         }
     }
 
@@ -84,6 +156,21 @@ impl Api {
         };
         ret.load_site_info()?;
         Ok(ret)
+    }
+
+    pub fn user(&self) -> &MWuser {
+        &self.user
+    }
+
+    pub fn user_mut(&mut self) -> &mut MWuser {
+        &mut self.user
+    }
+
+    pub fn load_user_info(&mut self) -> Result<(), Box<::std::error::Error>> {
+        let mut user = self.user.clone();
+        user.load_user_info(&self)?;
+        self.user = user;
+        Ok(())
     }
 
     /// Returns a reference to the serde_json Value containing the site info
@@ -396,7 +483,7 @@ impl Api {
         let res = self.query_api_json_mut(&params, "POST")?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
-            Ok(())
+            self.load_user_info()
         } else {
             Err(From::from("Login failed"))
         }
