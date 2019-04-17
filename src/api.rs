@@ -9,9 +9,14 @@ use crate::title::Title;
 use cookie::{Cookie, CookieJar};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::{thread, time};
+
+const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
+const DEFAULT_MAXLAG: Option<u64> = Some(5);
+const MAX_RETRY_ATTEMPTS: u64 = 5;
 
 #[macro_export]
-/// To quickle create a hashmap.
+/// To quickly create a hashmap.
 /// Example: `hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"]`
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
@@ -140,6 +145,7 @@ pub struct Api {
     cookie_jar: CookieJar,
     user: MWuser,
     user_agent: String,
+    maxlag_seconds: Option<u64>,
 }
 
 impl Api {
@@ -152,7 +158,8 @@ impl Api {
             client: reqwest::Client::builder().build()?,
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
-            user_agent: "Rust mediawiki API".to_string(),
+            user_agent: DEFAULT_USER_AGENT.to_string(),
+            maxlag_seconds: DEFAULT_MAXLAG,
         };
         ret.load_site_info()?;
         Ok(ret)
@@ -301,10 +308,23 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut params = params.clone();
+        let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
-        let t = self.query_api_raw(&params, method)?;
-        let v: Value = serde_json::from_str(&t)?;
-        Ok(v)
+        self.set_maxlag_params(&mut params);
+        loop {
+            let t = self.query_api_raw(&params, method)?;
+            let v: Value = serde_json::from_str(&t)?;
+            match self.check_maxlag(&v) {
+                Some(lag_seconds) => {
+                    if attempts_left == 0 {
+                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                    }
+                    attempts_left -= 1;
+                    thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
+                }
+                None => return Ok(v),
+            }
+        }
     }
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
@@ -315,10 +335,57 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut params = params.clone();
+        let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
-        let t = self.query_api_raw_mut(&params, method)?;
-        let v: Value = serde_json::from_str(&t)?;
-        Ok(v)
+        self.set_maxlag_params(&mut params);
+        loop {
+            let t = self.query_api_raw_mut(&params, method)?;
+            let v: Value = serde_json::from_str(&t)?;
+            match self.check_maxlag(&v) {
+                Some(lag_seconds) => {
+                    if attempts_left == 0 {
+                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                    }
+                    attempts_left -= 1;
+                    thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
+                }
+                None => return Ok(v),
+            }
+        }
+    }
+
+    /// Returns the maxlag, in seconds, if set
+    pub fn maxlag(&self) -> &Option<u64> {
+        &self.maxlag_seconds
+    }
+
+    /// Sets the maxlag in seconds (or `None`)
+    pub fn set_maxlag(&mut self, maxlag_seconds: Option<u64>) {
+        self.maxlag_seconds = maxlag_seconds;
+    }
+
+    fn set_maxlag_params(&self, params: &mut HashMap<String, String>) {
+        // maxlag parameter only required for editing, which requires a token
+        if !params.contains_key("token") {
+            return;
+        }
+        match self.maxlag_seconds {
+            Some(maxlag_seconds) => {
+                params.insert("maxlag".to_string(), maxlag_seconds.to_string());
+            }
+            None => {}
+        }
+    }
+
+    /// Checks for a MAGLAG error, and returns the lag if so
+    fn check_maxlag(&self, v: &Value) -> Option<u64> {
+        match v["error"]["code"].as_str() {
+            Some(code) => match code {
+                "maxlag" => v["error"]["lag"].as_u64(),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     /// GET wrapper for `query_api_json`
