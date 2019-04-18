@@ -504,7 +504,11 @@ impl Api {
     /// Returns the user agent string, as it is passed to the API through a HTTP header
     pub fn user_agent_full(&self) -> String {
         let mut ret: String = self.user_agent.to_string();
-        ret += &format!("; {}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        ret += &format!(
+            "; {}-rust/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
         ret
     }
 
