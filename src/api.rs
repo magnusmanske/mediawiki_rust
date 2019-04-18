@@ -58,10 +58,12 @@ impl MWuser {
         }
     }
 
+    /// Checks if the user is logged in
     pub fn logged_in(&self) -> bool {
         self.is_logged_in
     }
 
+    /// Checks is the user has a spefic right (e.g. "bot", "autocinfirmed")
     pub fn has_right(&self, right: &str) -> bool {
         if !self.logged_in() {
             return false;
@@ -80,34 +82,42 @@ impl MWuser {
         }
     }
 
+    /// Checks if the user has a bot flag
     pub fn is_bot(&self) -> bool {
         self.has_right("bot")
     }
 
+    /// Checks if the user is autoconfirmed
     pub fn is_autoconfirmed(&self) -> bool {
         self.has_right("autoconfirmed")
     }
 
+    /// Checks if the user is allowed to edit
     pub fn can_edit(&self) -> bool {
         self.has_right("edit")
     }
 
+    /// Checks if the user is allowed to create a page
     pub fn can_create_page(&self) -> bool {
         self.has_right("createpage")
     }
 
+    /// Checks if the user is allowed to upload a file
     pub fn can_upload(&self) -> bool {
         self.has_right("upload")
     }
 
+    /// Checks if the user is allowed to move (rename) a page
     pub fn can_move(&self) -> bool {
         self.has_right("move")
     }
 
+    /// Checks if the user is allowed to patrol edits
     pub fn can_patrol(&self) -> bool {
         self.has_right("patrol")
     }
 
+    /// Loads the user info, which is stored in the object; returns Ok(()) if successful
     pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<::std::error::Error>> {
         match self.user_info {
             Some(_) => return Ok(()),
@@ -179,14 +189,17 @@ impl Api {
         Ok(ret)
     }
 
+    /// Returns a reference to the current user object
     pub fn user(&self) -> &MWuser {
         &self.user
     }
 
+    /// Returns a mutable reference to the current user object
     pub fn user_mut(&mut self) -> &mut MWuser {
         &mut self.user
     }
 
+    /// Loads the current user info; returns Ok(()) is successful
     pub fn load_user_info(&mut self) -> Result<(), Box<::std::error::Error>> {
         let mut user = self.user.clone();
         user.load_user_info(&self)?;
