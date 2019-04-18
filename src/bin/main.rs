@@ -173,4 +173,7 @@ fn main() {
         let res = api.post_query_api_json(&params).unwrap();
         dbg!(&res);
     }
+
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    println!("{}", api.user_agent_full());
 }

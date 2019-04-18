@@ -146,6 +146,7 @@ pub struct Api {
     user: MWuser,
     user_agent: String,
     maxlag_seconds: Option<u64>,
+    edit_delay_ms: Option<u64>,
 }
 
 impl Api {
@@ -160,6 +161,7 @@ impl Api {
             user: MWuser::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
+            edit_delay_ms: None,
         };
         ret.load_site_info()?;
         Ok(ret)
@@ -310,7 +312,7 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params);
+        self.set_maxlag_params(&mut params, method);
         loop {
             let t = self.query_api_raw(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
@@ -337,7 +339,7 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params);
+        self.set_maxlag_params(&mut params, method);
         loop {
             let t = self.query_api_raw_mut(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
@@ -354,6 +356,17 @@ impl Api {
         }
     }
 
+    /// Returns the delay time after edits, in milliseconds, if set
+    pub fn edit_delay(&self) -> &Option<u64> {
+        &self.edit_delay_ms
+    }
+
+    /// Sets the delay time after edits in milliseconds (or `None`).
+    /// This is independent of, and additional to, MAXLAG
+    pub fn set_edit_delay(&mut self, edit_delay_ms: Option<u64>) {
+        self.edit_delay_ms = edit_delay_ms;
+    }
+
     /// Returns the maxlag, in seconds, if set
     pub fn maxlag(&self) -> &Option<u64> {
         &self.maxlag_seconds
@@ -364,9 +377,22 @@ impl Api {
         self.maxlag_seconds = maxlag_seconds;
     }
 
-    fn set_maxlag_params(&self, params: &mut HashMap<String, String>) {
-        // maxlag parameter only required for editing, which requires a token
+    /// Checks if a query is an edit, based on parameters and method (GET/POST)
+    fn is_edit_query(&self, params: &HashMap<String, String>, method: &str) -> bool {
+        // Editing only through POST (?)
+        if method != "POST" {
+            return false;
+        }
+        // Editing requires a token
         if !params.contains_key("token") {
+            return false;
+        }
+        true
+    }
+
+    /// Sets the maglag parameter for a query, if necessary
+    fn set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
+        if !self.is_edit_query(params, method) {
             return;
         }
         match self.maxlag_seconds {
@@ -381,7 +407,7 @@ impl Api {
     fn check_maxlag(&self, v: &Value) -> Option<u64> {
         match v["error"]["code"].as_str() {
             Some(code) => match code {
-                "maxlag" => v["error"]["lag"].as_u64(),
+                "maxlag" => v["error"]["lag"].as_u64().or(self.maxlag_seconds), // Current lag, if given, or fallback
                 _ => None,
             },
             None => None,
@@ -456,6 +482,7 @@ impl Api {
         self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
+    /// Generates a `RequestBuilder` for the API URL
     pub fn get_api_request_builder(
         &self,
         params: &HashMap<String, String>,
@@ -464,14 +491,24 @@ impl Api {
         self.get_request_builder(&self.api_url.clone(), params, method)
     }
 
+    /// Returns the user agent name
     pub fn user_agent(&self) -> &String {
         &self.user_agent
     }
 
+    /// Sets the user agent name
     pub fn set_user_agent<S: Into<String>>(&mut self, agent: S) {
         self.user_agent = agent.into();
     }
 
+    /// Returns the user agent string, as it is passed to the API through a HTTP header
+    pub fn user_agent_full(&self) -> String {
+        let mut ret: String = self.user_agent.to_string();
+        ret += &format!("; {}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        ret
+    }
+
+    /// Returns a `RequestBuilder` for a generic URL
     fn get_request_builder(
         &self,
         api_url: &str,
@@ -479,22 +516,24 @@ impl Api {
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
         let mut req;
-        if method == "GET" {
-            req = self
-                .client
-                .get(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .header(reqwest::header::USER_AGENT, self.user_agent.clone())
-                .query(&params);
-        } else if method == "POST" {
-            req = self
-                .client
-                .post(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .header(reqwest::header::USER_AGENT, self.user_agent.clone())
-                .form(&params);
-        } else {
-            panic!("Unsupported method");
+        match method {
+            "GET" => {
+                req = self
+                    .client
+                    .get(api_url)
+                    .header(reqwest::header::COOKIE, self.cookies_to_string())
+                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                    .query(&params)
+            }
+            "POST" => {
+                req = self
+                    .client
+                    .post(api_url)
+                    .header(reqwest::header::COOKIE, self.cookies_to_string())
+                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                    .form(&params)
+            }
+            other => panic!("Unsupported method '{}'", other),
         }
         Ok(req)
     }
@@ -507,7 +546,18 @@ impl Api {
     ) -> Result<reqwest::Response, Box<::std::error::Error>> {
         let req = self.get_request_builder(api_url, params, method)?;
         let resp = req.send()?;
+        self.enact_edit_delay(params, method);
         return Ok(resp);
+    }
+
+    fn enact_edit_delay(&self, params: &HashMap<String, String>, method: &str) {
+        if !self.is_edit_query(params, method) {
+            return;
+        }
+        match self.edit_delay_ms {
+            Some(ms) => thread::sleep(time::Duration::from_millis(ms)),
+            None => {}
+        }
     }
 
     /// Runs a query against a generic URL, stores cookies, and returns a text
