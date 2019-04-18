@@ -2,6 +2,18 @@
 The `Api` class serves as a univeral interface to a MediaWiki API.
 */
 
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications
+)]
+
 extern crate cookie;
 extern crate reqwest;
 
@@ -32,7 +44,7 @@ pub struct MWuser {
     lgusername: String,
     lguserid: u64,
     is_logged_in: bool,
-    user_info: Option<serde_json::Value>,
+    user_info: Option<Value>,
 }
 
 impl MWuser {
@@ -117,7 +129,7 @@ impl MWuser {
     }
 
     /// Tries to set user information from the `Api` call
-    pub fn set_from_login(&mut self, login: &serde_json::Value) -> Result<(), String> {
+    pub fn set_from_login(&mut self, login: &Value) -> Result<(), String> {
         if login["result"] == "Success" {
             match login["lgusername"].as_str() {
                 Some(s) => self.lgusername = s.to_string(),
@@ -258,7 +270,7 @@ impl Api {
         }
         let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
-            serde_json::Value::String(s) => Ok(s.to_string()),
+            Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from("Could not get token")),
         }
     }
@@ -611,7 +623,7 @@ impl Api {
     }
 
     /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
-    pub fn result_array_to_titles(data: &serde_json::Value) -> Vec<Title> {
+    pub fn result_array_to_titles(data: &Value) -> Vec<Title> {
         // See if it's the "root" of the result, then try each sub-object separately
         if data.is_object() {
             return data
@@ -653,7 +665,7 @@ impl Api {
     /// Returns a vector of entity IDs (as String) from a SPARQL result, given a variable name
     pub fn entities_from_sparql_result(
         &self,
-        sparql_result: &serde_json::Value,
+        sparql_result: &Value,
         variable_name: &str,
     ) -> Vec<String> {
         let mut entities = vec![];
