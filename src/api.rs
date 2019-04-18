@@ -175,10 +175,20 @@ impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     pub fn new(api_url: &str) -> Result<Api, Box<::std::error::Error>> {
+        Api::new_from_builder(api_url, reqwest::Client::builder())
+    }
+
+    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// This is done both to get basic information about the site, and to test the API.
+    /// Uses a bespoke reqwest::ClientBuilder.
+    pub fn new_from_builder(
+        api_url: &str,
+        builder: reqwest::ClientBuilder,
+    ) -> Result<Api, Box<::std::error::Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
-            client: reqwest::Client::builder().build()?,
+            client: builder.build()?,
             cookie_jar: CookieJar::new(),
             user: MWuser::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
