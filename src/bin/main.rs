@@ -1,7 +1,10 @@
 extern crate config;
+extern crate oauth_client;
 
 use config::*;
+use serde_json::Value;
 use std::collections::HashMap;
+use std::fs::File;
 
 /*
 extern crate mediawiki;
@@ -141,39 +144,106 @@ fn main() {
     _wikidata_item_tester();
 }*/
 
+fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<::std::error::Error>> {
+    let q = "Q13406268"; // Second sandbox item
+    let token = api.get_edit_token().unwrap();
+    let params: HashMap<String, String> = vec![
+        ("action".to_string(), "wbcreateclaim".to_string()),
+        ("entity".to_string(), q.to_string()),
+        ("property".to_string(), "P31".to_string()),
+        ("snaktype".to_string(), "value".to_string()),
+        (
+            "value".to_string(),
+            "{\"entity-type\":\"item\",\"id\":\"Q12345\"}".to_string(),
+        ),
+        ("token".to_string(), token.to_string()),
+    ]
+    .into_iter()
+    .collect();
+
+    api.post_query_api_json(&params)
+}
+
+fn _login_api_from_config(api: &mut mediawiki::api::Api) {
+    let mut settings = Config::default();
+    // File::with_name(..) is shorthand for File::from(Path::new(..))
+    settings.merge(config::File::with_name("test.ini")).unwrap();
+    let lgname = settings.get_str("user.user").unwrap();
+    let lgpassword = settings.get_str("user.pass").unwrap();
+    api.login(lgname, lgpassword).unwrap();
+}
+
 fn main() {
-    if false {
-        let mut settings = Config::default();
-        // File::with_name(..) is shorthand for File::from(Path::new(..))
-        settings.merge(File::with_name("test.ini")).unwrap();
-        let lgname = settings.get_str("user.user").unwrap();
-        let lgpassword = settings.get_str("user.pass").unwrap();
+    /*
+        if false {
+            let mut settings = Config::default();
+            // File::with_name(..) is shorthand for File::from(Path::new(..))
+            settings.merge(File::with_name("test.ini")).unwrap();
+            let lgname = settings.get_str("user.user").unwrap();
+            let lgpassword = settings.get_str("user.pass").unwrap();
 
-        // Create API and log in
-        let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        api.set_user_agent("Rust mediawiki crate test script");
-        api.login(lgname, lgpassword).unwrap();
+            // Create API and log in
+            let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+            api.set_user_agent("Rust mediawiki crate test script");
+            api.login(lgname, lgpassword).unwrap();
 
-        let q = "Q4115189"; // Sandbox item
-        let token = api.get_edit_token().unwrap();
-        let params: HashMap<String, String> = vec![
-            ("action".to_string(), "wbcreateclaim".to_string()),
-            ("entity".to_string(), q.to_string()),
-            ("property".to_string(), "P31".to_string()),
-            ("snaktype".to_string(), "value".to_string()),
-            (
-                "value".to_string(),
-                "{\"entity-type\":\"item\",\"id\":\"Q12345\"}".to_string(),
-            ),
-            ("token".to_string(), token.to_string()),
-        ]
-        .into_iter()
-        .collect();
+            let q = "Q4115189"; // Sandbox item
+            let token = api.get_edit_token().unwrap();
+            let params: HashMap<String, String> = vec![
+                ("action".to_string(), "wbcreateclaim".to_string()),
+                ("entity".to_string(), q.to_string()),
+                ("property".to_string(), "P31".to_string()),
+                ("snaktype".to_string(), "value".to_string()),
+                (
+                    "value".to_string(),
+                    "{\"entity-type\":\"item\",\"id\":\"Q12345\"}".to_string(),
+                ),
+                ("token".to_string(), token.to_string()),
+            ]
+            .into_iter()
+            .collect();
 
-        let res = api.post_query_api_json(&params).unwrap();
-        dbg!(&res);
+            let res = api.post_query_api_json(&params).unwrap();
+            dbg!(&res);
+        }
+    */
+
+    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    //login_api_from_config(&mut api);
+    //println!("{}", api.user_agent_full());
+
+    let file = File::open("oauth_test.json").unwrap();
+    let j = serde_json::from_reader(file).unwrap();
+    let oauth_params = mediawiki::api::OAuthParams::new_from_json(&j);
+    api.set_oauth(Some(oauth_params));
+    let x = api.oauth().clone();
+    println!("{:?}", x.unwrap());
+
+    let mut params: HashMap<String, String> = vec![
+        ("action", "wbeditentity"),
+        ("id", "Q13406268"),
+        (
+            "data",
+            "{\"labels\":[{\"language\":\"no\",\"value\":\"Bar\",\"add\":\"\"}]}",
+        ),
+        ("summary", "testing"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect();
+
+    params.insert(
+        "token".to_string(),
+        api.get_edit_token().expect("Could not get edit token"),
+    );
+
+    dbg!(&params);
+    match api.post_query_api_json_mut(&params) {
+        Ok(_) => println!("DONE!"),
+        Err(e) => panic!("{:?}", &e),
     }
-
-    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-    println!("{}", api.user_agent_full());
+    /*
+        let res = edit_sandbox_item(&mut api);
+        println!("{:?}", res.unwrap());
+    */
 }
