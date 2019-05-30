@@ -624,19 +624,13 @@ impl Api {
         let ret: Vec<String> = keys
             .iter()
             .map(|k| {
-                let v = to_sign.get(k).unwrap();
-                let v = self.rawurlencode(v);
-                //let v = self.rawurlencode(&v); // ???
-                println!("SIGN: {}:{}", &k, &v);
+                let v = self.rawurlencode(&to_sign.get(k).unwrap());
                 k.clone() + &"=".to_string() + &v
             })
             .collect();
 
-        println!("PAIRS: {:?}", &ret);
-
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + &"://".to_string();
-        // TODO username/password?
         url_string += url.host_str().unwrap();
         match url.port() {
             Some(port) => url_string += &(":".to_string() + &port.to_string()),
@@ -654,17 +648,12 @@ impl Api {
             + &"&".to_string()
             + &self.rawurlencode(&oauth.g_token_secret.clone().unwrap());
 
-        println!("::\n{}\n{}\n", &ret, &key);
-
-        let hasher = Sha1::new();
-
-        let mut hmac = crypto::hmac::Hmac::new(hasher, &key.into_bytes());
+        let mut hmac = crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
         hmac.input(&ret.into_bytes());
         let mut bytes = vec![0u8; hmac.output_bytes()];
         hmac.raw_result(bytes.as_mut_slice());
         let ret: String = base64::encode(&bytes);
 
-        println!("SIGNING: {}", &ret);
         Ok(ret)
     }
 
@@ -693,14 +682,6 @@ impl Api {
 
         let mut headers = HeaderMap::new();
 
-        /*
-        headers.insert(
-            reqwest::header::COOKIE,
-            self.cookies_to_string().parse().unwrap(),
-        );
-        */
-
-        //headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
         headers.insert(
             "oauth_consumer_key",
             oauth.g_consumer_key.clone().unwrap().parse()?,
@@ -741,14 +722,16 @@ impl Api {
             .collect();
         header += &parts.join(", ");
 
-        println!("HEADER: {}", &header);
-
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(header.as_str())?,
         );
-        //println!("\nOAUTH HEADERS:\n{:?}\n", &headers);
+        headers.insert(
+            reqwest::header::COOKIE,
+            self.cookies_to_string().parse().unwrap(),
+        );
+        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),

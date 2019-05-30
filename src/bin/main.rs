@@ -4,7 +4,7 @@ extern crate oauth_client;
 use config::*;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs::File;
+//use std::fs::File;
 
 /*
 extern crate mediawiki;
@@ -208,16 +208,16 @@ fn main() {
         }
     */
 
-    let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     //login_api_from_config(&mut api);
     println!("{}", api.user_agent_full());
 
+    /*
     let file = File::open("oauth_test.json").unwrap();
     let j = serde_json::from_reader(file).unwrap();
     let oauth_params = mediawiki::api::OAuthParams::new_from_json(&j);
     api.set_oauth(Some(oauth_params));
     let x = api.oauth().clone();
-    println!("{:?}", x.unwrap());
 
     let mut params: HashMap<String, String> = vec![
         ("action", "wbeditentity"),
@@ -237,11 +237,12 @@ fn main() {
         api.get_edit_token().expect("Could not get edit token"),
     );
 
-    dbg!(&params);
     match api.post_query_api_json_mut(&params) {
         Ok(_) => println!("DONE!"),
         Err(e) => panic!("{:?}", &e),
     }
+    */
+
     /*
         let res = edit_sandbox_item(&mut api);
         println!("{:?}", res.unwrap());
