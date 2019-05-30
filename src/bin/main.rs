@@ -210,7 +210,7 @@ fn main() {
 
     let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     //login_api_from_config(&mut api);
-    //println!("{}", api.user_agent_full());
+    println!("{}", api.user_agent_full());
 
     let file = File::open("oauth_test.json").unwrap();
     let j = serde_json::from_reader(file).unwrap();

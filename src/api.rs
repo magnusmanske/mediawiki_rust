@@ -17,20 +17,19 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 extern crate base64;
 extern crate cookie;
 extern crate crypto;
-extern crate percent_encoding;
 extern crate reqwest;
 
 use crate::title::Title;
 use cookie::{Cookie, CookieJar};
 use crypto::mac::Mac;
 use crypto::sha1::Sha1;
-use percent_encoding::{utf8_percent_encode, PATH_SEGMENT_ENCODE_SET};
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
+use urlencoding;
 use uuid::Uuid;
 
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
@@ -608,12 +607,7 @@ impl Api {
 
     /// Encodes a string
     fn rawurlencode(&self, s: &String) -> String {
-        utf8_percent_encode(&s, PATH_SEGMENT_ENCODE_SET)
-            .to_string()
-            .replace(":", "%3A")
-            .replace("=", "%3D")
-            .replace("&", "%26")
-            .replace(";", "%3B")
+        urlencoding::encode(s)
     }
 
     /// Signs an OAuth request
@@ -632,7 +626,7 @@ impl Api {
             .map(|k| {
                 let v = to_sign.get(k).unwrap();
                 let v = self.rawurlencode(v);
-                let v = self.rawurlencode(&v); // ???
+                //let v = self.rawurlencode(&v); // ???
                 println!("SIGN: {}:{}", &k, &v);
                 k.clone() + &"=".to_string() + &v
             })
@@ -690,14 +684,12 @@ impl Api {
             }
         };
 
-        let _timestamp = SystemTime::now()
+        let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
             .as_secs()
             .to_string();
-        let timestamp = "1559228772".to_string(); // TESTING
 
-        let _nonce = Uuid::new_v4().to_simple().to_string();
-        let nonce = "fa2c4f915a5c474288e6ffaabf6a0ed8".to_string(); // TESTING
+        let nonce = Uuid::new_v4().to_simple().to_string();
 
         let mut headers = HeaderMap::new();
 
@@ -708,7 +700,7 @@ impl Api {
         );
         */
 
-        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
+        //headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
         headers.insert(
             "oauth_consumer_key",
             oauth.g_consumer_key.clone().unwrap().parse()?,
@@ -740,8 +732,8 @@ impl Api {
         let parts: Vec<String> = headers
             .iter()
             .map(|(key, value)| {
-                let key = key.to_owned().to_string();
-                let value = value.to_owned().to_str().unwrap().to_string();
+                let key = key.to_string();
+                let value = value.to_str().unwrap().to_string();
                 let key = self.rawurlencode(&key);
                 let value = self.rawurlencode(&value);
                 key.to_string() + &"=\"".to_string() + &value.to_string() + &"\"".to_string()
@@ -749,9 +741,14 @@ impl Api {
             .collect();
         header += &parts.join(", ");
 
+        println!("HEADER: {}", &header);
+
         let mut headers = HeaderMap::new();
-        headers.insert("Authorization", header.parse()?);
-        println!("\nOAUTH HEADERS:\n{:?}\n", &headers);
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_str(header.as_str())?,
+        );
+        //println!("\nOAUTH HEADERS:\n{:?}\n", &headers);
 
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
