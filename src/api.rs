@@ -14,14 +14,23 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
     unused_qualifications
 )]
 
+extern crate base64;
 extern crate cookie;
+extern crate crypto;
 extern crate reqwest;
 
 use crate::title::Title;
 use cookie::{Cookie, CookieJar};
+use crypto::mac::Mac;
+use crypto::sha1::Sha1;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
+use url::Url;
+use urlencoding;
+use uuid::Uuid;
 
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
@@ -36,6 +45,43 @@ macro_rules! hashmap {
          $( map.insert($key, $val); )*
          map
     }}
+}
+
+/// `OAuthParams` contains parameters for OAuth requests
+#[derive(Debug, Clone)]
+pub struct OAuthParams {
+    g_consumer_key: Option<String>,
+    g_consumer_secret: Option<String>,
+    g_token_key: Option<String>,
+    g_token_secret: Option<String>,
+    g_user_agent: Option<String>,
+    agent: Option<String>,
+    consumer_key: Option<String>,
+    consumer_secret: Option<String>,
+    api_url: Option<String>,
+    public_mw_oauth_url: Option<String>,
+    tool: Option<String>,
+}
+
+impl OAuthParams {
+    /// Imports data from JSON stored in the QuickStatements DB batch_oauth.serialized_json field
+    pub fn new_from_json(j: &Value) -> Self {
+        Self {
+            g_consumer_key: j["gConsumerKey"].as_str().map(|s| s.to_string()),
+            g_consumer_secret: j["gConsumerSecret"].as_str().map(|s| s.to_string()),
+            g_token_key: j["gTokenKey"].as_str().map(|s| s.to_string()),
+            g_token_secret: j["gTokenSecret"].as_str().map(|s| s.to_string()),
+            g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
+            agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
+            consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
+            consumer_secret: j["params"]["consumerSecret"]
+                .as_str()
+                .map(|s| s.to_string()),
+            api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
+            public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
+            tool: j["tool"].as_str().map(|s| s.to_string()),
+        }
+    }
 }
 
 /// `MWuser` contains the login data for the `Api`
@@ -169,6 +215,7 @@ pub struct Api {
     user_agent: String,
     maxlag_seconds: Option<u64>,
     edit_delay_ms: Option<u64>,
+    oauth: Option<OAuthParams>,
 }
 
 impl Api {
@@ -194,9 +241,20 @@ impl Api {
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
             edit_delay_ms: None,
+            oauth: None,
         };
         ret.load_site_info()?;
         Ok(ret)
+    }
+
+    /// Sets the OAuth parameters
+    pub fn set_oauth(&mut self, oauth: Option<OAuthParams>) {
+        self.oauth = oauth;
+    }
+
+    /// Returns a reference to the current OAuth parameters
+    pub fn oauth(&self) -> &Option<OAuthParams> {
+        &self.oauth
     }
 
     /// Returns a reference to the current user object
@@ -294,7 +352,7 @@ impl Api {
         let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
             Value::String(s) => Ok(s.to_string()),
-            _ => Err(From::from("Could not get token")),
+            _ => Err(From::from(format!("Could not get token: {:?}", x))),
         }
     }
 
@@ -523,7 +581,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
-        self.get_request_builder(&self.api_url.clone(), params, method)
+        self.request_builder(&self.api_url.clone(), params, method)
     }
 
     /// Returns the user agent name
@@ -547,13 +605,153 @@ impl Api {
         ret
     }
 
+    /// Encodes a string
+    fn rawurlencode(&self, s: &String) -> String {
+        urlencoding::encode(s)
+    }
+
+    /// Signs an OAuth request
+    fn sign_oauth_request(
+        &self,
+        method: &str,
+        api_url: &str,
+        to_sign: &HashMap<String, String>,
+        oauth: &OAuthParams,
+    ) -> Result<String, Box<::std::error::Error>> {
+        let mut keys: Vec<String> = to_sign.iter().map(|(k, _)| self.rawurlencode(k)).collect();
+        keys.sort();
+
+        let ret: Vec<String> = keys
+            .iter()
+            .map(|k| {
+                let v = self.rawurlencode(&to_sign.get(k).unwrap());
+                k.clone() + &"=".to_string() + &v
+            })
+            .collect();
+
+        let url = Url::parse(api_url)?;
+        let mut url_string = url.scheme().to_owned() + &"://".to_string();
+        url_string += url.host_str().unwrap();
+        match url.port() {
+            Some(port) => url_string += &(":".to_string() + &port.to_string()),
+            None => {}
+        }
+        url_string += url.path();
+
+        let ret = self.rawurlencode(&method.to_string())
+            + &"&".to_string()
+            + &self.rawurlencode(&url_string)
+            + &"&".to_string()
+            + &self.rawurlencode(&ret.join("&"));
+
+        let key = self.rawurlencode(&oauth.g_consumer_secret.clone().unwrap())
+            + &"&".to_string()
+            + &self.rawurlencode(&oauth.g_token_secret.clone().unwrap());
+
+        let mut hmac = crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
+        hmac.input(&ret.into_bytes());
+        let mut bytes = vec![0u8; hmac.output_bytes()];
+        hmac.raw_result(bytes.as_mut_slice());
+        let ret: String = base64::encode(&bytes);
+
+        Ok(ret)
+    }
+
+    /// Returns a signed OAuth POST `RequestBuilder`
+    fn oauth_request_builder(
+        &self,
+        method: &str,
+        api_url: &str,
+        params: &HashMap<String, String>,
+    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        let oauth = match &self.oauth {
+            Some(oauth) => oauth,
+            None => {
+                return Err(From::from(
+                    "oauth_request_builder called but self.oauth is None",
+                ))
+            }
+        };
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            .to_string();
+
+        let nonce = Uuid::new_v4().to_simple().to_string();
+
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            "oauth_consumer_key",
+            oauth.g_consumer_key.clone().unwrap().parse()?,
+        );
+        headers.insert("oauth_token", oauth.g_token_key.clone().unwrap().parse()?);
+        headers.insert("oauth_version", "1.0".parse()?);
+        headers.insert("oauth_nonce", nonce.parse()?);
+        headers.insert("oauth_timestamp", timestamp.parse()?);
+        headers.insert("oauth_signature_method", "HMAC-SHA1".parse()?);
+
+        // Prepage signing
+        let mut to_sign = params.clone();
+        for (key, value) in headers.iter() {
+            if key == "oauth_signature" {
+                continue;
+            }
+            to_sign.insert(key.to_string(), value.to_str()?.to_string());
+        }
+
+        headers.insert(
+            "oauth_signature",
+            self.sign_oauth_request(method, api_url, &to_sign, &oauth)?
+                .parse()
+                .unwrap(),
+        );
+
+        // Collapse headers
+        let mut header = "OAuth ".to_string();
+        let parts: Vec<String> = headers
+            .iter()
+            .map(|(key, value)| {
+                let key = key.to_string();
+                let value = value.to_str().unwrap().to_string();
+                let key = self.rawurlencode(&key);
+                let value = self.rawurlencode(&value);
+                key.to_string() + &"=\"".to_string() + &value.to_string() + &"\"".to_string()
+            })
+            .collect();
+        header += &parts.join(", ");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_str(header.as_str())?,
+        );
+        headers.insert(
+            reqwest::header::COOKIE,
+            self.cookies_to_string().parse().unwrap(),
+        );
+        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
+
+        match method {
+            "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
+            "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
+            other => panic!("Unsupported method '{}'", other),
+        }
+    }
+
     /// Returns a `RequestBuilder` for a generic URL
-    fn get_request_builder(
+    fn request_builder(
         &self,
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        // Use OAuth if set
+        if self.oauth.is_some() {
+            return self.oauth_request_builder(method, api_url, params);
+        }
+
         let mut req;
         match method {
             "GET" => {
@@ -583,7 +781,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::Response, Box<::std::error::Error>> {
-        let req = self.get_request_builder(api_url, params, method)?;
+        let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
         return Ok(resp);
