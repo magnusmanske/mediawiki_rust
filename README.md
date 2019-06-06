@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/magnusmanske/mediawiki_rust.svg?branch=master)](https://travis-ci.org/magnusmanske/mediawiki_rust)
+
 # A MediaWiki client library in Rust
 
 ## Examples
