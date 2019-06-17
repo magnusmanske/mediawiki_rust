@@ -309,18 +309,22 @@ impl Api {
     /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
-            (a @ &mut Value::Object(_), Value::Object(b)) => {
-                let a = a.as_object_mut().unwrap();
-                for (k, v) in b {
-                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
+            (a @ &mut Value::Object(_), Value::Object(b)) => match a.as_object_mut() {
+                Some(a) => {
+                    for (k, v) in b {
+                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                    }
                 }
-            }
-            (a @ &mut Value::Array(_), Value::Array(b)) => {
-                let a = a.as_array_mut().unwrap();
-                for v in b {
-                    a.push(v);
+                None => {}
+            },
+            (a @ &mut Value::Array(_), Value::Array(b)) => match a.as_array_mut() {
+                Some(a) => {
+                    for v in b {
+                        a.push(v);
+                    }
                 }
-            }
+                None => {}
+            },
             (a, b) => *a = b,
         }
     }
@@ -381,8 +385,12 @@ impl Api {
                 Value::Object(obj) => {
                     for (k, v) in obj {
                         if k != "continue" {
-                            let x = v.as_str().unwrap().to_string();
-                            cont.insert(k.clone(), x);
+                            match v.as_str() {
+                                Some(x) => {
+                                    cont.insert(k.clone(), x.to_string());
+                                }
+                                None => {}
+                            }
                         }
                     }
                 }
@@ -391,7 +399,13 @@ impl Api {
                 }
             }
         }
-        ret.as_object_mut().unwrap().remove("continue");
+        match ret.as_object_mut() {
+            Some(x) => {
+                x.remove("continue");
+            }
+            None => {}
+        }
+
         Ok(ret)
     }
 
@@ -538,11 +552,18 @@ impl Api {
             .headers()
             .get_all(reqwest::header::SET_COOKIE)
             .iter()
-            .map(|v| v.to_str().unwrap().to_string())
+            .filter_map(|v| match v.to_str() {
+                Ok(x) => Some(x.to_string()),
+                Err(_) => None,
+            })
             .collect::<Vec<String>>();
         for cs in cookie_strings {
-            let cookie = Cookie::parse(cs.clone()).unwrap();
-            self.cookie_jar.add(cookie);
+            match Cookie::parse(cs.clone()) {
+                Ok(cookie) => {
+                    self.cookie_jar.add(cookie);
+                }
+                Err(_) => {}
+            }
         }
     }
 
@@ -623,15 +644,18 @@ impl Api {
 
         let ret: Vec<String> = keys
             .iter()
-            .map(|k| {
-                let v = self.rawurlencode(&to_sign.get(k).unwrap());
-                k.clone() + &"=".to_string() + &v
+            .filter_map(|k| match to_sign.get(k) {
+                Some(k2) => {
+                    let v = self.rawurlencode(&k2);
+                    Some(k.clone() + &"=".to_string() + &v)
+                }
+                None => None,
             })
             .collect();
 
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + &"://".to_string();
-        url_string += url.host_str().unwrap();
+        url_string += url.host_str().ok_or("url.host_str is None")?;
         match url.port() {
             Some(port) => url_string += &(":".to_string() + &port.to_string()),
             None => {}
@@ -644,9 +668,16 @@ impl Api {
             + &"&".to_string()
             + &self.rawurlencode(&ret.join("&"));
 
-        let key = self.rawurlencode(&oauth.g_consumer_secret.clone().unwrap())
-            + &"&".to_string()
-            + &self.rawurlencode(&oauth.g_token_secret.clone().unwrap());
+        let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
+            (Some(g_consumer_secret), Some(g_token_secret)) => {
+                self.rawurlencode(g_consumer_secret)
+                    + &"&".to_string()
+                    + &self.rawurlencode(g_token_secret)
+            }
+            _ => {
+                return Err(From::from("g_consumer_secret or g_token_secret not set"));
+            }
+        };
 
         let mut hmac = crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
         hmac.input(&ret.into_bytes());
@@ -704,8 +735,7 @@ impl Api {
         headers.insert(
             "oauth_signature",
             self.sign_oauth_request(method, api_url, &to_sign, &oauth)?
-                .parse()
-                .unwrap(),
+                .parse()?,
         );
 
         // Collapse headers
@@ -727,10 +757,7 @@ impl Api {
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(header.as_str())?,
         );
-        headers.insert(
-            reqwest::header::COOKIE,
-            self.cookies_to_string().parse().unwrap(),
-        );
+        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
@@ -849,7 +876,7 @@ impl Api {
         if data.is_object() {
             return data
                 .as_object()
-                .unwrap()
+                .unwrap() // OK
                 .iter()
                 .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
                 .collect();
@@ -890,13 +917,18 @@ impl Api {
         variable_name: &str,
     ) -> Vec<String> {
         let mut entities = vec![];
-        for b in sparql_result["results"]["bindings"].as_array().unwrap() {
-            match b[variable_name]["value"].as_str() {
-                Some(entity_url) => {
-                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+        match sparql_result["results"]["bindings"].as_array() {
+            Some(bindings) => {
+                for b in bindings {
+                    match b[variable_name]["value"].as_str() {
+                        Some(entity_url) => {
+                            entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                        }
+                        None => {}
+                    }
                 }
-                None => {}
             }
+            None => {}
         }
         entities
     }
