@@ -1,7 +1,25 @@
-//use serde_json::Value;
+/*!
+The `Title` class deals with page titles and namespaces
+*/
 
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications
+)]
+
+extern crate lazy_static;
+
+/// Shortcut for crate::api::NamespaceID
 type NamespaceID = crate::api::NamespaceID;
 
+/// Title struct
 #[derive(Debug, Clone, PartialEq)]
 pub struct Title {
     title: String,
@@ -9,34 +27,46 @@ pub struct Title {
 }
 
 impl Title {
+    /// Constructor, where un-prefixed title and namespace are known.
+    /// Assumes title has correct capitalization
     pub fn new(title: &str, namespace_id: NamespaceID) -> Title {
         Title {
-            title: title.to_string(),
+            title: Title::underscores_to_spaces(&title.to_string()),
             namespace_id: namespace_id,
         }
     }
 
+    /// Constructor, where full namespace-prefixed title is known.
+    /// Uses Api to parse valid namespaces
     pub fn new_from_full(full_title: &String, api: &crate::api::Api) -> Self {
         let mut v: Vec<&str> = full_title.split(":").collect();
-        println!("{:#?}", &v);
         if v.len() == 1 {
             return Self::new(&full_title.to_string(), 0);
         }
-        let namespace_name = Title::underscores_to_spaces(&v.remove(0).to_string());
+        let namespace_name = Title::first_letter_uppercase(&v.remove(0).to_string());
         let title = v.join(":");
         let site_info = api.get_site_info();
 
         // Canonical namespaces
-        match site_info["namespaces"].as_object() {
+        match site_info["query"]["namespaces"].as_object() {
             Some(namespaces) => {
                 for (_, ns) in namespaces {
                     match ns["*"].as_str() {
                         Some(namespace) => {
-                            println!("1: {} / {}", &namespace_name, &namespace);
                             if Title::underscores_to_spaces(&namespace.to_string())
                                 == namespace_name
                             {
-                                return Self::new(&title.to_string(), ns["id"].as_i64().unwrap());
+                                return Self::new_from_namespace_object(title, ns);
+                            }
+                        }
+                        None => {}
+                    }
+                    match ns["canonical"].as_str() {
+                        Some(namespace) => {
+                            if Title::underscores_to_spaces(&namespace.to_string())
+                                == namespace_name
+                            {
+                                return Self::new_from_namespace_object(title, ns);
                             }
                         }
                         None => {}
@@ -47,16 +77,20 @@ impl Title {
         }
 
         // Aliases
-        match site_info["namespacealiases"].as_array() {
+        match site_info["query"]["namespacealiases"].as_array() {
             Some(namespaces) => {
                 for ns in namespaces {
                     match ns["*"].as_str() {
                         Some(namespace) => {
-                            println!("2: {} / {}", &namespace_name, &namespace);
                             if Title::underscores_to_spaces(&namespace.to_string())
                                 == namespace_name
                             {
-                                return Self::new(&title.to_string(), ns["id"].as_i64().unwrap());
+                                let namespace_id = ns["id"].as_i64().unwrap();
+                                let title = match ns["case"].as_str() {
+                                    Some("first-letter") => Title::first_letter_uppercase(&title),
+                                    _ => title.to_string(),
+                                };
+                                return Self::new(&title, namespace_id);
                             }
                         }
                         None => {}
@@ -70,29 +104,45 @@ impl Title {
         Self::new(&full_title.to_string(), 0)
     }
 
+    /// Constructor, used internally by `new_from_full`
+    fn new_from_namespace_object(title: String, ns: &serde_json::Value) -> Self {
+        let namespace_id = ns["id"].as_i64().unwrap();
+        let title = match ns["case"].as_str() {
+            Some("first-letter") => Title::first_letter_uppercase(&title),
+            _ => title.to_string(),
+        };
+        return Self::new(&title, namespace_id);
+    }
+
+    /// Constructor, used by ``Api::result_array_to_titles``
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
         Title {
-            title: data["title"].as_str().unwrap_or("").to_string(),
+            title: Title::underscores_to_spaces(&data["title"].as_str().unwrap_or("").to_string()),
             namespace_id: data["ns"].as_i64().unwrap_or(0).into(),
         }
     }
 
+    /// Returns the namespace ID
     pub fn namespace_id(&self) -> NamespaceID {
         self.namespace_id
     }
 
+    /// Returns the namespace text, based on the Api
     pub fn namespace_name(&self, api: &crate::api::Api) -> Option<String> {
         api.get_canonical_namespace_name(self.namespace_id)
     }
 
+    /// Returns the non-namespace-prefixed title, with underscores
     pub fn with_underscores(&self) -> String {
         Title::spaces_to_underscores(&self.title)
     }
 
+    /// Returns the non-namespace-prefixed title, with spaces instead of underscores
     pub fn pretty(&self) -> String {
         Title::underscores_to_spaces(&self.title)
     }
 
+    /// Returns the namespace-prefixed title, with underscores
     pub fn full_with_underscores(&self, api: &crate::api::Api) -> Option<String> {
         Some(
             Title::spaces_to_underscores(&self.namespace_name(api)?)
@@ -101,6 +151,7 @@ impl Title {
         )
     }
 
+    /// Returns the namespace-prefixed title, with spaces instead of underscores
     pub fn full_pretty(&self, api: &crate::api::Api) -> Option<String> {
         Some(
             Title::underscores_to_spaces(&self.namespace_name(api)?)
@@ -109,12 +160,25 @@ impl Title {
         )
     }
 
+    /// Changees all spaces to underscores
     fn spaces_to_underscores(s: &String) -> String {
         s.trim().replace(" ", "_")
     }
 
+    /// Changees all underscores to spaces
     fn underscores_to_spaces(s: &String) -> String {
         s.replace("_", " ").trim().to_string()
+    }
+
+    /// Changes the first letter to uppercase.
+    /// Enforces spaces instead of underscores.
+    fn first_letter_uppercase(s: &String) -> String {
+        let s = Title::underscores_to_spaces(s);
+        let mut c = s.chars();
+        match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        }
     }
 }
 
@@ -123,47 +187,57 @@ mod tests {
     use super::*;
     use crate::api::*;
 
+    fn wd_api() -> &'static Api {
+        lazy_static! {
+            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        }
+        &API
+    }
+
     #[test]
     fn new_from_full_main_namespace() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            Title::new_from_full(&"Main namespace".to_string(), &api),
+            Title::new_from_full(&"Main namespace".to_string(), wd_api()),
             Title::new("Main namespace", 0)
         );
     }
 
     #[test]
     fn new_from_full_canonical_namespace() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            Title::new_from_full(&"File:Some file.jpg".to_string(), &api),
+            Title::new_from_full(&"File:Some file.jpg".to_string(), wd_api()),
             Title::new("Some file.jpg", 6)
         );
     }
 
     #[test]
     fn new_from_full_canonical_namespace_with_colon() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            Title::new_from_full(&"Project talk:A project:yes, really".to_string(), &api),
+            Title::new_from_full(&"Project talk:A project:yes, really".to_string(), wd_api()),
             Title::new("A project:yes, really", 5)
         );
     }
 
     #[test]
     fn new_from_full_namespace_alias() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            Title::new_from_full(&"Item:Q12345".to_string(), &api),
+            Title::new_from_full(&"Item:Q12345".to_string(), wd_api()),
             Title::new("Q12345", 0)
         );
     }
 
     #[test]
-    fn new_from_full_invalid_namespace() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    fn new_from_full_special_namespace() {
         assert_eq!(
-            Title::new_from_full(&"This is not a namespace:A title".to_string(), &api),
+            Title::new_from_full(&"Special:A title".to_string(), wd_api()),
+            Title::new("A title", -1)
+        );
+    }
+
+    #[test]
+    fn new_from_full_invalid_namespace() {
+        assert_eq!(
+            Title::new_from_full(&"This is not a namespace:A title".to_string(), wd_api()),
             Title::new("This is not a namespace:A title", 0)
         );
     }

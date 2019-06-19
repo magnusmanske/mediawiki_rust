@@ -213,7 +213,7 @@ fn main() {
     //println!("{}", api.user_agent_full());
 
     dbg!(mediawiki::title::Title::new_from_full(
-        &"File:test.jpg".to_string(),
+        &"Project talk:A project:yes, really".to_string(),
         &api
     ));
 
