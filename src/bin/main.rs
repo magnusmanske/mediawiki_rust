@@ -210,7 +210,12 @@ fn main() {
 
     let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     //login_api_from_config(&mut api);
-    println!("{}", api.user_agent_full());
+    //println!("{}", api.user_agent_full());
+
+    dbg!(mediawiki::title::Title::new_from_full(
+        &"File:test.jpg".to_string(),
+        &api
+    ));
 
     /*
     let file = File::open("oauth_test.json").unwrap();

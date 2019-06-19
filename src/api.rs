@@ -32,6 +32,9 @@ use url::Url;
 use urlencoding;
 use uuid::Uuid;
 
+/// Alias for a namespace (could be -1 for Special pages etc.)
+pub type NamespaceID = i64;
+
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const MAX_RETRY_ATTEMPTS: u64 = 5;
@@ -293,6 +296,20 @@ impl Api {
         match site_info["query"][k1][k2].as_str() {
             Some(s) => Ok(s.to_string()),
             None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
+        }
+    }
+
+    /// Returns the canonical namespace name for a namespace ID, if defined
+    pub fn get_canonical_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
+        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
+        match v["canonical"].as_str() {
+            Some(v) => Some(v.to_string()),
+            None => {
+                match v["*"].as_str() {
+                    Some(c) => Some(c.to_string()), // Main name space, no canonical name
+                    None => None,
+                }
+            }
         }
     }
 
