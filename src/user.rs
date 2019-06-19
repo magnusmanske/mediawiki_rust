@@ -14,11 +14,6 @@ The `User` class deals with the (current) Api user.
     unused_qualifications
 )]
 
-extern crate base64;
-extern crate cookie;
-extern crate crypto;
-extern crate reqwest;
-
 use crate::api::Api;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -50,11 +45,9 @@ impl User {
 
     /// Checks is the user has a spefic right (e.g. "bot", "autocinfirmed")
     pub fn has_right(&self, right: &str) -> bool {
-        if !self.logged_in() {
-            return false;
-        }
         match &self.user_info {
             Some(ui) => {
+                println!("{}", &ui);
                 ui["query"]["userinfo"]["rights"]
                     .as_array()
                     .unwrap_or(&vec![])
@@ -107,7 +100,6 @@ impl User {
         match self.user_info {
             Some(_) => return Ok(()),
             None => {
-                //let params = hashmap!("action".to_string()=>"query".to_string(),"meta".to_string()=>"userinfo","lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken.into());
                 let params: HashMap<String, String> = vec![
                     ("action", "query"),
                     ("meta", "userinfo"),
@@ -121,6 +113,16 @@ impl User {
                 Ok(())
             }
         }
+    }
+
+    /// Returns the user name ("" if not logged in)
+    pub fn user_name(&self) -> &String {
+        &self.lgusername
+    }
+
+    /// Returns the user id (0 if not logged in)
+    pub fn user_id(&self) -> u64 {
+        self.lguserid
     }
 
     /// Tries to set user information from the `Api` call
@@ -140,5 +142,47 @@ impl User {
             self.is_logged_in = false;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::*;
+
+    fn wd_api() -> &'static Api {
+        lazy_static! {
+            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        }
+        &API
+    }
+
+    #[test]
+    fn user_not_logged_in_by_default() {
+        let user = User::new();
+        assert!(!user.logged_in());
+    }
+
+    #[test]
+    fn user_login() {
+        let user_name = "test user 1234";
+        let user_id = 12345;
+        let mut user = User::new();
+        let login = json!({"result":"Success","lgusername":user_name,"lguserid":user_id});
+        user.set_from_login(&login).unwrap();
+        assert!(user.logged_in());
+        assert_eq!(user.user_name(), user_name);
+        assert_eq!(user.user_id(), user_id);
+    }
+
+    #[test]
+    fn user_rights() {
+        let mut user = User::new();
+        user.load_user_info(wd_api()).unwrap();
+        assert!(!user.is_bot());
+        assert!(user.can_edit());
+        assert!(!user.can_upload());
+        assert!(user.has_right("createaccount"));
+        assert!(!user.has_right("thisisnotaright"));
     }
 }

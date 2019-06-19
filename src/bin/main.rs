@@ -212,10 +212,9 @@ fn main() {
     //login_api_from_config(&mut api);
     //println!("{}", api.user_agent_full());
 
-    dbg!(mediawiki::title::Title::new_from_full(
-        &"Project talk:A project:yes, really".to_string(),
-        &api
-    ));
+    let mut user = mediawiki::user::User::new();
+    user.load_user_info(&api).unwrap();
+    dbg!(user.has_right("createaccount"));
 
     /*
     let file = File::open("oauth_test.json").unwrap();
