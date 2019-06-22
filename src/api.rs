@@ -5,7 +5,7 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 #![deny(
     missing_docs,
     missing_debug_implementations,
-    missing_copy_implementations,
+//    missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
@@ -51,6 +51,63 @@ macro_rules! hashmap {
     }}
 }
 
+/// Upstream is a trait to wrap multiple supstream sources.
+/// By default, this will be UpstreamReqwestClient, but you can create new ones, e.g. for debugging
+pub trait Upstream: std::fmt::Debug + Sync {
+    // TODO:
+    // + Clone
+    // fn clone(&self) -> Self where Self: Sized; // ???
+
+    /// GET method
+    fn get(
+        &self,
+        api_url: &str,
+        headers: HeaderMap,
+        params: &HashMap<String, String>,
+    ) -> reqwest::RequestBuilder;
+
+    /// POST method
+    fn post(
+        &self,
+        api_url: &str,
+        headers: HeaderMap,
+        params: &HashMap<String, String>,
+    ) -> reqwest::RequestBuilder;
+}
+
+/// An implementation of the `Upstream` trait, using a reqwest client
+#[derive(Debug, Clone)]
+pub struct UpstreamReqwestClient {
+    client: reqwest::Client,
+}
+
+impl Upstream for UpstreamReqwestClient {
+    fn get(
+        &self,
+        api_url: &str,
+        headers: HeaderMap,
+        params: &HashMap<String, String>,
+    ) -> reqwest::RequestBuilder {
+        self.client.get(api_url).headers(headers).query(&params)
+    }
+
+    fn post(
+        &self,
+        api_url: &str,
+        headers: HeaderMap,
+        params: &HashMap<String, String>,
+    ) -> reqwest::RequestBuilder {
+        self.client.post(api_url).headers(headers).form(&params)
+    }
+}
+
+impl UpstreamReqwestClient {
+    /// Returns a new `UpstreamReqwestClient` object, using a reqwest client
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
 pub struct OAuthParams {
@@ -89,11 +146,12 @@ impl OAuthParams {
 }
 
 /// `Api` is the main class to interact with a MediaWiki API
-#[derive(Debug, Clone)]
+#[derive(Debug)] // Clone
 pub struct Api {
     api_url: String,
     site_info: Value,
-    client: reqwest::Client,
+    /// something something
+    upstream: Box<dyn Upstream>,
     cookie_jar: CookieJar,
     user: User,
     user_agent: String,
@@ -116,10 +174,23 @@ impl Api {
         api_url: &str,
         builder: reqwest::ClientBuilder,
     ) -> Result<Api, Box<::std::error::Error>> {
+        Api::new_from_upstream(
+            api_url,
+            Box::new(UpstreamReqwestClient::new(builder.build()?)),
+        )
+    }
+
+    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// This is done both to get basic information about the site, and to test the API.
+    /// Uses an instance with the `Upstream` trait.
+    pub fn new_from_upstream(
+        api_url: &str,
+        upstream: Box<dyn Upstream>,
+    ) -> Result<Api, Box<::std::error::Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
-            client: builder.build()?,
+            upstream: upstream,
             cookie_jar: CookieJar::new(),
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
@@ -129,6 +200,16 @@ impl Api {
         };
         ret.load_site_info()?;
         Ok(ret)
+    }
+
+    /// Returns a reference to the upstream trait instance
+    pub fn upstream(&self) -> &Box<dyn Upstream> {
+        &self.upstream
+    }
+
+    /// Sets the upstream instance
+    pub fn set_upstream(self: &mut Self, upstream: Box<dyn Upstream>) {
+        self.upstream = upstream;
     }
 
     /// Sets the OAuth parameters
@@ -659,8 +740,8 @@ impl Api {
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
-            "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
-            "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
+            "GET" => Ok(self.upstream.get(api_url, headers, &params)),
+            "POST" => Ok(self.upstream.post(api_url, headers, &params)),
             other => panic!("Unsupported method '{}'", other),
         }
     }
@@ -677,27 +758,14 @@ impl Api {
             return self.oauth_request_builder(method, api_url, params);
         }
 
-        let mut req;
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
+        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
         match method {
-            "GET" => {
-                req = self
-                    .client
-                    .get(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .query(&params)
-            }
-            "POST" => {
-                req = self
-                    .client
-                    .post(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .form(&params)
-            }
+            "GET" => Ok(self.upstream.get(api_url, headers, &params)),
+            "POST" => Ok(self.upstream.post(api_url, headers, &params)),
             other => panic!("Unsupported method '{}'", other),
         }
-        Ok(req)
     }
 
     fn query_raw_response(
