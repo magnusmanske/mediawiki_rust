@@ -791,7 +791,7 @@ impl Api {
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<::std::error::Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let result = self.query_raw(&query_api_url, &params, "GET")?;
+        let result = self.query_raw(&query_api_url, &params, "POST")?;
         Ok(serde_json::from_str(&result)?)
     }
 
