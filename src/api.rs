@@ -672,6 +672,7 @@ impl Api {
         &self,
         method: &str,
         api_url: &str,
+        main_headers: &mut HeaderMap,
         params: &HashMap<String, String>,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
         let oauth = match &self.oauth {
@@ -711,7 +712,7 @@ impl Api {
             to_sign.insert(key.to_string(), value.to_str()?.to_string());
         }
 
-        headers.insert(
+        main_headers.insert(
             "oauth_signature",
             self.sign_oauth_request(method, api_url, &to_sign, &oauth)?
                 .parse()?,
@@ -731,13 +732,10 @@ impl Api {
             .collect();
         header += &parts.join(", ");
 
-        let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(header.as_str())?,
         );
-        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
-        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
             "GET" => Ok(self.upstream.get(api_url, headers, &params)),
@@ -753,18 +751,18 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
-        // Use OAuth if set
-        if self.oauth.is_some() {
-            return self.oauth_request_builder(method, api_url, params);
-        }
-
         let mut headers = HeaderMap::new();
         headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
-        match method {
-            "GET" => Ok(self.upstream.get(api_url, headers, &params)),
-            "POST" => Ok(self.upstream.post(api_url, headers, &params)),
-            other => panic!("Unsupported method '{}'", other),
+
+        // Use OAuth if set
+        match self.oauth {
+            Some(_) => self.oauth_request_builder(method, api_url, &mut headers, params),
+            None => match method {
+                "GET" => Ok(self.upstream.get(api_url, headers, &params)),
+                "POST" => Ok(self.upstream.post(api_url, headers, &params)),
+                other => panic!("Unsupported method '{}'", other),
+            },
         }
     }
 
