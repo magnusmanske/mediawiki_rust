@@ -47,7 +47,6 @@ impl User {
     pub fn has_right(&self, right: &str) -> bool {
         match &self.user_info {
             Some(ui) => {
-                println!("{}", &ui);
                 ui["query"]["userinfo"]["rights"]
                     .as_array()
                     .unwrap_or(&vec![])
