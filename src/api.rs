@@ -141,6 +141,16 @@ impl Api {
         &self.oauth
     }
 
+    /// Returns a reference to the reqwest client
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
+    /// Returns a mutable reference to the reqwest client
+    pub fn client_mut(&mut self) -> &mut reqwest::Client {
+        &mut self.client
+    }
+
     /// Returns a reference to the current user object
     pub fn user(&self) -> &User {
         &self.user

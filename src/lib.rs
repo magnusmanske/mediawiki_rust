@@ -3,6 +3,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde_json;
 
+pub use reqwest;
+
 pub mod api;
 pub mod title;
 pub mod user;
