@@ -1,5 +1,4 @@
 extern crate config;
-extern crate oauth_client;
 
 use config::*;
 use serde_json::Value;
