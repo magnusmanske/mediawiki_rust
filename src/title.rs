@@ -22,7 +22,7 @@ type NamespaceID = crate::api::NamespaceID;
 /// Title struct
 #[derive(Debug, Clone, PartialEq)]
 pub struct Title {
-    title: String,
+    title: String, // Always stored without underscores
     namespace_id: NamespaceID,
 }
 
@@ -44,7 +44,7 @@ impl Title {
             return Self::new(&full_title.to_string(), 0);
         }
         let namespace_name = Title::first_letter_uppercase(&v.remove(0).to_string());
-        let title = v.join(":");
+        let title = Title::underscores_to_spaces(&v.join(":"));
         let site_info = api.get_site_info();
 
         // Canonical namespaces
@@ -138,8 +138,8 @@ impl Title {
     }
 
     /// Returns the non-namespace-prefixed title, with spaces instead of underscores
-    pub fn pretty(&self) -> String {
-        Title::underscores_to_spaces(&self.title)
+    pub fn pretty(&self) -> &String {
+        &self.title // was Title::underscores_to_spaces(&self.title) but always storing without underscores
     }
 
     /// Returns the namespace-prefixed title, with underscores

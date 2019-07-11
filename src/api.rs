@@ -273,10 +273,34 @@ impl Api {
         self.get_token("csrf")
     }
 
-    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
+    /// Same as `get_query_api_json` but automatically loads all results via the `continue` parameter
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
+    ) -> Result<Value, Box<::std::error::Error>> {
+        self.get_query_api_json_limit(params, None)
+    }
+
+    /// Tries to return the len() of an API query result. Returns 0 if unknown
+    fn query_result_count(&self, result: &Value) -> usize {
+        match result["query"].as_object() {
+            Some(query) => query
+                .iter()
+                .filter_map(|(_key, part)| match part.as_array() {
+                    Some(a) => Some(a.len()),
+                    None => None,
+                })
+                .next()
+                .unwrap_or(0),
+            None => 0, // Don't know size
+        }
+    }
+
+    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
+    pub fn get_query_api_json_limit(
+        &self,
+        params: &HashMap<String, String>,
+        max: Option<usize>,
     ) -> Result<Value, Box<::std::error::Error>> {
         let mut cont = HashMap::<String, String>::new();
         let mut ret = serde_json::json!({});
@@ -289,6 +313,14 @@ impl Api {
             cont.clear();
             let conti = result["continue"].clone();
             self.json_merge(&mut ret, result);
+            match max {
+                Some(m) => {
+                    if self.query_result_count(&ret) >= m {
+                        break;
+                    }
+                }
+                None => {}
+            }
             match conti {
                 Value::Object(obj) => {
                     for (k, v) in obj {
@@ -853,6 +885,18 @@ mod tests {
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
         );
+    }
+
+    #[test]
+    fn api_limit() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let params = api.params_into(&vec![
+            ("action", "query"),
+            ("list", "search"),
+            ("srsearch", "the"),
+        ]);
+        let result = api.get_query_api_json_limit(&params, Some(20)).unwrap();
+        assert_eq!(result["query"]["search"].as_array().unwrap().len(), 20);
     }
 
     #[test]
