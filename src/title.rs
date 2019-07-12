@@ -161,12 +161,12 @@ impl Title {
     }
 
     /// Changees all spaces to underscores
-    fn spaces_to_underscores(s: &String) -> String {
+    pub fn spaces_to_underscores(s: &String) -> String {
         s.trim().replace(" ", "_")
     }
 
     /// Changees all underscores to spaces
-    fn underscores_to_spaces(s: &String) -> String {
+    pub fn underscores_to_spaces(s: &String) -> String {
         s.replace("_", " ").trim().to_string()
     }
 
