@@ -172,7 +172,7 @@ impl Title {
 
     /// Changes the first letter to uppercase.
     /// Enforces spaces instead of underscores.
-    fn first_letter_uppercase(s: &String) -> String {
+    pub fn first_letter_uppercase(s: &String) -> String {
         let s = Title::underscores_to_spaces(s);
         let mut c = s.chars();
         match c.next() {
