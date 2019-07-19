@@ -163,9 +163,10 @@ impl Title {
     /// Returns the namespace-prefixed title, with spaces instead of underscores
     pub fn full_pretty(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            Title::underscores_to_spaces(&self.namespace_name(api)?)
-                + ":"
-                + &Title::underscores_to_spaces(&self.title),
+            match Title::underscores_to_spaces(&self.namespace_name(api)?).as_str() {
+                "" => self.pretty().to_string(),
+                ns => ns.to_owned() + ":" + &Title::underscores_to_spaces(&self.title),
+            },
         )
     }
 
