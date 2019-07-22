@@ -204,6 +204,20 @@ impl Api {
         }
     }
 
+    /// Returns the local namespace name for a namespace ID, if defined
+    pub fn get_local_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
+        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
+        match v["*"].as_str() {
+            Some(v) => Some(v.to_string()),
+            None => {
+                match v["canonical"].as_str() {
+                    Some(c) => Some(c.to_string()), // Canonical, not local name
+                    None => None,
+                }
+            }
+        }
+    }
+
     /// Loads the site info.
     /// Should only ever be called from `new()`
     fn load_site_info(&mut self) -> Result<&Value, Box<::std::error::Error>> {

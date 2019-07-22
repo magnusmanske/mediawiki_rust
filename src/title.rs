@@ -136,9 +136,14 @@ impl Title {
         self.namespace_id
     }
 
-    /// Returns the namespace text, based on the Api
+    /// Returns the canonical namespace text, based on the Api
     pub fn namespace_name(&self, api: &crate::api::Api) -> Option<String> {
         api.get_canonical_namespace_name(self.namespace_id)
+    }
+
+    /// Returns the local namespace text, based on the Api
+    pub fn local_namespace_name(&self, api: &crate::api::Api) -> Option<String> {
+        api.get_local_namespace_name(self.namespace_id)
     }
 
     /// Returns the non-namespace-prefixed title, with underscores
@@ -154,7 +159,7 @@ impl Title {
     /// Returns the namespace-prefixed title, with underscores
     pub fn full_with_underscores(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            Title::spaces_to_underscores(&self.namespace_name(api)?)
+            Title::spaces_to_underscores(&self.local_namespace_name(api)?)
                 + ":"
                 + &Title::spaces_to_underscores(&self.title),
         )
@@ -163,7 +168,7 @@ impl Title {
     /// Returns the namespace-prefixed title, with spaces instead of underscores
     pub fn full_pretty(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            match Title::underscores_to_spaces(&self.namespace_name(api)?).as_str() {
+            match Title::underscores_to_spaces(&self.local_namespace_name(api)?).as_str() {
                 "" => self.pretty().to_string(),
                 ns => ns.to_owned() + ":" + &Title::underscores_to_spaces(&self.title),
             },
