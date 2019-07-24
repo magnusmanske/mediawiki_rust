@@ -159,9 +159,10 @@ impl Title {
     /// Returns the namespace-prefixed title, with underscores
     pub fn full_with_underscores(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            Title::spaces_to_underscores(&self.local_namespace_name(api)?)
-                + ":"
-                + &Title::spaces_to_underscores(&self.title),
+            match Title::spaces_to_underscores(&self.local_namespace_name(api)?).as_str() {
+                "" => self.with_underscores(),
+                ns => ns.to_owned() + ":" + &self.with_underscores(),
+            },
         )
     }
 
@@ -170,7 +171,7 @@ impl Title {
         Some(
             match Title::underscores_to_spaces(&self.local_namespace_name(api)?).as_str() {
                 "" => self.pretty().to_string(),
-                ns => ns.to_owned() + ":" + &Title::underscores_to_spaces(&self.title),
+                ns => ns.to_owned() + ":" + &self.pretty(),
             },
         )
     }
