@@ -17,13 +17,16 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 extern crate base64;
 extern crate cookie;
 extern crate crypto;
+extern crate futures;
 extern crate reqwest;
+extern crate tokio;
 
 use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
 use crypto::mac::Mac;
 use crypto::sha1::Sha1;
+use futures::Future;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -93,7 +96,8 @@ impl OAuthParams {
 pub struct Api {
     api_url: String,
     site_info: Value,
-    client: reqwest::Client,
+    client: Option<reqwest::Client>,
+    client_async: Option<reqwest::r#async::Client>,
     cookie_jar: CookieJar,
     user: User,
     user_agent: String,
@@ -111,6 +115,12 @@ impl Api {
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
+    pub fn new_async(api_url: &str) -> Result<Api, Box<::std::error::Error>> {
+        Api::new_from_builder_async(api_url, reqwest::r#async::Client::builder())
+    }
+
+    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// This is done both to get basic information about the site, and to test the API.
     /// Uses a bespoke reqwest::ClientBuilder.
     pub fn new_from_builder(
         api_url: &str,
@@ -119,7 +129,8 @@ impl Api {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
-            client: builder.build()?,
+            client: Some(builder.build()?),
+            client_async: None,
             cookie_jar: CookieJar::new(),
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
@@ -129,6 +140,33 @@ impl Api {
         };
         ret.load_site_info()?;
         Ok(ret)
+    }
+
+    /// Returns a new async `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// This is done both to get basic information about the site, and to test the API.
+    /// Uses a bespoke reqwest::async::ClientBuilder.
+    pub fn new_from_builder_async(
+        api_url: &str,
+        builder: reqwest::r#async::ClientBuilder,
+    ) -> Result<Api, Box<::std::error::Error>> {
+        let mut ret = Api {
+            api_url: api_url.to_string(),
+            site_info: serde_json::from_str(r"{}")?,
+            client: None,
+            client_async: Some(builder.build()?),
+            cookie_jar: CookieJar::new(),
+            user: User::new(),
+            user_agent: DEFAULT_USER_AGENT.to_string(),
+            maxlag_seconds: DEFAULT_MAXLAG,
+            edit_delay_ms: None,
+            oauth: None,
+        };
+        ret.load_site_info()?;
+        Ok(ret)
+    }
+
+    pub fn is_async(&self) -> bool {
+        self.client_async.is_some()
     }
 
     /// Sets the OAuth parameters
@@ -143,13 +181,26 @@ impl Api {
 
     /// Returns a reference to the reqwest client
     pub fn client(&self) -> &reqwest::Client {
-        &self.client
+        &self
+            .client
+            .as_ref()
+            .expect("MediaWiki::client requested, but is None")
     }
 
+    /// Returns a reference to the reqwest client
+    pub fn client_async(&self) -> &reqwest::r#async::Client {
+        &self
+            .client_async
+            .as_ref()
+            .expect("MediaWiki::client_async requested, but is None")
+    }
+
+    /*
     /// Returns a mutable reference to the reqwest client
     pub fn client_mut(&mut self) -> &mut reqwest::Client {
-        &mut self.client
+        &mut self.client.as_mut().unwrap()
     }
+    */
 
     /// Returns a reference to the current user object
     pub fn user(&self) -> &User {
@@ -559,6 +610,15 @@ impl Api {
         self.request_builder(&self.api_url.clone(), params, method)
     }
 
+    /// Generates a `RequestBuilder` for the API URL, using client_async
+    pub fn get_api_request_builder_async(
+        &self,
+        params: &HashMap<String, String>,
+        method: &str,
+    ) -> Result<reqwest::r#async::RequestBuilder, Box<::std::error::Error>> {
+        self.request_builder_async(&self.api_url.clone(), params, method)
+    }
+
     /// Returns the user agent name
     pub fn user_agent(&self) -> &String {
         &self.user_agent
@@ -642,18 +702,18 @@ impl Api {
         Ok(ret)
     }
 
-    /// Returns a signed OAuth POST `RequestBuilder`
-    fn oauth_request_builder(
+    /// Generates headers for an OAuth request
+    fn oauth_request_get_headers(
         &self,
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+    ) -> Result<HeaderMap, Box<::std::error::Error>> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
                 return Err(From::from(
-                    "oauth_request_builder called but self.oauth is None",
+                    "oauth_request_get_headers called but self.oauth is None",
                 ))
             }
         };
@@ -713,11 +773,50 @@ impl Api {
         );
         headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
+        Ok(headers)
+    }
 
-        match method {
-            "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
-            "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
-            other => panic!("Unsupported method '{}'", other),
+    /// Returns a signed OAuth POST `RequestBuilder`, using client
+    fn oauth_request_builder(
+        &self,
+        method: &str,
+        api_url: &str,
+        params: &HashMap<String, String>,
+    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        let headers = self.oauth_request_get_headers(method, api_url, params)?;
+
+        match &self.client {
+            Some(client) => {
+                return match method {
+                    "GET" => Ok(client.get(api_url).headers(headers).query(&params)),
+                    "POST" => Ok(client.post(api_url).headers(headers).form(&params)),
+                    other => panic!("Unsupported method '{}'", other),
+                }
+            }
+            None => Err(From::from("Api::request_builder does use client_async")),
+        }
+    }
+
+    /// Returns a signed OAuth POST `RequestBuilder`, using client_async
+    fn oauth_request_builder_async(
+        &self,
+        method: &str,
+        api_url: &str,
+        params: &HashMap<String, String>,
+    ) -> Result<reqwest::r#async::RequestBuilder, Box<::std::error::Error>> {
+        let headers = self.oauth_request_get_headers(method, api_url, params)?;
+
+        match &self.client_async {
+            Some(client) => {
+                return match method {
+                    "GET" => Ok(client.get(api_url).headers(headers).query(&params)),
+                    "POST" => Ok(client.post(api_url).headers(headers).form(&params)),
+                    other => panic!("Unsupported method '{}'", other),
+                }
+            }
+            None => Err(From::from(
+                "Api::oauth_request_builder_async does use client",
+            )),
         }
     }
 
@@ -728,32 +827,62 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+        if self.client.is_none() {
+            return Err(From::from("Api::request_builder does use client_async"));
+        }
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
         }
 
-        let mut req;
-        match method {
-            "GET" => {
-                req = self
-                    .client
-                    .get(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .query(&params)
-            }
-            "POST" => {
-                req = self
-                    .client
-                    .post(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .form(&params)
-            }
+        let client = self.client.as_ref().unwrap();
+        Ok(match method {
+            "GET" => client
+                .get(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .query(&params),
+            "POST" => client
+                .post(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .form(&params),
             other => panic!("Unsupported method '{}'", other),
+        })
+    }
+
+    /// Returns a `RequestBuilder` for a generic URL
+    fn request_builder_async(
+        &self,
+        api_url: &str,
+        params: &HashMap<String, String>,
+        method: &str,
+    ) -> Result<reqwest::r#async::RequestBuilder, Box<::std::error::Error>> {
+        if self.client_async.is_none() {
+            return Err(From::from(
+                "Api::request_builder_async does use client (no async)",
+            ));
         }
-        Ok(req)
+
+        // Use OAuth if set
+        if self.oauth.is_some() {
+            return self.oauth_request_builder_async(method, api_url, params);
+        }
+
+        let client = self.client_async.as_ref().unwrap();
+        Ok(match method {
+            "GET" => client
+                .get(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .query(&params),
+            "POST" => client
+                .post(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .form(&params),
+            other => panic!("Unsupported method '{}'", other),
+        })
     }
 
     fn query_raw_response(
@@ -766,6 +895,27 @@ impl Api {
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
         return Ok(resp);
+    }
+
+    fn query_raw_response_async(
+        &self,
+        api_url: &str,
+        params: &HashMap<String, String>,
+        method: &str,
+    ) -> impl Future<Item = reqwest::r#async::Response, Error = reqwest::Error> + '_ {
+        let params = params.clone();
+        let method = method.to_string();
+        self.request_builder_async(api_url, &params, method.as_str())
+            .unwrap()
+            .send()
+            .then(
+                move |res: Result<reqwest::r#async::Response, reqwest::Error>| {
+                    self.enact_edit_delay(&params, method.as_str());
+                    res
+                },
+            )
+            .map(|res| res)
+        // map_err see https://github.com/seanmonstar/reqwest/pull/351/files
     }
 
     fn enact_edit_delay(&self, params: &HashMap<String, String>, method: &str) {
@@ -786,9 +936,21 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<::std::error::Error>> {
-        let mut resp = self.query_raw_response(api_url, params, method)?;
+        if self.is_async() {
+            panic!("Not implemented for async!");
+        /*
+        let future = self.query_raw_response_async(api_url, params, method);
+
+        let mut resp = tokio::run(future);
+
         self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
+        */
+        } else {
+            let mut resp = self.query_raw_response(api_url, params, method)?;
+            self.set_cookies_from_response(&resp);
+            Ok(resp.text()?)
+        }
     }
 
     /// Runs a query against a generic URL, and returns a text.
