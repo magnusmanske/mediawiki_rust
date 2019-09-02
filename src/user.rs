@@ -95,7 +95,7 @@ impl User {
     }
 
     /// Loads the user info, which is stored in the object; returns Ok(()) if successful
-    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<::std::error::Error>> {
+    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<dyn (::std::error::Error)>> {
         match self.user_info {
             Some(_) => return Ok(()),
             None => {
