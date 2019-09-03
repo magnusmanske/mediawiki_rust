@@ -3,6 +3,7 @@ extern crate config;
 use config::*;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::error::Error;
 //use std::fs::File;
 
 /*
@@ -143,7 +144,7 @@ fn main() {
     _wikidata_item_tester();
 }*/
 
-fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<::std::error::Error>> {
+fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Error>> {
     let q = "Q13406268"; // Second sandbox item
     let token = api.get_edit_token().unwrap();
     let params: HashMap<String, String> = vec![

@@ -27,6 +27,7 @@ use crypto::sha1::Sha1;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
@@ -105,7 +106,7 @@ pub struct Api {
 impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
-    pub fn new(api_url: &str) -> Result<Api, Box<::std::error::Error>> {
+    pub fn new(api_url: &str) -> Result<Api, Box<dyn Error>> {
         Api::new_from_builder(api_url, reqwest::Client::builder())
     }
 
@@ -115,7 +116,7 @@ impl Api {
     pub fn new_from_builder(
         api_url: &str,
         builder: reqwest::ClientBuilder,
-    ) -> Result<Api, Box<::std::error::Error>> {
+    ) -> Result<Api, Box<dyn Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
@@ -162,7 +163,7 @@ impl Api {
     }
 
     /// Loads the current user info; returns Ok(()) is successful
-    pub fn load_user_info(&mut self) -> Result<(), Box<::std::error::Error>> {
+    pub fn load_user_info(&mut self) -> Result<(), Box<dyn Error>> {
         let mut user = self.user.clone();
         user.load_user_info(&self)?;
         self.user = user;
@@ -220,7 +221,7 @@ impl Api {
 
     /// Loads the site info.
     /// Should only ever be called from `new()`
-    fn load_site_info(&mut self) -> Result<&Value, Box<::std::error::Error>> {
+    fn load_site_info(&mut self) -> Result<&Value, Box<dyn Error>> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
         self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
@@ -265,7 +266,7 @@ impl Api {
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
-    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<::std::error::Error>> {
+    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
         let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
         if token_type.len() != 0 {
             params.insert("type".to_string(), token_type.to_string());
@@ -283,7 +284,7 @@ impl Api {
     }
 
     /// Calls `get_token()` to return an edit token
-    pub fn get_edit_token(&mut self) -> Result<String, Box<::std::error::Error>> {
+    pub fn get_edit_token(&mut self) -> Result<String, Box<dyn Error>> {
         self.get_token("csrf")
     }
 
@@ -291,7 +292,7 @@ impl Api {
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         self.get_query_api_json_limit(params, None)
     }
 
@@ -315,7 +316,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         let mut cont = HashMap::<String, String>::new();
         let mut ret = serde_json::json!({});
         loop {
@@ -369,7 +370,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
         let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
@@ -396,7 +397,7 @@ impl Api {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
         let mut attempts_left = MAX_RETRY_ATTEMPTS;
         params.insert("format".to_string(), "json".to_string());
@@ -479,7 +480,7 @@ impl Api {
     pub fn get_query_api_json(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         self.query_api_json(params, "GET")
     }
 
@@ -487,7 +488,7 @@ impl Api {
     pub fn post_query_api_json(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         self.query_api_json(params, "POST")
     }
 
@@ -496,7 +497,7 @@ impl Api {
     pub fn post_query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<::std::error::Error>> {
+    ) -> Result<Value, Box<dyn Error>> {
         self.query_api_json_mut(params, "POST")
     }
 
@@ -536,7 +537,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<::std::error::Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         self.query_raw(&self.api_url.clone(), params, method)
     }
 
@@ -546,7 +547,7 @@ impl Api {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<::std::error::Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
@@ -555,7 +556,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
         self.request_builder(&self.api_url.clone(), params, method)
     }
 
@@ -592,7 +593,7 @@ impl Api {
         api_url: &str,
         to_sign: &HashMap<String, String>,
         oauth: &OAuthParams,
-    ) -> Result<String, Box<::std::error::Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let mut keys: Vec<String> = to_sign.iter().map(|(k, _)| self.rawurlencode(k)).collect();
         keys.sort();
 
@@ -648,7 +649,7 @@ impl Api {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -727,47 +728,43 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<::std::error::Error>> {
+    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
         }
 
-        let mut req;
-        match method {
-            "GET" => {
-                req = self
-                    .client
-                    .get(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .query(&params)
-            }
-            "POST" => {
-                req = self
-                    .client
-                    .post(api_url)
-                    .header(reqwest::header::COOKIE, self.cookies_to_string())
-                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                    .form(&params)
-            }
-            other => panic!("Unsupported method '{}'", other),
-        }
-        Ok(req)
+        Ok(match method {
+            "GET" => self
+                .client
+                .get(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .query(&params),
+            "POST" => self
+                .client
+                .post(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .form(&params),
+            other => return Err(From::from(format!("Unsupported method '{}'", other))),
+        })
     }
 
+    /// Performs a query, pauses if required, and returns the raw response
     fn query_raw_response(
         &self,
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::Response, Box<::std::error::Error>> {
+    ) -> Result<reqwest::Response, Box<dyn Error>> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
         return Ok(resp);
     }
 
+    /// Delays the current thread, if the query performs an edit, and a delay time is set
     fn enact_edit_delay(&self, params: &HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
@@ -785,7 +782,7 @@ impl Api {
         api_url: &String,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<::std::error::Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let mut resp = self.query_raw_response(api_url, params, method)?;
         self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
@@ -799,7 +796,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<::std::error::Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let mut resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
@@ -810,7 +807,7 @@ impl Api {
         &mut self,
         lgname: S,
         lgpassword: S,
-    ) -> Result<(), Box<::std::error::Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
@@ -844,15 +841,16 @@ impl Api {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
-    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<::std::error::Error>> {
+    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let result = self.query_raw(&query_api_url, &params, "POST")?;
+        //println!("{:?}", &result);
         Ok(serde_json::from_str(&result)?)
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
-    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<::std::error::Error>> {
+    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
         if uri.starts_with(concept_base_uri.as_str()) {
             Ok(uri[concept_base_uri.len()..].to_string())
