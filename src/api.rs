@@ -338,16 +338,10 @@ impl Api {
             }
             match conti {
                 Value::Object(obj) => {
-                    for (k, v) in obj {
-                        if k != "continue" {
-                            match v.as_str() {
-                                Some(x) => {
-                                    cont.insert(k.clone(), x.to_string());
-                                }
-                                None => {}
-                            }
-                        }
-                    }
+                    cont.clear();
+                    obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
+                        cont.insert(x.0.to_string(), x.1.to_string());
+                    });
                 }
                 _ => {
                     break;
@@ -917,4 +911,24 @@ mod tests {
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
+
+    #[test]
+    fn api_no_limit() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let params = api.params_into(&vec![
+            ("action", "query"),
+            ("list", "search"),
+            ("srlimit", "500"),
+            (
+                "srsearch",
+                "John haswbstatement:P31=Q5 -haswbstatement:P735",
+            ),
+        ]);
+        let result = api.get_query_api_json_all(&params).unwrap();
+        match result["query"]["search"].as_array() {
+            Some(arr) => assert!(arr.len() > 1500),
+            None => panic!("result.query.search is not an array"),
+        }
+    }
+
 }
