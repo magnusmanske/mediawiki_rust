@@ -882,7 +882,7 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
-    use super::Api;
+    use super::{Api, Title};
 
     #[test]
     fn site_info() {
@@ -906,13 +906,6 @@ mod tests {
     }
 
     #[test]
-    fn sparql_query() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
-        assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
-    }
-
-    #[test]
     fn api_no_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         let params = api.params_into(&vec![
@@ -929,6 +922,51 @@ mod tests {
             Some(arr) => assert!(arr.len() > 1500),
             None => panic!("result.query.search is not an array"),
         }
+    }
+
+    #[test]
+    fn sparql_query() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
+        assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
+    }
+
+    #[test]
+    fn entities_from_sparql_result() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } ORDER BY ?fellow_id LIMIT 1" ).unwrap() ;
+        let titles = api.entities_from_sparql_result(&res, "q");
+        assert_eq!(titles, vec!["Q36499535".to_string()]);
+    }
+
+    #[test]
+    fn extract_entity_from_uri() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        assert_eq!(
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123".to_string())
+                .unwrap(),
+            "Q123"
+        );
+        assert_eq!(
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456".to_string())
+                .unwrap(),
+            "P456"
+        );
+        // Expect error ('/' missing):
+        assert!(api
+            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123".to_string())
+            .is_err());
+    }
+
+    #[test]
+    fn result_array_to_titles() {
+        //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        assert_eq!(
+            Api::result_array_to_titles(
+                &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8}]})
+            ),
+            vec![Title::new("Foo", 7), Title::new("Bar", 8)]
+        );
     }
 
 }
