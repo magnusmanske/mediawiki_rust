@@ -176,12 +176,12 @@ impl Title {
         )
     }
 
-    /// Changees all spaces to underscores
+    /// Changes all spaces to underscores
     pub fn spaces_to_underscores(s: &String) -> String {
         s.trim().replace(" ", "_")
     }
 
-    /// Changees all underscores to spaces
+    /// Changes all underscores to spaces
     pub fn underscores_to_spaces(s: &String) -> String {
         s.replace("_", " ").trim().to_string()
     }
@@ -255,6 +255,50 @@ mod tests {
         assert_eq!(
             Title::new_from_full(&"This is not a namespace:A title".to_string(), wd_api()),
             Title::new("This is not a namespace:A title", 0)
+        );
+    }
+
+    #[test]
+    fn spaces_to_underscores() {
+        assert_eq!(
+            Title::spaces_to_underscores(&" A little  test ".to_string()),
+            "A_little__test"
+        );
+    }
+
+    #[test]
+    fn underscores_to_spaces() {
+        assert_eq!(
+            Title::underscores_to_spaces(&"_A_little__test_".to_string()),
+            "A little  test"
+        );
+    }
+
+    #[test]
+    fn first_letter_uppercase() {
+        assert_eq!(Title::first_letter_uppercase(&"".to_string()), "");
+        assert_eq!(
+            Title::first_letter_uppercase(&"FooBar".to_string()),
+            "FooBar"
+        );
+        assert_eq!(
+            Title::first_letter_uppercase(&"fooBar".to_string()),
+            "FooBar"
+        );
+        assert_eq!(Title::first_letter_uppercase(&"über".to_string()), "Über");
+    }
+
+    #[test]
+    fn full() {
+        let api = wd_api();
+        let title = Title::new_from_full(&"User talk:Magnus_Manske".to_string(), api);
+        assert_eq!(
+            title.full_pretty(api),
+            Some("User talk:Magnus Manske".to_string())
+        );
+        assert_eq!(
+            title.full_with_underscores(api),
+            Some("User_talk:Magnus_Manske".to_string())
         );
     }
 
