@@ -132,6 +132,11 @@ impl Api {
         Ok(ret)
     }
 
+    /// Returns the API url
+    pub fn api_url(&self) -> &String {
+        &self.api_url
+    }
+
     /// Sets the OAuth parameters
     pub fn set_oauth(&mut self, oauth: Option<OAuthParams>) {
         self.oauth = oauth;
