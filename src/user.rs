@@ -14,10 +14,10 @@ The `User` class deals with the (current) Api user.
     unused_qualifications
 )]
 
+use crate::MWerror;
 use crate::api::Api;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 
 /// `User` contains the login data for the `Api`
 #[derive(Debug, Clone)]
@@ -96,7 +96,7 @@ impl User {
     }
 
     /// Loads the user info, which is stored in the object; returns Ok(()) if successful
-    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<dyn Error>> {
+    pub async fn load_user_info(&mut self, api: &Api) -> Result<(), MWerror> {
         match self.user_info {
             Some(_) => return Ok(()),
             None => {
@@ -108,7 +108,7 @@ impl User {
                 .iter()
                 .map(|x| (x.0.to_string(), x.1.to_string()))
                 .collect();
-                let res = api.query_api_json(&params, "GET")?;
+                let res = api.query_api_json(&params, "GET").await?;
                 self.user_info = Some(res);
                 Ok(())
             }
@@ -145,6 +145,7 @@ impl User {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,3 +187,4 @@ mod tests {
         assert!(!user.has_right("thisisnotaright"));
     }
 }
+*/

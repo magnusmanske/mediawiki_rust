@@ -143,7 +143,7 @@ fn main() {
     //_wikidata_sparql();
     _wikidata_item_tester();
 }*/
-
+/*
 fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Error>> {
     let q = "Q13406268"; // Second sandbox item
     let token = api.get_edit_token().unwrap();
@@ -172,6 +172,7 @@ fn _login_api_from_config(api: &mut mediawiki::api::Api) {
     let lgpassword = settings.get_str("user.pass").unwrap();
     api.login(lgname, lgpassword).unwrap();
 }
+*/
 
 fn main() {
     /*
@@ -208,6 +209,7 @@ fn main() {
         }
     */
 
+    /*
     let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     //login_api_from_config(&mut api);
     //println!("{}", api.user_agent_full());
@@ -215,6 +217,7 @@ fn main() {
     let mut user = mediawiki::user::User::new();
     user.load_user_info(&api).unwrap();
     dbg!(user.has_right("createaccount"));
+    */
 
     /*
     let file = File::open("oauth_test.json").unwrap();
