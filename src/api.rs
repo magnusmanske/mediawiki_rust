@@ -95,6 +95,10 @@ impl OAuthParams {
     }
 }
 
+unsafe impl Send for OAuthParams {}
+unsafe impl Sync for OAuthParams {}
+
+
 /// `Api` is the main class to interact with a MediaWiki Api
 #[derive(Debug, Clone)]
 pub struct Api {
@@ -108,6 +112,9 @@ pub struct Api {
     edit_delay_ms: Option<u64>,
     oauth: Option<OAuthParams>,
 }
+
+unsafe impl Send for Api {}
+unsafe impl Sync for Api {}
 
 impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
@@ -907,17 +914,19 @@ impl Api {
     }
 }
 
-/*
+
 #[cfg(test)]
 mod tests {
     use super::{Api, Title};
+    use async_std::task;
+
+    fn wd_api() -> Api {
+        task::block_on(Api::new("https://www.wikidata.org/w/api.php")).unwrap()
+    }
 
     #[test]
     fn site_info() {
-        let api = async move {
-                unsafe { Api::new("https://www.wikidata.org/w/api.php").await
-            }};
-        let api = api.unwrap();
+        let api = wd_api();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -926,21 +935,19 @@ mod tests {
 
     #[test]
     fn api_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let api = wd_api();
         let params = api.params_into(&vec![
             ("action", "query"),
             ("list", "search"),
             ("srsearch", "the"),
         ]);
-        let result = api.get_query_api_json_limit(&params, Some(20)).unwrap();
+        let result = task::block_on(api.get_query_api_json_limit(&params, Some(20))).unwrap();
         assert_eq!(result["query"]["search"].as_array().unwrap().len(), 20);
     }
 
     #[test]
     fn api_no_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php");
-        let api = futures::executor::block_on(api);
-        let api = api.unwrap();
+        let api = wd_api();
         let params = api.params_into(&vec![
             ("action", "query"),
             ("list", "search"),
@@ -950,7 +957,7 @@ mod tests {
                 "John haswbstatement:P31=Q5 -haswbstatement:P735",
             ),
         ]);
-        let result = api.get_query_api_json_all(&params).unwrap();
+        let result = task::block_on(api.get_query_api_json_all(&params)).unwrap();
         match result["query"]["search"].as_array() {
             Some(arr) => assert!(arr.len() > 1500),
             None => panic!("result.query.search is not an array"),
@@ -959,23 +966,25 @@ mod tests {
 
     #[test]
     fn sparql_query() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let api = wd_api();
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }");
+        let res = task::block_on(res).unwrap();
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
 
     #[test]
     fn entities_from_sparql_result() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let api = wd_api();
         let res = 
-            api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } ORDER BY ?fellow_id LIMIT 1" ).unwrap();
+            api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } ORDER BY ?fellow_id LIMIT 1" );
+        let res = task::block_on(res).unwrap();
         let titles = api.entities_from_sparql_result(&res, "q");
         assert_eq!(titles, vec!["Q36499535".to_string()]);
     }
 
     #[test]
     fn extract_entity_from_uri() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        let api = wd_api();
         assert_eq!(
             api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123".to_string())
                 .unwrap(),
@@ -987,20 +996,20 @@ mod tests {
             "P456"
         );
         // Expect error ('/' missing):
-        assert!(Api
+        assert!(api
             .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123".to_string())
             .is_err());
     }
 
     #[test]
     fn result_array_to_titles() {
-        //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        assert_eq!(
-            Api::result_array_to_titles(
+        //let api = wd_api();
+        let result =             Api::result_array_to_titles(
                 &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8}]})
-            ),
+            );
+        assert_eq!(
+            result ,
             vec![Title::new("Foo", 7), Title::new("Bar", 8)]
         );
     }
 }
-*/
