@@ -116,7 +116,7 @@ impl User {
     }
 
     /// Returns the user name ("" if not logged in)
-    pub fn user_name(&self) -> &String {
+    pub fn user_name(&self) -> &str {
         &self.lgusername
     }
 

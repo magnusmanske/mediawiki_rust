@@ -133,7 +133,7 @@ impl Api {
     }
 
     /// Returns the API url
-    pub fn api_url(&self) -> &String {
+    pub fn api_url(&self) -> &str {
         &self.api_url
     }
 
@@ -258,7 +258,7 @@ impl Api {
     }
 
     /// Turns a Vec of str tuples into a Hashmap of String, to be used in API calls
-    pub fn params_into(&self, params: &Vec<(&str, &str)>) -> HashMap<String, String> {
+    pub fn params_into(&self, params: &[(&str, &str)]) -> HashMap<String, String> {
         params
             .into_iter()
             .map(|tuple| (tuple.0.to_string(), tuple.1.to_string()))
@@ -267,7 +267,7 @@ impl Api {
 
     /// Returns an empty parameter HashMap
     pub fn no_params(&self) -> HashMap<String, String> {
-        self.params_into(&vec![])
+        HashMap::new()
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
@@ -560,7 +560,7 @@ impl Api {
     }
 
     /// Returns the user agent name
-    pub fn user_agent(&self) -> &String {
+    pub fn user_agent(&self) -> &str {
         &self.user_agent
     }
 
@@ -581,7 +581,7 @@ impl Api {
     }
 
     /// Encodes a string
-    fn rawurlencode(&self, s: &String) -> String {
+    fn rawurlencode(&self, s: &str) -> String {
         urlencoding::encode(s)
     }
 
@@ -778,7 +778,7 @@ impl Api {
     /// Used for non-stateless queries, such as logins
     fn query_raw_mut(
         &mut self,
-        api_url: &String,
+        api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {

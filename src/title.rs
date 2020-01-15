@@ -47,7 +47,7 @@ impl Title {
 
     /// Constructor, where full namespace-prefixed title is known.
     /// Uses Api to parse valid namespaces
-    pub fn new_from_full(full_title: &String, api: &crate::api::Api) -> Self {
+    pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
         let mut v: Vec<&str> = full_title.split(":").collect();
         if v.len() == 1 {
             return Self::new(&full_title.to_string(), 0);
@@ -152,7 +152,7 @@ impl Title {
     }
 
     /// Returns the non-namespace-prefixed title, with spaces instead of underscores
-    pub fn pretty(&self) -> &String {
+    pub fn pretty(&self) -> &str {
         &self.title // was Title::underscores_to_spaces(&self.title) but always storing without underscores
     }
 
@@ -177,18 +177,18 @@ impl Title {
     }
 
     /// Changes all spaces to underscores
-    pub fn spaces_to_underscores(s: &String) -> String {
+    pub fn spaces_to_underscores(s: &str) -> String {
         s.trim().replace(" ", "_")
     }
 
     /// Changes all underscores to spaces
-    pub fn underscores_to_spaces(s: &String) -> String {
+    pub fn underscores_to_spaces(s: &str) -> String {
         s.replace("_", " ").trim().to_string()
     }
 
     /// Changes the first letter to uppercase.
     /// Enforces spaces instead of underscores.
-    pub fn first_letter_uppercase(s: &String) -> String {
+    pub fn first_letter_uppercase(s: &str) -> String {
         let s = Title::underscores_to_spaces(s);
         let mut c = s.chars();
         match c.next() {
