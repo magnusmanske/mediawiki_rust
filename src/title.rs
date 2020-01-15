@@ -40,7 +40,7 @@ impl Title {
     /// Assumes title has correct capitalization
     pub fn new(title: &str, namespace_id: NamespaceID) -> Title {
         Title {
-            title: Title::underscores_to_spaces(&title.to_string()),
+            title: Title::underscores_to_spaces(&title),
             namespace_id: namespace_id,
         }
     }
@@ -50,9 +50,9 @@ impl Title {
     pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
         let mut v: Vec<&str> = full_title.split(":").collect();
         if v.len() == 1 {
-            return Self::new(&full_title.to_string(), 0);
+            return Self::new(&full_title, 0);
         }
-        let namespace_name = Title::first_letter_uppercase(&v.remove(0).to_string());
+        let namespace_name = Title::first_letter_uppercase(&v.remove(0));
         let title = Title::underscores_to_spaces(&v.join(":"));
         let site_info = api.get_site_info();
 
@@ -62,7 +62,7 @@ impl Title {
                 for (_, ns) in namespaces {
                     match ns["*"].as_str() {
                         Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace.to_string())
+                            if Title::underscores_to_spaces(&namespace)
                                 == namespace_name
                             {
                                 return Self::new_from_namespace_object(title, ns);
@@ -72,7 +72,7 @@ impl Title {
                     }
                     match ns["canonical"].as_str() {
                         Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace.to_string())
+                            if Title::underscores_to_spaces(&namespace)
                                 == namespace_name
                             {
                                 return Self::new_from_namespace_object(title, ns);
@@ -91,7 +91,7 @@ impl Title {
                 for ns in namespaces {
                     match ns["*"].as_str() {
                         Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace.to_string())
+                            if Title::underscores_to_spaces(&namespace)
                                 == namespace_name
                             {
                                 let namespace_id = ns["id"].as_i64().unwrap();
@@ -110,7 +110,7 @@ impl Title {
         }
 
         // Fallback
-        Self::new(&full_title.to_string(), 0)
+        Self::new(&full_title, 0)
     }
 
     /// Constructor, used internally by `new_from_full`
@@ -126,7 +126,7 @@ impl Title {
     /// Constructor, used by ``Api::result_array_to_titles``
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
         Title {
-            title: Title::underscores_to_spaces(&data["title"].as_str().unwrap_or("").to_string()),
+            title: Title::underscores_to_spaces(&data["title"].as_str().unwrap_or("")),
             namespace_id: data["ns"].as_i64().unwrap_or(0).into(),
         }
     }
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn new_from_full_main_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Main namespace".to_string(), wd_api()),
+            Title::new_from_full(&"Main namespace", wd_api()),
             Title::new("Main namespace", 0)
         );
     }
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn new_from_full_canonical_namespace() {
         assert_eq!(
-            Title::new_from_full(&"File:Some file.jpg".to_string(), wd_api()),
+            Title::new_from_full(&"File:Some file.jpg", wd_api()),
             Title::new("Some file.jpg", 6)
         );
     }
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn new_from_full_canonical_namespace_with_colon() {
         assert_eq!(
-            Title::new_from_full(&"Project talk:A project:yes, really".to_string(), wd_api()),
+            Title::new_from_full(&"Project talk:A project:yes, really", wd_api()),
             Title::new("A project:yes, really", 5)
         );
     }
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn new_from_full_namespace_alias() {
         assert_eq!(
-            Title::new_from_full(&"Item:Q12345".to_string(), wd_api()),
+            Title::new_from_full(&"Item:Q12345", wd_api()),
             Title::new("Q12345", 0)
         );
     }
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn new_from_full_special_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Special:A title".to_string(), wd_api()),
+            Title::new_from_full(&"Special:A title", wd_api()),
             Title::new("A title", -1)
         );
     }
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn new_from_full_invalid_namespace() {
         assert_eq!(
-            Title::new_from_full(&"This is not a namespace:A title".to_string(), wd_api()),
+            Title::new_from_full(&"This is not a namespace:A title", wd_api()),
             Title::new("This is not a namespace:A title", 0)
         );
     }
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn spaces_to_underscores() {
         assert_eq!(
-            Title::spaces_to_underscores(&" A little  test ".to_string()),
+            Title::spaces_to_underscores(&" A little  test "),
             "A_little__test"
         );
     }
@@ -269,29 +269,29 @@ mod tests {
     #[test]
     fn underscores_to_spaces() {
         assert_eq!(
-            Title::underscores_to_spaces(&"_A_little__test_".to_string()),
+            Title::underscores_to_spaces(&"_A_little__test_"),
             "A little  test"
         );
     }
 
     #[test]
     fn first_letter_uppercase() {
-        assert_eq!(Title::first_letter_uppercase(&"".to_string()), "");
+        assert_eq!(Title::first_letter_uppercase(&""), "");
         assert_eq!(
-            Title::first_letter_uppercase(&"FooBar".to_string()),
+            Title::first_letter_uppercase(&"FooBar"),
             "FooBar"
         );
         assert_eq!(
-            Title::first_letter_uppercase(&"fooBar".to_string()),
+            Title::first_letter_uppercase(&"fooBar"),
             "FooBar"
         );
-        assert_eq!(Title::first_letter_uppercase(&"über".to_string()), "Über");
+        assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
     }
 
     #[test]
     fn full() {
         let api = wd_api();
-        let title = Title::new_from_full(&"User talk:Magnus_Manske".to_string(), api);
+        let title = Title::new_from_full(&"User talk:Magnus_Manske", api);
         assert_eq!(
             title.full_pretty(api),
             Some("User talk:Magnus Manske".to_string())

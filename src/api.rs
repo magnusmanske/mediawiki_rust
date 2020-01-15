@@ -28,6 +28,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
@@ -169,7 +170,7 @@ impl Api {
 
     /// Loads the current user info; returns Ok(()) is successful
     pub fn load_user_info(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut user = self.user.clone();
+        let mut user = std::mem::take(&mut self.user);
         user.load_user_info(&self)?;
         self.user = user;
         Ok(())
@@ -261,7 +262,7 @@ impl Api {
     pub fn params_into(&self, params: &[(&str, &str)]) -> HashMap<String, String> {
         params
             .into_iter()
-            .map(|tuple| (tuple.0.to_string(), tuple.1.to_string()))
+            .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
     }
 
@@ -277,7 +278,7 @@ impl Api {
             params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
-        key += &"token".to_string();
+        key += &"token";
         if token_type.len() == 0 {
             key = "csrftoken".into()
         }
@@ -537,7 +538,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        self.query_raw(&self.api_url.clone(), params, method)
+        self.query_raw(&self.api_url, params, method)
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
@@ -556,7 +557,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
-        self.request_builder(&self.api_url.clone(), params, method)
+        self.request_builder(&self.api_url, params, method)
     }
 
     /// Returns the user agent name
@@ -571,13 +572,12 @@ impl Api {
 
     /// Returns the user agent string, as it is passed to the API through a HTTP header
     pub fn user_agent_full(&self) -> String {
-        let mut ret: String = self.user_agent.to_string();
-        ret += &format!(
-            "; {}-rust/{}",
+        format!(
+            "{}; {}-rust/{}",
+            self.user_agent,
             env!("CARGO_PKG_NAME"),
             env!("CARGO_PKG_VERSION")
-        );
-        ret
+        )
     }
 
     /// Encodes a string
@@ -601,31 +601,31 @@ impl Api {
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
                     let v = self.rawurlencode(&k2);
-                    Some(k.clone() + &"=".to_string() + &v)
+                    Some(k.clone() + &"=" + &v)
                 }
                 None => None,
             })
             .collect();
 
         let url = Url::parse(api_url)?;
-        let mut url_string = url.scheme().to_owned() + &"://".to_string();
+        let mut url_string = url.scheme().to_owned() + &"://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
         match url.port() {
-            Some(port) => url_string += &(":".to_string() + &port.to_string()),
+            Some(port) => write!(url_string, ":{}", port).unwrap(),
             None => {}
         }
         url_string += url.path();
 
-        let ret = self.rawurlencode(&method.to_string())
-            + &"&".to_string()
+        let ret = self.rawurlencode(&method)
+            + &"&"
             + &self.rawurlencode(&url_string)
-            + &"&".to_string()
+            + &"&"
             + &self.rawurlencode(&ret.join("&"));
 
         let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
             (Some(g_consumer_secret), Some(g_token_secret)) => {
                 self.rawurlencode(g_consumer_secret)
-                    + &"&".to_string()
+                    + &"&"
                     + &self.rawurlencode(g_token_secret)
             }
             _ => {
@@ -669,9 +669,9 @@ impl Api {
 
         headers.insert(
             "oauth_consumer_key",
-            oauth.g_consumer_key.clone().unwrap().parse()?,
+            oauth.g_consumer_key.as_ref().unwrap().parse()?,
         );
-        headers.insert("oauth_token", oauth.g_token_key.clone().unwrap().parse()?);
+        headers.insert("oauth_token", oauth.g_token_key.as_ref().unwrap().parse()?);
         headers.insert("oauth_version", "1.0".parse()?);
         headers.insert("oauth_nonce", nonce.parse()?);
         headers.insert("oauth_timestamp", timestamp.parse()?);
@@ -698,10 +698,10 @@ impl Api {
             .iter()
             .map(|(key, value)| {
                 let key = key.to_string();
-                let value = value.to_str().unwrap().to_string();
+                let value = value.to_str().unwrap();
                 let key = self.rawurlencode(&key);
                 let value = self.rawurlencode(&value);
-                key.to_string() + &"=\"".to_string() + &value.to_string() + &"\"".to_string()
+                key.to_string() + &"=\"" + &value + &"\""
             })
             .collect();
         header += &parts.join(", ");
@@ -901,7 +901,7 @@ mod tests {
     #[test]
     fn api_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let params = api.params_into(&vec![
+        let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srsearch", "the"),
@@ -913,7 +913,7 @@ mod tests {
     #[test]
     fn api_no_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let params = api.params_into(&vec![
+        let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srlimit", "500"),
@@ -948,18 +948,18 @@ mod tests {
     fn extract_entity_from_uri() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123".to_string())
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123")
                 .unwrap(),
             "Q123"
         );
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456".to_string())
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456")
                 .unwrap(),
             "P456"
         );
         // Expect error ('/' missing):
         assert!(api
-            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123".to_string())
+            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123")
             .is_err());
     }
 
