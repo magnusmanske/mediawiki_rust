@@ -25,7 +25,7 @@ use cookie::{Cookie, CookieJar};
 use crypto::mac::Mac;
 use crypto::sha1::Sha1;
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -182,47 +182,36 @@ impl Api {
     }
 
     /// Returns a serde_json Value in site info, within the `["query"]` object.
-    /// The value is a cloned copy.
-    pub fn get_site_info_value(&self, k1: &str, k2: &str) -> Value {
-        let site_info = self.get_site_info();
-        site_info["query"][k1][k2].clone()
+    pub fn get_site_info_value<'a>(&'a self, k1: &str, k2: &str) -> &'a Value {
+        &self.get_site_info()["query"][k1][k2]
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string(&self, k1: &str, k2: &str) -> Result<String, String> {
-        let site_info = self.get_site_info();
-        match site_info["query"][k1][k2].as_str() {
-            Some(s) => Ok(s.to_string()),
+    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+        match self.get_site_info_value(k1, k2).as_str() {
+            Some(s) => Ok(s),
             None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
         }
     }
+    
+    /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
+    pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Map<String, Value>> {
+        self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str()).as_object()
+    }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
-    pub fn get_canonical_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
-        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
-        match v["canonical"].as_str() {
-            Some(v) => Some(v.to_string()),
-            None => {
-                match v["*"].as_str() {
-                    Some(c) => Some(c.to_string()), // Main name space, no canonical name
-                    None => None,
-                }
-            }
-        }
+    pub fn get_canonical_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
+        let v = self.get_namespace_value(namespace_id)?;
+        v["canonical"].as_str()
+            .or(v["*"].as_str())
     }
 
     /// Returns the local namespace name for a namespace ID, if defined
-    pub fn get_local_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
-        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
-        match v["*"].as_str() {
-            Some(v) => Some(v.to_string()),
-            None => {
-                match v["canonical"].as_str() {
-                    Some(c) => Some(c.to_string()), // Canonical, not local name
-                    None => None,
-                }
-            }
-        }
+    pub fn get_local_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
+        let v = self.get_namespace_value(namespace_id)?;
+        v["*"].as_str()
+            // Canonical, not local name
+            .or(v["canonical"].as_str())
     }
 
     /// Loads the site info.
@@ -851,7 +840,7 @@ impl Api {
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
     pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
-        if uri.starts_with(concept_base_uri.as_str()) {
+        if uri.starts_with(concept_base_uri) {
             Ok(uri[concept_base_uri.len()..].to_string())
         } else {
             Err(From::from(format!(

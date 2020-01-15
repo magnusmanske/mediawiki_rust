@@ -137,12 +137,12 @@ impl Title {
     }
 
     /// Returns the canonical namespace text, based on the Api
-    pub fn namespace_name(&self, api: &crate::api::Api) -> Option<String> {
+    pub fn namespace_name<'a>(&self, api: &'a crate::api::Api) -> Option<&'a str> {
         api.get_canonical_namespace_name(self.namespace_id)
     }
 
     /// Returns the local namespace text, based on the Api
-    pub fn local_namespace_name(&self, api: &crate::api::Api) -> Option<String> {
+    pub fn local_namespace_name<'a>(&self, api: &'a crate::api::Api) -> Option<&'a str> {
         api.get_local_namespace_name(self.namespace_id)
     }
 
