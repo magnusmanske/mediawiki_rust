@@ -968,10 +968,13 @@ mod tests {
         //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             Api::result_array_to_titles(
-                &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8}]})
+                &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8},{"title":"Prefix:Baz","ns":9}]})
             ),
-            vec![Title::new("Foo", 7), Title::new("Bar", 8)]
+            vec![
+                Title::new("Foo", 7),
+                Title::new("Bar", 8),
+                Title::new("Baz", 9)
+            ]
         );
     }
-
 }
