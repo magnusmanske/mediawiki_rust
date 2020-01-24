@@ -94,7 +94,7 @@ impl OAuthParams {
 pub struct Api {
     api_url: String,
     site_info: Value,
-    client: reqwest::Client,
+    client: reqwest::blocking::Client,
     cookie_jar: CookieJar,
     user: User,
     user_agent: String,
@@ -107,7 +107,7 @@ impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     pub fn new(api_url: &str) -> Result<Api, Box<dyn Error>> {
-        Api::new_from_builder(api_url, reqwest::Client::builder())
+        Api::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
@@ -115,7 +115,7 @@ impl Api {
     /// Uses a bespoke reqwest::ClientBuilder.
     pub fn new_from_builder(
         api_url: &str,
-        builder: reqwest::ClientBuilder,
+        builder: reqwest::blocking::ClientBuilder,
     ) -> Result<Api, Box<dyn Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
@@ -148,12 +148,12 @@ impl Api {
     }
 
     /// Returns a reference to the reqwest client
-    pub fn client(&self) -> &reqwest::Client {
+    pub fn client(&self) -> &reqwest::blocking::Client {
         &self.client
     }
 
     /// Returns a mutable reference to the reqwest client
-    pub fn client_mut(&mut self) -> &mut reqwest::Client {
+    pub fn client_mut(&mut self) -> &mut reqwest::blocking::Client {
         &mut self.client
     }
 
@@ -501,7 +501,7 @@ impl Api {
     }
 
     /// Adds or replaces cookies in the cookie jar from a http `Response`
-    pub fn set_cookies_from_response(&mut self, resp: &reqwest::Response) {
+    pub fn set_cookies_from_response(&mut self, resp: &reqwest::blocking::Response) {
         let cookie_strings = resp
             .headers()
             .get_all(reqwest::header::SET_COOKIE)
@@ -555,7 +555,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         self.request_builder(&self.api_url.clone(), params, method)
     }
 
@@ -648,7 +648,7 @@ impl Api {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -727,7 +727,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
@@ -756,7 +756,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::Response, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
@@ -782,7 +782,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let mut resp = self.query_raw_response(api_url, params, method)?;
+        let resp = self.query_raw_response(api_url, params, method)?;
         self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
     }
@@ -796,7 +796,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let mut resp = self.query_raw_response(api_url, params, method)?;
+        let resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
 
