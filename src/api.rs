@@ -39,7 +39,7 @@ pub type NamespaceID = i64;
 
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
-const MAX_RETRY_ATTEMPTS: u64 = 5;
+const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
 #[macro_export]
 /// To quickly create a hashmap.
@@ -100,6 +100,7 @@ pub struct Api {
     user_agent: String,
     maxlag_seconds: Option<u64>,
     edit_delay_ms: Option<u64>,
+    max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
 }
 
@@ -125,6 +126,7 @@ impl Api {
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
+            max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
             oauth: None,
         };
@@ -173,6 +175,16 @@ impl Api {
         user.load_user_info(&self)?;
         self.user = user;
         Ok(())
+    }
+
+    /// Returns the maximum number of retry attempts
+    pub fn max_retry_attempts(&self) -> u64 {
+        return self.max_retry_attempts;
+    }
+
+    /// Sets the maximum number of retry attempts
+    pub fn set_max_retry_attempts(&mut self, max_retry_attempts: u64) {
+        self.max_retry_attempts = max_retry_attempts;
     }
 
     /// Returns a reference to the serde_json Value containing the site info
@@ -371,7 +383,7 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
-        let mut attempts_left = MAX_RETRY_ATTEMPTS;
+        let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
         self.set_maxlag_params(&mut params, method);
         loop {
@@ -380,7 +392,10 @@ impl Api {
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                        return Err(From::from(format!(
+                            "Max attempts reached [MAXLAG] after {} attempts",
+                            &self.max_retry_attempts
+                        )));
                     }
                     attempts_left -= 1;
                     thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
@@ -398,7 +413,7 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
-        let mut attempts_left = MAX_RETRY_ATTEMPTS;
+        let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
         self.set_maxlag_params(&mut params, method);
         loop {
