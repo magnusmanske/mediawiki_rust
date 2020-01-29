@@ -16,14 +16,14 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 
 extern crate base64;
 extern crate cookie;
-extern crate crypto;
+extern crate hmac;
 extern crate reqwest;
+extern crate sha1;
 
+use crate::api::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
-use crypto::mac::Mac;
-use crypto::sha1::Sha1;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -40,6 +40,8 @@ pub type NamespaceID = i64;
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
+
+type HmacSha1 = hmac::Hmac<sha1::Sha1>;
 
 #[macro_export]
 /// To quickly create a hashmap.
@@ -648,10 +650,9 @@ impl Api {
             }
         };
 
-        let mut hmac = crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
+        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?; //crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
         hmac.input(&ret.into_bytes());
-        let mut bytes = vec![0u8; hmac.output_bytes()];
-        hmac.raw_result(bytes.as_mut_slice());
+        let bytes = hmac.result().code();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)
