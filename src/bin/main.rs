@@ -4,7 +4,7 @@ use config::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
-//use std::fs::File;
+use std::fs::File;
 
 /*
 extern crate mediawiki;
@@ -173,6 +173,39 @@ fn _login_api_from_config(api: &mut mediawiki::api::Api) {
     api.login(lgname, lgpassword).unwrap();
 }
 
+fn _oauth_edit(api: &mut mediawiki::api::Api) {
+    let sandbox_item = "Q13406268";
+    let file = File::open("oauth_test.json").expect("File oauth_test.json not found");
+    let j =
+        serde_json::from_reader(file).expect("Reading/parsing JSON from oauth_test.json failed");
+    let oauth_params = mediawiki::api::OAuthParams::new_from_json(&j);
+    api.set_oauth(Some(oauth_params));
+    //let _x = api.oauth().clone();
+
+    let mut params: HashMap<String, String> = vec![
+        ("action", "wbeditentity"),
+        ("id", sandbox_item),
+        (
+            "data",
+            "{\"labels\":[{\"language\":\"no\",\"value\":\"Baz\",\"add\":\"\"}]}",
+        ),
+        ("summary", "testing"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect();
+
+    params.insert(
+        "token".to_string(),
+        api.get_edit_token().expect("Could not get edit token"),
+    );
+
+    match api.post_query_api_json_mut(&params) {
+        Ok(_) => println!("Edited https://www.wikidata.org/wiki/{}", sandbox_item),
+        Err(e) => panic!("{:?}", &e),
+    }
+}
+
 fn main() {
     /*
         if false {
@@ -208,43 +241,15 @@ fn main() {
         }
     */
 
-    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let _api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
     //login_api_from_config(&mut api);
     //println!("{}", api.user_agent_full());
+    //_oauth_edit(&mut api);
 
+    /*
     let mut user = mediawiki::user::User::new();
     user.load_user_info(&api).unwrap();
     dbg!(user.has_right("createaccount"));
-
-    /*
-    let file = File::open("oauth_test.json").unwrap();
-    let j = serde_json::from_reader(file).unwrap();
-    let oauth_params = mediawiki::api::OAuthParams::new_from_json(&j);
-    api.set_oauth(Some(oauth_params));
-    let x = api.oauth().clone();
-
-    let mut params: HashMap<String, String> = vec![
-        ("action", "wbeditentity"),
-        ("id", "Q13406268"),
-        (
-            "data",
-            "{\"labels\":[{\"language\":\"no\",\"value\":\"Bar\",\"add\":\"\"}]}",
-        ),
-        ("summary", "testing"),
-    ]
-    .iter()
-    .map(|(k, v)| (k.to_string(), v.to_string()))
-    .collect();
-
-    params.insert(
-        "token".to_string(),
-        api.get_edit_token().expect("Could not get edit token"),
-    );
-
-    match api.post_query_api_json_mut(&params) {
-        Ok(_) => println!("DONE!"),
-        Err(e) => panic!("{:?}", &e),
-    }
     */
 
     /*
