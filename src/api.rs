@@ -859,9 +859,11 @@ impl Api {
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let result = self.query_raw(&query_api_url, &params, "POST")?;
-        //println!("{:?}", &result);
-        Ok(serde_json::from_str(&result)?)
+        let response = self.query_raw_response(&query_api_url, &params, "POST")?;
+        match response.json() {
+            Ok(json) => Ok(json),
+            Err(e) => Err(From::from(format!("{}", e))),
+        }
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
