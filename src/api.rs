@@ -387,19 +387,21 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params, method);
+        let mut cumulative: u64 = 0;
         loop {
+            self.set_cumulative_maxlag_params(&mut params, method, cumulative);
             let t = self.query_api_raw(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
                         return Err(From::from(format!(
-                            "Max attempts reached [MAXLAG] after {} attempts",
-                            &self.max_retry_attempts
+                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
+                            &self.max_retry_attempts, cumulative
                         )));
                     }
                     attempts_left -= 1;
+                    cumulative += lag_seconds;
                     thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
                 }
                 None => return Ok(v),
@@ -417,16 +419,21 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params, method);
+        let mut cumulative: u64 = 0;
         loop {
+            self.set_cumulative_maxlag_params(&mut params, method, cumulative);
             let t = self.query_api_raw_mut(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                        return Err(From::from(format!(
+                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
+                            &self.max_retry_attempts, cumulative
+                        )));
                     }
                     attempts_left -= 1;
+                    cumulative += lag_seconds;
                     thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
                 }
                 None => return Ok(v),
@@ -469,13 +476,32 @@ impl Api {
     }
 
     /// Sets the maglag parameter for a query, if necessary
-    fn set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
+    fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
         }
         match self.maxlag_seconds {
             Some(maxlag_seconds) => {
                 params.insert("maxlag".to_string(), maxlag_seconds.to_string());
+            }
+            None => {}
+        }
+    }
+
+    /// Sets the maglag parameter for a query, if necessary
+    fn set_cumulative_maxlag_params(
+        &self,
+        params: &mut HashMap<String, String>,
+        method: &str,
+        cumulative: u64,
+    ) {
+        if !self.is_edit_query(params, method) {
+            return;
+        }
+        match self.maxlag_seconds {
+            Some(maxlag_seconds) => {
+                let added = cumulative + maxlag_seconds;
+                params.insert("maxlag".to_string(), added.to_string());
             }
             None => {}
         }
