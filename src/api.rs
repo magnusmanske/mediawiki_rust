@@ -359,7 +359,8 @@ impl Api {
                 Value::Object(obj) => {
                     cont.clear();
                     obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        cont.insert(x.0.to_string(), x.1.to_string());
+                        let continue_value = x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
+                        cont.insert(x.0.to_string(), continue_value);
                     });
                 }
                 _ => {
