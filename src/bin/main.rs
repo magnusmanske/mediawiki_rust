@@ -241,7 +241,14 @@ fn main() {
         }
     */
 
-    let _api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let x = api.get_namespace_value(0);
+    println!("{:?}", x);
+    let x = api.get_local_namespace_name(0);
+    println!("{:?}", x);
+    let x = api.get_canonical_namespace_name(0);
+    println!("{:?}", x);
+
     //login_api_from_config(&mut api);
     //println!("{}", api.user_agent_full());
     //_oauth_edit(&mut api);

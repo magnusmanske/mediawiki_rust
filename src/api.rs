@@ -25,7 +25,7 @@ use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -209,9 +209,13 @@ impl Api {
     }
 
     /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
-    pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Map<String, Value>> {
-        self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str())
-            .as_object()
+    pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Value> {
+        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
+        if v.is_object() {
+            Some(v)
+        } else {
+            None
+        }
     }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
@@ -220,16 +224,25 @@ impl Api {
         namespace_id: NamespaceID,
     ) -> Option<&'a str> {
         let v = self.get_namespace_value(namespace_id)?;
-        v.get("canonical")?.as_str().or(v.get("*")?.as_str())
+        match v["canonical"].as_str() {
+            Some(name) => Some(name),
+            None => match v["*"].as_str() {
+                Some(name) => Some(name),
+                None => None,
+            },
+        }
     }
 
     /// Returns the local namespace name for a namespace ID, if defined
     pub fn get_local_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
         let v = self.get_namespace_value(namespace_id)?;
-        v.get("*")?
-            .as_str()
-            // Canonical, not local name
-            .or(v.get("canonical")?.as_str())
+        match v["*"].as_str() {
+            Some(name) => Some(name),
+            None => match v["canonical"].as_str() {
+                Some(name) => Some(name),
+                None => None,
+            },
+        }
     }
 
     /// Loads the site info.
