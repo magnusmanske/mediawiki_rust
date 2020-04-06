@@ -125,9 +125,21 @@ impl Title {
 
     /// Constructor, used by ``Api::result_array_to_titles``
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
+        let namespace_id = data["ns"].as_i64().unwrap_or(0).into();
+        let mut title = data["title"].as_str().unwrap_or("").to_string();
+
+        // If namespace!=0, remove namespace prefix. THIS IS NOT IDEAL AND SHOULD USE Api AS IN new_from_full!
+        if namespace_id > 0 {
+            let mut v: Vec<&str> = title.split(":").collect();
+            if v.len() > 1 {
+                v.remove(0);
+                title = v.join(":");
+            }
+        }
+
         Title {
-            title: Title::underscores_to_spaces(&data["title"].as_str().unwrap_or("")),
-            namespace_id: data["ns"].as_i64().unwrap_or(0).into(),
+            title: Title::underscores_to_spaces(&title),
+            namespace_id: namespace_id,
         }
     }
 
@@ -301,5 +313,4 @@ mod tests {
             Some("User_talk:Magnus_Manske".to_string())
         );
     }
-
 }

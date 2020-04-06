@@ -16,14 +16,14 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 
 extern crate base64;
 extern crate cookie;
-extern crate crypto;
+extern crate hmac;
 extern crate reqwest;
+extern crate sha1;
 
+use crate::api::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
-use crypto::mac::Mac;
-use crypto::sha1::Sha1;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -40,7 +40,9 @@ pub type NamespaceID = i64;
 
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
-const MAX_RETRY_ATTEMPTS: u64 = 5;
+const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
+
+type HmacSha1 = hmac::Hmac<sha1::Sha1>;
 
 #[macro_export]
 /// To quickly create a hashmap.
@@ -95,12 +97,13 @@ impl OAuthParams {
 pub struct Api {
     api_url: String,
     site_info: Value,
-    client: reqwest::Client,
+    client: reqwest::blocking::Client,
     cookie_jar: CookieJar,
     user: User,
     user_agent: String,
     maxlag_seconds: Option<u64>,
     edit_delay_ms: Option<u64>,
+    max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
 }
 
@@ -108,7 +111,7 @@ impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     pub fn new(api_url: &str) -> Result<Api, Box<dyn Error>> {
-        Api::new_from_builder(api_url, reqwest::Client::builder())
+        Api::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
@@ -116,7 +119,7 @@ impl Api {
     /// Uses a bespoke reqwest::ClientBuilder.
     pub fn new_from_builder(
         api_url: &str,
-        builder: reqwest::ClientBuilder,
+        builder: reqwest::blocking::ClientBuilder,
     ) -> Result<Api, Box<dyn Error>> {
         let mut ret = Api {
             api_url: api_url.to_string(),
@@ -126,6 +129,7 @@ impl Api {
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
+            max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
             oauth: None,
         };
@@ -149,12 +153,12 @@ impl Api {
     }
 
     /// Returns a reference to the reqwest client
-    pub fn client(&self) -> &reqwest::Client {
+    pub fn client(&self) -> &reqwest::blocking::Client {
         &self.client
     }
 
     /// Returns a mutable reference to the reqwest client
-    pub fn client_mut(&mut self) -> &mut reqwest::Client {
+    pub fn client_mut(&mut self) -> &mut reqwest::blocking::Client {
         &mut self.client
     }
 
@@ -174,6 +178,16 @@ impl Api {
         user.load_user_info(&self)?;
         self.user = user;
         Ok(())
+    }
+
+    /// Returns the maximum number of retry attempts
+    pub fn max_retry_attempts(&self) -> u64 {
+        return self.max_retry_attempts;
+    }
+
+    /// Sets the maximum number of retry attempts
+    pub fn set_max_retry_attempts(&mut self, max_retry_attempts: u64) {
+        self.max_retry_attempts = max_retry_attempts;
     }
 
     /// Returns a reference to the serde_json Value containing the site info
@@ -335,7 +349,8 @@ impl Api {
                 Value::Object(obj) => {
                     cont.clear();
                     obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        cont.insert(x.0.to_string(), x.1.to_string());
+                        let continue_value = x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
+                        cont.insert(x.0.to_string(), continue_value);
                     });
                 }
                 _ => {
@@ -361,18 +376,23 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
-        let mut attempts_left = MAX_RETRY_ATTEMPTS;
+        let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params, method);
+        let mut cumulative: u64 = 0;
         loop {
+            self.set_cumulative_maxlag_params(&mut params, method, cumulative);
             let t = self.query_api_raw(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                        return Err(From::from(format!(
+                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
+                            &self.max_retry_attempts, cumulative
+                        )));
                     }
                     attempts_left -= 1;
+                    cumulative += lag_seconds;
                     thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
                 }
                 None => return Ok(v),
@@ -388,18 +408,23 @@ impl Api {
         method: &str,
     ) -> Result<Value, Box<dyn Error>> {
         let mut params = params.clone();
-        let mut attempts_left = MAX_RETRY_ATTEMPTS;
+        let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
-        self.set_maxlag_params(&mut params, method);
+        let mut cumulative: u64 = 0;
         loop {
+            self.set_cumulative_maxlag_params(&mut params, method, cumulative);
             let t = self.query_api_raw_mut(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from("Max attempts reached [MAXLAG]"));
+                        return Err(From::from(format!(
+                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
+                            &self.max_retry_attempts, cumulative
+                        )));
                     }
                     attempts_left -= 1;
+                    cumulative += lag_seconds;
                     thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
                 }
                 None => return Ok(v),
@@ -442,13 +467,32 @@ impl Api {
     }
 
     /// Sets the maglag parameter for a query, if necessary
-    fn set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
+    fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
         }
         match self.maxlag_seconds {
             Some(maxlag_seconds) => {
                 params.insert("maxlag".to_string(), maxlag_seconds.to_string());
+            }
+            None => {}
+        }
+    }
+
+    /// Sets the maglag parameter for a query, if necessary
+    fn set_cumulative_maxlag_params(
+        &self,
+        params: &mut HashMap<String, String>,
+        method: &str,
+        cumulative: u64,
+    ) {
+        if !self.is_edit_query(params, method) {
+            return;
+        }
+        match self.maxlag_seconds {
+            Some(maxlag_seconds) => {
+                let added = cumulative + maxlag_seconds;
+                params.insert("maxlag".to_string(), added.to_string());
             }
             None => {}
         }
@@ -491,7 +535,7 @@ impl Api {
     }
 
     /// Adds or replaces cookies in the cookie jar from a http `Response`
-    pub fn set_cookies_from_response(&mut self, resp: &reqwest::Response) {
+    pub fn set_cookies_from_response(&mut self, resp: &reqwest::blocking::Response) {
         let cookie_strings = resp
             .headers()
             .get_all(reqwest::header::SET_COOKIE)
@@ -545,7 +589,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         self.request_builder(&self.api_url, params, method)
     }
 
@@ -622,10 +666,9 @@ impl Api {
             }
         };
 
-        let mut hmac = crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
+        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?; //crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
         hmac.input(&ret.into_bytes());
-        let mut bytes = vec![0u8; hmac.output_bytes()];
-        hmac.raw_result(bytes.as_mut_slice());
+        let bytes = hmac.result().code();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)
@@ -637,7 +680,7 @@ impl Api {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -716,7 +759,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
@@ -745,7 +788,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::Response, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
@@ -771,7 +814,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let mut resp = self.query_raw_response(api_url, params, method)?;
+        let resp = self.query_raw_response(api_url, params, method)?;
         self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
     }
@@ -785,7 +828,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let mut resp = self.query_raw_response(api_url, params, method)?;
+        let resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
 
@@ -832,9 +875,11 @@ impl Api {
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let result = self.query_raw(&query_api_url, &params, "POST")?;
-        //println!("{:?}", &result);
-        Ok(serde_json::from_str(&result)?)
+        let response = self.query_raw_response(&query_api_url, &params, "POST")?;
+        match response.json() {
+            Ok(json) => Ok(json),
+            Err(e) => Err(From::from(format!("{}", e))),
+        }
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
@@ -957,10 +1002,13 @@ mod tests {
         //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             Api::result_array_to_titles(
-                &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8}]})
+                &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8},{"title":"Prefix:Baz","ns":9}]})
             ),
-            vec![Title::new("Foo", 7), Title::new("Bar", 8)]
+            vec![
+                Title::new("Foo", 7),
+                Title::new("Bar", 8),
+                Title::new("Baz", 9)
+            ]
         );
     }
-
 }
