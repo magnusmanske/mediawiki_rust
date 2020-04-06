@@ -25,9 +25,10 @@ use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
@@ -137,7 +138,7 @@ impl Api {
     }
 
     /// Returns the API url
-    pub fn api_url(&self) -> &String {
+    pub fn api_url(&self) -> &str {
         &self.api_url
     }
 
@@ -173,7 +174,7 @@ impl Api {
 
     /// Loads the current user info; returns Ok(()) is successful
     pub fn load_user_info(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut user = self.user.clone();
+        let mut user = std::mem::take(&mut self.user);
         user.load_user_info(&self)?;
         self.user = user;
         Ok(())
@@ -195,47 +196,36 @@ impl Api {
     }
 
     /// Returns a serde_json Value in site info, within the `["query"]` object.
-    /// The value is a cloned copy.
-    pub fn get_site_info_value(&self, k1: &str, k2: &str) -> Value {
-        let site_info = self.get_site_info();
-        site_info["query"][k1][k2].clone()
+    pub fn get_site_info_value<'a>(&'a self, k1: &str, k2: &str) -> &'a Value {
+        &self.get_site_info()["query"][k1][k2]
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string(&self, k1: &str, k2: &str) -> Result<String, String> {
-        let site_info = self.get_site_info();
-        match site_info["query"][k1][k2].as_str() {
-            Some(s) => Ok(s.to_string()),
+    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+        match self.get_site_info_value(k1, k2).as_str() {
+            Some(s) => Ok(s),
             None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
         }
     }
+    
+    /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
+    pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Map<String, Value>> {
+        self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str()).as_object()
+    }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
-    pub fn get_canonical_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
-        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
-        match v["canonical"].as_str() {
-            Some(v) => Some(v.to_string()),
-            None => {
-                match v["*"].as_str() {
-                    Some(c) => Some(c.to_string()), // Main name space, no canonical name
-                    None => None,
-                }
-            }
-        }
+    pub fn get_canonical_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
+        let v = self.get_namespace_value(namespace_id)?;
+        v["canonical"].as_str()
+            .or(v["*"].as_str())
     }
 
     /// Returns the local namespace name for a namespace ID, if defined
-    pub fn get_local_namespace_name(&self, namespace_id: NamespaceID) -> Option<String> {
-        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
-        match v["*"].as_str() {
-            Some(v) => Some(v.to_string()),
-            None => {
-                match v["canonical"].as_str() {
-                    Some(c) => Some(c.to_string()), // Canonical, not local name
-                    None => None,
-                }
-            }
-        }
+    pub fn get_local_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
+        let v = self.get_namespace_value(namespace_id)?;
+        v["*"].as_str()
+            // Canonical, not local name
+            .or(v["canonical"].as_str())
     }
 
     /// Loads the site info.
@@ -272,16 +262,16 @@ impl Api {
     }
 
     /// Turns a Vec of str tuples into a Hashmap of String, to be used in API calls
-    pub fn params_into(&self, params: &Vec<(&str, &str)>) -> HashMap<String, String> {
+    pub fn params_into(&self, params: &[(&str, &str)]) -> HashMap<String, String> {
         params
             .into_iter()
-            .map(|tuple| (tuple.0.to_string(), tuple.1.to_string()))
+            .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
     }
 
     /// Returns an empty parameter HashMap
     pub fn no_params(&self) -> HashMap<String, String> {
-        self.params_into(&vec![])
+        HashMap::new()
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
@@ -291,7 +281,7 @@ impl Api {
             params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
-        key += &"token".to_string();
+        key += &"token";
         if token_type.len() == 0 {
             key = "csrftoken".into()
         }
@@ -581,7 +571,7 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        self.query_raw(&self.api_url.clone(), params, method)
+        self.query_raw(&self.api_url, params, method)
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
@@ -600,11 +590,11 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
-        self.request_builder(&self.api_url.clone(), params, method)
+        self.request_builder(&self.api_url, params, method)
     }
 
     /// Returns the user agent name
-    pub fn user_agent(&self) -> &String {
+    pub fn user_agent(&self) -> &str {
         &self.user_agent
     }
 
@@ -615,17 +605,16 @@ impl Api {
 
     /// Returns the user agent string, as it is passed to the API through a HTTP header
     pub fn user_agent_full(&self) -> String {
-        let mut ret: String = self.user_agent.to_string();
-        ret += &format!(
-            "; {}-rust/{}",
+        format!(
+            "{}; {}-rust/{}",
+            self.user_agent,
             env!("CARGO_PKG_NAME"),
             env!("CARGO_PKG_VERSION")
-        );
-        ret
+        )
     }
 
     /// Encodes a string
-    fn rawurlencode(&self, s: &String) -> String {
+    fn rawurlencode(&self, s: &str) -> String {
         urlencoding::encode(s)
     }
 
@@ -645,31 +634,31 @@ impl Api {
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
                     let v = self.rawurlencode(&k2);
-                    Some(k.clone() + &"=".to_string() + &v)
+                    Some(k.clone() + &"=" + &v)
                 }
                 None => None,
             })
             .collect();
 
         let url = Url::parse(api_url)?;
-        let mut url_string = url.scheme().to_owned() + &"://".to_string();
+        let mut url_string = url.scheme().to_owned() + &"://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
         match url.port() {
-            Some(port) => url_string += &(":".to_string() + &port.to_string()),
+            Some(port) => write!(url_string, ":{}", port).unwrap(),
             None => {}
         }
         url_string += url.path();
 
-        let ret = self.rawurlencode(&method.to_string())
-            + &"&".to_string()
+        let ret = self.rawurlencode(&method)
+            + &"&"
             + &self.rawurlencode(&url_string)
-            + &"&".to_string()
+            + &"&"
             + &self.rawurlencode(&ret.join("&"));
 
         let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
             (Some(g_consumer_secret), Some(g_token_secret)) => {
                 self.rawurlencode(g_consumer_secret)
-                    + &"&".to_string()
+                    + &"&"
                     + &self.rawurlencode(g_token_secret)
             }
             _ => {
@@ -712,9 +701,9 @@ impl Api {
 
         headers.insert(
             "oauth_consumer_key",
-            oauth.g_consumer_key.clone().unwrap().parse()?,
+            oauth.g_consumer_key.as_ref().unwrap().parse()?,
         );
-        headers.insert("oauth_token", oauth.g_token_key.clone().unwrap().parse()?);
+        headers.insert("oauth_token", oauth.g_token_key.as_ref().unwrap().parse()?);
         headers.insert("oauth_version", "1.0".parse()?);
         headers.insert("oauth_nonce", nonce.parse()?);
         headers.insert("oauth_timestamp", timestamp.parse()?);
@@ -741,10 +730,10 @@ impl Api {
             .iter()
             .map(|(key, value)| {
                 let key = key.to_string();
-                let value = value.to_str().unwrap().to_string();
+                let value = value.to_str().unwrap();
                 let key = self.rawurlencode(&key);
                 let value = self.rawurlencode(&value);
-                key.to_string() + &"=\"".to_string() + &value.to_string() + &"\"".to_string()
+                key.to_string() + &"=\"" + &value + &"\""
             })
             .collect();
         header += &parts.join(", ");
@@ -821,7 +810,7 @@ impl Api {
     /// Used for non-stateless queries, such as logins
     fn query_raw_mut(
         &mut self,
-        api_url: &String,
+        api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
@@ -896,7 +885,7 @@ impl Api {
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
     pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
-        if uri.starts_with(concept_base_uri.as_str()) {
+        if uri.starts_with(concept_base_uri) {
             Ok(uri[concept_base_uri.len()..].to_string())
         } else {
             Err(From::from(format!(
@@ -946,7 +935,7 @@ mod tests {
     #[test]
     fn api_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let params = api.params_into(&vec![
+        let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srsearch", "the"),
@@ -958,7 +947,7 @@ mod tests {
     #[test]
     fn api_no_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let params = api.params_into(&vec![
+        let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srlimit", "500"),
@@ -993,18 +982,18 @@ mod tests {
     fn extract_entity_from_uri() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123".to_string())
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123")
                 .unwrap(),
             "Q123"
         );
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456".to_string())
+            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456")
                 .unwrap(),
             "P456"
         );
         // Expect error ('/' missing):
         assert!(api
-            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123".to_string())
+            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123")
             .is_err());
     }
 

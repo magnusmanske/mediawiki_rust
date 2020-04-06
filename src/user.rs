@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::error::Error;
 
 /// `User` contains the login data for the `Api`
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct User {
     lgusername: String,
     lguserid: u64,
@@ -116,7 +116,7 @@ impl User {
     }
 
     /// Returns the user name ("" if not logged in)
-    pub fn user_name(&self) -> &String {
+    pub fn user_name(&self) -> &str {
         &self.lgusername
     }
 
@@ -126,15 +126,15 @@ impl User {
     }
 
     /// Tries to set user information from the `Api` call
-    pub fn set_from_login(&mut self, login: &Value) -> Result<(), String> {
+    pub fn set_from_login(&mut self, login: &Value) -> Result<(), &str> {
         if login["result"] == "Success" {
             match login["lgusername"].as_str() {
                 Some(s) => self.lgusername = s.to_string(),
-                None => return Err("No lgusername in login result".to_string()),
+                None => return Err("No lgusername in login result"),
             }
             match login["lguserid"].as_u64() {
                 Some(u) => self.lguserid = u,
-                None => return Err("No lguserid in login result".to_string()),
+                None => return Err("No lguserid in login result"),
             }
 
             self.is_logged_in = true;
