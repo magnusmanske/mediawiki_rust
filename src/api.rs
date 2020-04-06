@@ -207,25 +207,29 @@ impl Api {
             None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
         }
     }
-    
+
     /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
     pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Map<String, Value>> {
-        self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str()).as_object()
+        self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str())
+            .as_object()
     }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
-    pub fn get_canonical_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
+    pub fn get_canonical_namespace_name<'a>(
+        &'a self,
+        namespace_id: NamespaceID,
+    ) -> Option<&'a str> {
         let v = self.get_namespace_value(namespace_id)?;
-        v["canonical"].as_str()
-            .or(v["*"].as_str())
+        v.get("canonical")?.as_str().or(v.get("*")?.as_str())
     }
 
     /// Returns the local namespace name for a namespace ID, if defined
     pub fn get_local_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
         let v = self.get_namespace_value(namespace_id)?;
-        v["*"].as_str()
+        v.get("*")?
+            .as_str()
             // Canonical, not local name
-            .or(v["canonical"].as_str())
+            .or(v.get("canonical")?.as_str())
     }
 
     /// Loads the site info.
@@ -349,7 +353,8 @@ impl Api {
                 Value::Object(obj) => {
                     cont.clear();
                     obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        let continue_value = x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
+                        let continue_value =
+                            x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
                         cont.insert(x.0.to_string(), continue_value);
                     });
                 }
@@ -657,9 +662,7 @@ impl Api {
 
         let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
             (Some(g_consumer_secret), Some(g_token_secret)) => {
-                self.rawurlencode(g_consumer_secret)
-                    + &"&"
-                    + &self.rawurlencode(g_token_secret)
+                self.rawurlencode(g_consumer_secret) + &"&" + &self.rawurlencode(g_token_secret)
             }
             _ => {
                 return Err(From::from("g_consumer_secret or g_token_secret not set"));
@@ -935,11 +938,8 @@ mod tests {
     #[test]
     fn api_limit() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let params = api.params_into(&[
-            ("action", "query"),
-            ("list", "search"),
-            ("srsearch", "the"),
-        ]);
+        let params =
+            api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "the")]);
         let result = api.get_query_api_json_limit(&params, Some(20)).unwrap();
         assert_eq!(result["query"]["search"].as_array().unwrap().len(), 20);
     }
