@@ -1024,4 +1024,12 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn result_namespaces() {
+        let api = Api::new("https://de.wikipedia.org/w/api.php").unwrap();
+        assert_eq!(api.get_local_namespace_name(0), Some(""));
+        assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
+        assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));
+    }
 }
