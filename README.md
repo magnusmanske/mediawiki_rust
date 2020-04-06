@@ -8,14 +8,12 @@ Get all categories of "Albert Einstein" on English Wikipedia:
 let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
 
 // Query parameters
-let params: HashMap<_, _> = vec![
-    ("action".to_string(), "query".to_string()),
-    ("prop".to_string(), "categories".to_string()),
-    ("titles".to_string(), "Albert Einstein".to_string()),
-    ("cllimit".to_string(), "500".to_string()),
-]
-.into_iter()
-.collect();
+let params = api.params_into(&[
+    ("action"[], "query"[]),
+    ("prop"[], "categories"[]),
+    ("titles"[], "Albert Einstein"[]),
+    ("cllimit"[], "500"[]),
+]);
 
 // Run query; this will automatically continue if more results are available, and merge all results into one
 let res = api.get_query_api_json_all(&params).unwrap();
