@@ -323,7 +323,7 @@ impl Api {
     }
 
     /// Tries to return the len() of an API query result. Returns 0 if unknown
-    pub fn query_result_count(&self, result: &Value) -> usize {
+    fn query_result_count(&self, result: &Value) -> usize {
         match result["query"].as_object() {
             Some(query) => query
                 .iter()
