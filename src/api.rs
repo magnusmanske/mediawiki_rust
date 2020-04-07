@@ -323,18 +323,9 @@ impl Api {
     }
 
     /// Tries to return the len() of an API query result. Returns 0 if unknown
-    fn query_result_count(&self, result: &Value) -> usize {
-        match result["query"].as_object() {
-            Some(query) => query
-                .iter()
-                .filter_map(|(_key, part)| match part.as_array() {
-                    Some(a) => Some(a.len()),
-                    None => None,
-                })
-                .next()
-                .unwrap_or(0),
-            None => 0, // Don't know size
-        }
+    #[deprecated(note = "Please use the module function (not the Api one) instead")]
+    pub fn query_result_count(&self, result: &Value) -> usize {
+        query_result_count(result)
     }
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
@@ -343,47 +334,70 @@ impl Api {
         params: &HashMap<String, String>,
         max: Option<usize>,
     ) -> Result<Value, Box<dyn Error>> {
-        let mut cont = HashMap::<String, String>::new();
-        let mut ret = serde_json::json!({});
-        loop {
-            let mut params_cont = params.clone();
-            for (k, v) in &cont {
-                params_cont.insert(k.to_string(), v.to_string());
-            }
-            let result = self.get_query_api_json(&params_cont)?;
-            cont.clear();
-            let conti = result["continue"].clone();
-            self.json_merge(&mut ret, result);
-            match max {
-                Some(m) => {
-                    if self.query_result_count(&ret) >= m {
-                        break;
-                    }
-                }
-                None => {}
-            }
-            match conti {
-                Value::Object(obj) => {
-                    cont.clear();
-                    obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        let continue_value =
-                            x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
-                        cont.insert(x.0.to_string(), continue_value);
-                    });
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        match ret.as_object_mut() {
-            Some(x) => {
-                x.remove("continue");
-            }
-            None => {}
+        self.get_query_api_json_limit_iter(params, max)
+            .try_fold(Value::Null, |mut acc, result| {
+                self.json_merge(&mut acc, result?);
+                Ok(acc)
+            })
+    }
+
+    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
+    /// Returns an iterator; each item is a "page" of results.
+    pub fn get_query_api_json_limit_iter<'a>(
+        &'a self,
+        params: &HashMap<String, String>,
+        max: Option<usize>,
+    ) -> impl Iterator<Item = Result<Value, Box<dyn Error>>> + 'a {
+        struct ApiQuery<'a> {
+            api: &'a Api,
+            params: HashMap<String, String>,
+            values_remaining: Option<usize>,
+            continue_params: Value,
         }
 
-        Ok(ret)
+        impl<'a> Iterator for ApiQuery<'a> {
+            type Item = Result<Value, Box<dyn Error>>;
+            fn next(&mut self) -> Option<Self::Item> {
+                if let Some(0) = self.values_remaining {
+                    return None;
+                }
+
+                let mut current_params = self.params.clone();
+                if let Value::Object(obj) = &self.continue_params {
+                    current_params.extend(obj.iter()
+                        .filter(|x| x.0 != "continue")
+
+                        // The default to_string() method for Value puts double-quotes around strings
+                        .map(|(k, v)| (k.to_string(),
+                            v.as_str().map_or(v.to_string(), Into::into))));
+                }
+
+                Some(match self.api.get_query_api_json(&current_params) {
+                    Ok(mut result) => {
+                        self.continue_params = result["continue"].clone();
+                        if self.continue_params.is_null() {
+                            self.values_remaining = Some(0);
+                        } else {
+                            self.values_remaining.as_mut().map(|rem|
+                                *rem = rem.wrapping_sub(query_result_count(&result)));
+                        }
+                        result.as_object_mut().map(|r| r.remove("continue"));
+                        Ok(result)
+                    },
+                    e @ Err(_) => {
+                        self.values_remaining = Some(0);
+                        e
+                    },
+                })
+            }
+        }
+
+        ApiQuery {
+            api: self,
+            params: params.clone(),
+            values_remaining: max,
+            continue_params: Value::Null,
+        }
     }
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
@@ -932,6 +946,21 @@ impl Api {
             None => {}
         }
         entities
+    }
+}
+
+/// Tries to return the len() of an API query result. Returns 0 if unknown
+pub fn query_result_count(result: &Value) -> usize {
+    match result["query"].as_object() {
+        Some(query) => query
+            .iter()
+            .filter_map(|(_key, part)| match part.as_array() {
+                Some(a) => Some(a.len()),
+                None => None,
+            })
+            .next()
+            .unwrap_or(0),
+        None => 0, // Don't know size
     }
 }
 
