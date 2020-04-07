@@ -323,9 +323,18 @@ impl Api {
     }
 
     /// Tries to return the len() of an API query result. Returns 0 if unknown
-    #[deprecated(note = "Please use the module function (not the Api one) instead")]
     pub fn query_result_count(&self, result: &Value) -> usize {
-        query_result_count(result)
+        match result["query"].as_object() {
+            Some(query) => query
+                .iter()
+                .filter_map(|(_key, part)| match part.as_array() {
+                    Some(a) => Some(a.len()),
+                    None => None,
+                })
+                .next()
+                .unwrap_or(0),
+            None => 0, // Don't know size
+        }
     }
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
@@ -378,8 +387,9 @@ impl Api {
                         if self.continue_params.is_null() {
                             self.values_remaining = Some(0);
                         } else {
-                            self.values_remaining.as_mut().map(|rem|
-                                *rem = rem.wrapping_sub(query_result_count(&result)));
+                            if let Some(num) = self.values_remaining {
+                                self.values_remaining = Some(num.wrapping_sub(self.api.query_result_count(&result)));
+                            }
                         }
                         result.as_object_mut().map(|r| r.remove("continue"));
                         Ok(result)
@@ -946,21 +956,6 @@ impl Api {
             None => {}
         }
         entities
-    }
-}
-
-/// Tries to return the len() of an API query result. Returns 0 if unknown
-pub fn query_result_count(result: &Value) -> usize {
-    match result["query"].as_object() {
-        Some(query) => query
-            .iter()
-            .filter_map(|(_key, part)| match part.as_array() {
-                Some(a) => Some(a.len()),
-                None => None,
-            })
-            .next()
-            .unwrap_or(0),
-        None => 0, // Don't know size
     }
 }
 
