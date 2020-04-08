@@ -387,7 +387,7 @@ impl Api {
                         if self.continue_params.is_null() {
                             self.values_remaining = Some(0);
                         } else if let Some(num) = self.values_remaining {
-                            self.values_remaining = Some(num.wrapping_sub(self.api.query_result_count(&result)));
+                            self.values_remaining = Some(num.saturating_sub(self.api.query_result_count(&result)));
                         }
                         result.as_object_mut().map(|r| r.remove("continue"));
                         Ok(result)
