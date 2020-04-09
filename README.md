@@ -9,10 +9,10 @@ let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unw
 
 // Query parameters
 let params = api.params_into(&[
-    ("action"[], "query"[]),
-    ("prop"[], "categories"[]),
-    ("titles"[], "Albert Einstein"[]),
-    ("cllimit"[], "500"[]),
+    ("action", "query"),
+    ("prop", "categories"),
+    ("titles", "Albert Einstein"),
+    ("cllimit", "500"),
 ]);
 
 // Run query; this will automatically continue if more results are available, and merge all results into one
@@ -37,23 +37,24 @@ dbg!(&categories);
 
 Edit the Wikidata Sandbox Item (as a bot):
 ```rust
-let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php");
+let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
 api.login("MY BOT USER NAME", "MY BOT PASSWORD").unwrap();
 
 let token = api.get_edit_token().unwrap();
-let params: HashMap<_, _> = vec![
+
+let params = api.params_into(&[
     ("action", "wbeditentity"),
     ("id", "Q4115189"),
-    ("data",r#"{"claims":[{"mainsnak":{"snaktype":"value","property":"P1810","datavalue":{"value":"ExampleString","type":"string"}},"type":"statement","rank":"normal"}]}"#),
+    ("data", r#"{"claims":[{"mainsnak":{"snaktype":"value","property":"P1810","datavalue":{"value":"ExampleString","type":"string"}},"type":"statement","rank":"normal"}]}"#),
     ("token", &token),
-]
-.into_iter()
-.collect();
+]);
+
 let res = api.post_query_api_json(&params).unwrap();
+dbg!(res);
 ```
 Query Wikidata using SPARQL:
 ```rust
-let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php"); // Will determine the SPARQL API URL via site info data
+let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap(); // Will determine the SPARQL API URL via site info data
 let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
 println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
 ```
