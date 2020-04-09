@@ -2,8 +2,9 @@
 
 # A MediaWiki client library in Rust
 
-## Examples
-Get all categories of "Albert Einstein" on English Wikipedia:
+# Examples
+
+## Get all categories of "Albert Einstein" on English Wikipedia
 ```rust
 let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
 
@@ -35,7 +36,7 @@ let categories: Vec<&str> = res["query"]["pages"]
 dbg!(&categories);
 ```
 
-Edit the Wikidata Sandbox Item (as a bot):
+## Edit the Wikidata Sandbox Item (as a bot)
 ```rust
 let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
 api.login("MY BOT USER NAME", "MY BOT PASSWORD").unwrap();
@@ -52,7 +53,16 @@ let params = api.params_into(&[
 let res = api.post_query_api_json(&params).unwrap();
 dbg!(res);
 ```
-Query Wikidata using SPARQL:
+
+## Edit via OAuth
+```rust
+let json = json!({"g_consumer_key":"YOUR_CONSUMER_KEY","g_token_key":"YOUR_TOKEN_KEY"});
+let oauth = mediawiki::api::OAuthParams::new_from_json(&json);
+let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+api.set_oauth(Some(oauth));
+```
+
+## Query Wikidata using SPARQL
 ```rust
 let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap(); // Will determine the SPARQL API URL via site info data
 let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
