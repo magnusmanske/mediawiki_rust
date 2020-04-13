@@ -6,6 +6,7 @@ extern crate serde_json;
 pub use reqwest;
 
 pub mod api;
+pub mod page;
 pub mod title;
 pub mod user;
 
