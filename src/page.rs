@@ -50,7 +50,9 @@ impl Page {
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
     pub fn text(&self, api: &Api) -> Result<String, PageError> {
-        let title = self.title.full_pretty(api)
+        let title = self
+            .title
+            .full_pretty(api)
             .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
         let params = [
             ("action", "query"),
@@ -63,7 +65,8 @@ impl Page {
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
-        let result = api.get_query_api_json(&params)
+        let result = api
+            .get_query_api_json(&params)
             .map_err(|e| PageError::RequestError(e))?;
 
         let page = &result["query"]["pages"][0];
@@ -103,7 +106,9 @@ impl Page {
         text: impl Into<String>,
         summary: impl Into<String>,
     ) -> Result<(), Box<dyn Error>> {
-        let title = self.title.full_pretty(api)
+        let title = self
+            .title
+            .full_pretty(api)
             .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
         let bot = if api.user().is_bot() { "true" } else { "false" };
         let mut params: HashMap<String, String> = [
@@ -129,6 +134,201 @@ impl Page {
             _ => Err(Box::new(PageError::EditError(result))),
         }
     }
+
+    /// Performs an "action=query" API action and returns the result.
+    fn action_query(
+        &self,
+        api: &Api,
+        additional_params: &[(&str, &str)],
+    ) -> Result<Value, Box<dyn Error>> {
+        let title = self
+            .title
+            .full_pretty(api)
+            .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
+        let mut params = api.params_into(&[("action", "query"), ("titles", &title)]);
+        for (k, v) in additional_params {
+            params.insert(k.to_string(), v.to_string());
+        }
+        api.get_query_api_json_all(&params)
+    }
+
+    // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
+    fn extract_page_properties_from_api_results(
+        &self,
+        result: Value,
+        subkey: &str,
+    ) -> Result<Vec<Value>, Box<dyn Error>> {
+        match result["query"]["pages"].is_null() {
+            true => Err(Box::new(PageError::Missing(self.title.clone()))),
+            false => match result["query"]["pages"].as_object() {
+                Some(obj) => Ok(obj
+                    .iter()
+                    .flat_map(|(_pageid, v_page)| match v_page[subkey].as_array() {
+                        Some(arr) => arr.to_owned(),
+                        None => vec![],
+                    })
+                    .collect()),
+                None => Err(Box::new(PageError::UnexpectedResultFormat(format!(
+                    "{:?}",
+                    &result["query"]["pages"]
+                )))),
+            },
+        }
+    }
+
+    fn json_result_into_titles(&self, arr: Vec<Value>, api: &Api) -> Vec<Title> {
+        arr.iter()
+            .filter_map(|v| match v["title"].as_str() {
+                Some(title) => Some(Title::new_from_full(title, api)),
+                None => None,
+            })
+            .collect()
+    }
+
+    /// Returns the categories of a page, as a JSON Value Vec
+    pub fn categories(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+        let result = self.action_query(
+            api,
+            &[
+                ("prop", "categories"),
+                ("cllimit", "max"),
+                ("clprop", "hidden|sortkey|timestamp"),
+            ],
+        )?;
+        self.extract_page_properties_from_api_results(result, "categories")
+    }
+
+    /// Returns the categories of a page, as a JSON Value Vec
+    pub fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")])?;
+        self.extract_page_properties_from_api_results(result, "iwlinks")
+    }
+
+    /// Returns the templates of a page, as a Title Vec
+    pub fn templates(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+        let result = self.action_query(
+            api,
+            &[
+                ("prop", "templates"),
+                ("tllimit", "max"),
+                ("tlnamespace", "*"),
+            ],
+        )?;
+        let result = self.extract_page_properties_from_api_results(result, "templates")?;
+        Ok(self.json_result_into_titles(result, api))
+    }
+
+    /// Returns the wiki-internal links on a page, as a Title Vec
+    pub fn links(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+        let result = self.action_query(
+            api,
+            &[("prop", "links"), ("pllimit", "max"), ("plnamespace", "*")],
+        )?;
+        let result = self.extract_page_properties_from_api_results(result, "links")?;
+        Ok(self.json_result_into_titles(result, api))
+    }
+
+    /// Returns the wiki-internal links on a page, as a Title Vec
+    pub fn links_here(
+        &self,
+        api: &Api,
+        direct_links: bool,
+        redirects: bool,
+    ) -> Result<Vec<Title>, Box<dyn Error>> {
+        let lhshow = match (direct_links, redirects) {
+            (true, true) => "!redirect|redirect",
+            (true, false) => "!redirect",
+            (false, true) => "redirect",
+            (false, false) => "",
+        };
+        let result = self.action_query(
+            api,
+            &[
+                ("prop", "linkshere"),
+                ("lhlimit", "max"),
+                ("lhnamespace", "*"),
+                ("lhshow", lhshow),
+            ],
+        )?;
+        let result = self.extract_page_properties_from_api_results(result, "linkshere")?;
+        Ok(self.json_result_into_titles(result, api))
+    }
+
+    /// Returns the images used on a page, as a Title Vec
+    pub fn images(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "images"), ("imlimit", "max")])?;
+        let result = self.extract_page_properties_from_api_results(result, "images")?;
+        Ok(self.json_result_into_titles(result, api))
+    }
+
+    /// Returns the coordinates of a page, as a JSON Value Vec
+    pub fn coordinates(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+        self.extract_page_properties_from_api_results(
+            self.action_query(
+                api,
+                &[
+                    ("prop", "coordinates"),
+                    ("cllimit", "max"),
+                    ("coprop", "country|dim|globe|name|region|type"),
+                    ("coprimary", "all"),
+                ],
+            )?,
+            "coordinates",
+        )
+    }
+
+    /// Returns the coordinates of a page, including distance from a point, as a JSON Value Vec
+    pub fn coordinates_distance(
+        &self,
+        api: &Api,
+        lat: f64,
+        lon: f64,
+    ) -> Result<Vec<Value>, Box<dyn Error>> {
+        self.extract_page_properties_from_api_results(
+            self.action_query(
+                api,
+                &[
+                    ("prop", "coordinates"),
+                    ("cllimit", "max"),
+                    ("coprop", "country|dim|globe|name|region|type"),
+                    ("coprimary", "all"),
+                    ("codistancefrompoint", format!("{}|{}", lat, lon).as_str()),
+                ],
+            )?,
+            "coordinates",
+        )
+    }
+
+    /// Returns the external links of a page, as a String Vec
+    pub fn external_links(&self, api: &Api) -> Result<Vec<String>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "extlinks"), ("ellimit", "max")])?;
+        Ok(self
+            .extract_page_properties_from_api_results(result, "extlinks")?
+            .iter()
+            .filter_map(|v| v["*"].as_str())
+            .map(|v| v.to_string())
+            .collect())
+    }
+
+    /*
+    TODO for action=query:
+    extracts
+    fileusage
+    globalusage
+    imageinfo
+    images
+    info
+    langlinks
+    linkshere
+    pageimages
+    pageprops
+    pageterms
+    pageviews
+    redirects
+    revisions
+    transcludedin
+    wbentityusage
+    */
 }
 
 /// Errors that can go wrong while performing operations on a `Page`.
@@ -149,17 +349,24 @@ pub enum PageError {
 
     /// Error while performing the API request.
     RequestError(Box<dyn Error>),
+
+    /// Unexpected data structure (eg array instead of object) in API JSON result
+    UnexpectedResultFormat(String),
 }
 
 impl fmt::Display for PageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PageError::BadTitle(title) => write!(f, "invalid title for this Page: {:?}", title),
-            PageError::BadResponse(response) =>
-                write!(f, "bad API response while fetching revision content: {:?}", response),
+            PageError::BadResponse(response) => write!(
+                f,
+                "bad API response while fetching revision content: {:?}",
+                response
+            ),
             PageError::Missing(title) => write!(f, "page missing: {:?}", title),
             PageError::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
             PageError::RequestError(error) => write!(f, "request error: {}", error),
+            PageError::UnexpectedResultFormat(error) => write!(f, "result format error: {}", error),
         }
     }
 }
@@ -193,5 +400,75 @@ mod tests {
             Err(PageError::Missing(t)) => assert!(t == title),
             x => panic!("expected missing error, found {:?}", x),
         }
+    }
+
+    #[test]
+    fn page_categories() {
+        let page = Page::new(Title::new("Community portal", 4));
+        let result = page.categories(wd_api()).unwrap();
+        assert!(result.len() > 1);
+    }
+
+    #[test]
+    fn page_templates() {
+        let page = Page::new(Title::new("Community portal", 4));
+        let result = page.templates(wd_api()).unwrap();
+        assert!(result.len() > 5);
+        assert!(result.contains(&Title::new("Protected", 10)))
+    }
+
+    #[test]
+    fn page_coordinates() {
+        let page = Page::new(Title::new("Q64", 0)); // Berlin
+        let result = page.coordinates(wd_api()).unwrap();
+        assert!(result.len() > 0);
+
+        // Distance to Cologne
+        let result = page
+            .coordinates_distance(wd_api(), 50.94222222, 6.95777778)
+            .unwrap();
+        result
+            .iter()
+            .filter(|v| v["primary"].as_str() == Some(""))
+            .for_each(|v| {
+                assert!(v["dist"].as_f64().unwrap() > 475700.0);
+                assert!(v["dist"].as_f64().unwrap() < 475701.0);
+            });
+    }
+
+    #[test]
+    fn page_external_links() {
+        let page = Page::new(Title::new("Q64", 0));
+        let result = page.external_links(wd_api()).unwrap();
+        assert!(result.contains(&"https://www.berlin.de/".to_string()));
+    }
+
+    #[test]
+    fn page_links() {
+        let page = Page::new(Title::new("Community portal", 4));
+        let result = page.links(wd_api()).unwrap();
+        assert!(result.contains(&Title::new("Bot requests", 4)))
+    }
+
+    #[test]
+    fn page_images() {
+        let page = Page::new(Title::new("Q64", 0));
+        let result = page.images(wd_api()).unwrap();
+        assert!(result.contains(&Title::new("Berlin banner.jpg", 6)))
+    }
+
+    #[test]
+    fn page_links_here() {
+        let page = Page::new(Title::new("Q1481", 0));
+        let result = page.links_here(wd_api(), true, false).unwrap();
+        assert!(result.contains(&Title::new("Q7894", 0)))
+    }
+
+    #[test]
+    fn page_interwiki_links() {
+        let page = Page::new(Title::new("Wikidata list", 10));
+        let result = page.interwiki_links(wd_api()).unwrap();
+        // println!("{:?}", &result);
+        assert!(result.contains(&json!({"prefix":"mw","*":"Wikidata_query_service/User_Manual"})));
     }
 }
