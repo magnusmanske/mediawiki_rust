@@ -21,6 +21,28 @@ use std::hash::{Hash, Hasher};
 /// Shortcut for crate::api::NamespaceID
 type NamespaceID = crate::api::NamespaceID;
 
+/// If the provided ID refers to a...
+///
+/// * content namespace, return the ID of the corresponding talk namespace.
+/// * talk namespace, return the ID of the corresponding content namespace.
+/// * special namespace, return None.
+///
+/// # Examples
+///
+/// ```
+/// use mediawiki::title::toggle_namespace_id;
+/// assert_eq!(toggle_namespace_id(0), Some(1));
+/// assert_eq!(toggle_namespace_id(1), Some(0));
+/// assert_eq!(toggle_namespace_id(-1), None);
+/// ```
+pub fn toggle_namespace_id(id: NamespaceID) -> Option<NamespaceID> {
+    match id {
+        n if n >= 0 && n % 2 == 0 => Some(n + 1),
+        n if n >= 0 && n % 2 == 1 => Some(n - 1),
+        _ => None,
+    }
+}
+
 /// Title struct
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Title {
@@ -207,6 +229,49 @@ impl Title {
             None => String::new(),
             Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
         }
+    }
+
+    /// Changes this Title to refer to the other member of the corresponding
+    /// article-talk page pair for this page. Won't change Special pages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mediawiki::title::Title;
+    /// let mut title1 = Title::new("Test", 0);
+    /// title1.toggle_talk();
+    /// assert_eq!(title1, Title::new("Test", 1));
+    ///
+    /// let mut title2 = Title::new("Test", 1);
+    /// title2.toggle_talk();
+    /// assert_eq!(title2, Title::new("Test", 0));
+    ///
+    /// let mut title3 = Title::new("Test", -1);
+    /// title3.toggle_talk();
+    /// assert_eq!(title3, Title::new("Test", -1));
+    /// ```
+    pub fn toggle_talk(&mut self) {
+        self.namespace_id = toggle_namespace_id(self.namespace_id).unwrap_or(self.namespace_id);
+    }
+
+    /// Returns a new Title referring to the other member of the corresponding
+    /// article-talk page pair for this page. Won't change Special pages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mediawiki::title::Title;
+    /// assert_eq!(Title::new("Test", 0).into_toggle_talk(),
+    ///     Title::new("Test", 1));
+    ///
+    /// assert_eq!(Title::new("Test", 1).into_toggle_talk(),
+    ///     Title::new("Test", 0));
+    ///
+    /// assert_eq!(Title::new("Test", -1).into_toggle_talk(),
+    ///     Title::new("Test", -1));
+    /// ```
+    pub fn into_toggle_talk(self) -> Self {
+        Title::new(&self.title, toggle_namespace_id(self.namespace_id).unwrap_or(self.namespace_id))
     }
 }
 
