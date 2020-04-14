@@ -49,7 +49,7 @@ impl Page {
     /// May return a `PageError` or any error from [`Api::get_query_api_json`].
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
-    pub fn text(&self, api: &Api) -> Result<String, Box<dyn Error>> {
+    pub fn text(&self, api: &Api) -> Result<String, PageError> {
         let title = self.title.full_pretty(api)
             .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
         let params = [
@@ -63,11 +63,12 @@ impl Page {
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
-        let result = api.get_query_api_json(&params)?;
+        let result = api.get_query_api_json(&params)
+            .map_err(|e| PageError::RequestError(e))?;
 
         let page = &result["query"]["pages"][0];
         if page["missing"].as_bool() == Some(true) {
-            Err(Box::new(PageError::Missing(self.title.clone())))
+            Err(PageError::Missing(self.title.clone()))
         } else if let Some(slots) = page["revisions"][0]["slots"].as_object() {
             if let Some(the_slot) = {
                 slots["main"].as_object().or_else(|| {
@@ -80,13 +81,13 @@ impl Page {
             } {
                 match the_slot["content"].as_str() {
                     Some(string) => Ok(string.to_string()),
-                    None => Err(Box::new(PageError::BadResponse(result))),
+                    None => Err(PageError::BadResponse(result)),
                 }
             } else {
-                Err(Box::new(PageError::BadResponse(result)))
+                Err(PageError::BadResponse(result))
             }
         } else {
-            Err(Box::new(PageError::BadResponse(result)))
+            Err(PageError::BadResponse(result))
         }
     }
 
@@ -130,8 +131,9 @@ impl Page {
     }
 }
 
-#[derive(Debug)]
 /// Errors that can go wrong while performing operations on a `Page`.
+#[derive(Debug)]
+#[non_exhaustive]
 pub enum PageError {
     /// Couldn't obtain the title for this page for use in an API request.
     BadTitle(Title),
@@ -144,6 +146,9 @@ pub enum PageError {
 
     /// Edit failed; API response is provided.
     EditError(Value),
+
+    /// Error while performing the API request.
+    RequestError(Box<dyn Error>),
 }
 
 impl fmt::Display for PageError {
@@ -154,6 +159,7 @@ impl fmt::Display for PageError {
                 write!(f, "bad API response while fetching revision content: {:?}", response),
             PageError::Missing(title) => write!(f, "page missing: {:?}", title),
             PageError::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
+            PageError::RequestError(error) => write!(f, "request error: {}", error),
         }
     }
 }
@@ -183,9 +189,9 @@ mod tests {
     fn page_text_nonexistent() {
         let title = Title::new("This page does not exist", 0);
         let page = Page::new(title.clone());
-        assert_eq!(
-            format!("{}", page.text(wd_api()).unwrap_err()),
-            format!("{}", PageError::Missing(title))
-        );
+        match page.text(wd_api()) {
+            Err(PageError::Missing(t)) => assert!(t == title),
+            x => panic!("expected missing error, found {:?}", x),
+        }
     }
 }
