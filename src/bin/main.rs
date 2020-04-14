@@ -242,7 +242,7 @@ fn main() {
     */
 
     let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-    let x = api.get_namespace_value(0);
+    let x = api.get_namespace_info(0);
     println!("{:?}", x);
     let x = api.get_local_namespace_name(0);
     println!("{:?}", x);
