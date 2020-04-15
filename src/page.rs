@@ -46,7 +46,7 @@ impl Page {
     /// no "main" slot.
     ///
     /// # Errors
-    /// May return a `PageError` or any error from [`Api::get_query_api_json`].
+    /// If the page is missing, will return a `PageError::Missing`.
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
     pub fn text(&self, api: &Api) -> Result<String, PageError> {
@@ -94,7 +94,8 @@ impl Page {
         }
     }
 
-    /// Edits this `Page` with the given parameters and edit summary.
+    /// Replaces the contents of this `Page` with the given text, using the given
+    /// edit summary.
     ///
     /// # Errors
     /// May return a `PageError` or any error from [`Api::post_query_api_json`].
