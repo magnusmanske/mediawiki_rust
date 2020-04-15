@@ -208,17 +208,13 @@ impl Api {
         }
     }
 
-
     /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
     pub fn get_namespace_info(&self, namespace_id: NamespaceID) -> &Value {
         self.get_site_info_value("namespaces", &namespace_id.to_string())
     }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
-    pub fn get_canonical_namespace_name(
-        &self,
-        namespace_id: NamespaceID,
-    ) -> Option<&str> {
+    pub fn get_canonical_namespace_name(&self, namespace_id: NamespaceID) -> Option<&str> {
         let info = self.get_namespace_info(namespace_id);
         info["canonical"].as_str().or_else(|| info["*"].as_str())
     }
@@ -357,12 +353,14 @@ impl Api {
 
                 let mut current_params = self.params.clone();
                 if let Value::Object(obj) = &self.continue_params {
-                    current_params.extend(obj.iter()
-                        .filter(|x| x.0 != "continue")
-
-                        // The default to_string() method for Value puts double-quotes around strings
-                        .map(|(k, v)| (k.to_string(),
-                            v.as_str().map_or(v.to_string(), Into::into))));
+                    current_params.extend(
+                        obj.iter()
+                            .filter(|x| x.0 != "continue")
+                            // The default to_string() method for Value puts double-quotes around strings
+                            .map(|(k, v)| {
+                                (k.to_string(), v.as_str().map_or(v.to_string(), Into::into))
+                            }),
+                    );
                 }
 
                 Some(match self.api.get_query_api_json(&current_params) {
@@ -371,15 +369,16 @@ impl Api {
                         if self.continue_params.is_null() {
                             self.values_remaining = Some(0);
                         } else if let Some(num) = self.values_remaining {
-                            self.values_remaining = Some(num.saturating_sub(self.api.query_result_count(&result)));
+                            self.values_remaining =
+                                Some(num.saturating_sub(self.api.query_result_count(&result)));
                         }
                         result.as_object_mut().map(|r| r.remove("continue"));
                         Ok(result)
-                    },
+                    }
                     e @ Err(_) => {
                         self.values_remaining = Some(0);
                         e
-                    },
+                    }
                 })
             }
         }
@@ -992,9 +991,9 @@ mod tests {
     #[test]
     fn entities_from_sparql_result() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } ORDER BY ?fellow_id LIMIT 1" ).unwrap() ;
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).unwrap() ;
         let titles = api.entities_from_sparql_result(&res, "q");
-        assert_eq!(titles, vec!["Q36499535".to_string()]);
+        assert!(titles.contains(&"Q36499535".to_string()));
     }
 
     #[test]
