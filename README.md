@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/magnusmanske/mediawiki_rust.svg?branch=master)](https://travis-ci.org/magnusmanske/mediawiki_rust)
+[![crates.io](https://img.shields.io/crates/v/mediawiki.svg)](https://crates.io/crates/mediawiki)
+[![docs.rs](https://docs.rs/mediawiki/badge.svg)](https://docs.rs/mediawiki)
 
 # A MediaWiki client library in Rust
 
