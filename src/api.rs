@@ -208,41 +208,25 @@ impl Api {
         }
     }
 
+
     /// Returns the raw data for the namespace, matching `["query"]["namespaces"][namespace_id]`
-    pub fn get_namespace_value(&self, namespace_id: NamespaceID) -> Option<&Value> {
-        let v = self.get_site_info_value("namespaces", format!("{}", namespace_id).as_str());
-        if v.is_object() {
-            Some(v)
-        } else {
-            None
-        }
+    pub fn get_namespace_info(&self, namespace_id: NamespaceID) -> &Value {
+        self.get_site_info_value("namespaces", &namespace_id.to_string())
     }
 
     /// Returns the canonical namespace name for a namespace ID, if defined
-    pub fn get_canonical_namespace_name<'a>(
-        &'a self,
+    pub fn get_canonical_namespace_name(
+        &self,
         namespace_id: NamespaceID,
-    ) -> Option<&'a str> {
-        let v = self.get_namespace_value(namespace_id)?;
-        match v["canonical"].as_str() {
-            Some(name) => Some(name),
-            None => match v["*"].as_str() {
-                Some(name) => Some(name),
-                None => None,
-            },
-        }
+    ) -> Option<&str> {
+        let info = self.get_namespace_info(namespace_id);
+        info["canonical"].as_str().or_else(|| info["*"].as_str())
     }
 
     /// Returns the local namespace name for a namespace ID, if defined
-    pub fn get_local_namespace_name<'a>(&'a self, namespace_id: NamespaceID) -> Option<&'a str> {
-        let v = self.get_namespace_value(namespace_id)?;
-        match v["*"].as_str() {
-            Some(name) => Some(name),
-            None => match v["canonical"].as_str() {
-                Some(name) => Some(name),
-                None => None,
-            },
-        }
+    pub fn get_local_namespace_name(&self, namespace_id: NamespaceID) -> Option<&str> {
+        let info = self.get_namespace_info(namespace_id);
+        info["*"].as_str().or_else(|| info["canonical"].as_str())
     }
 
     /// Loads the site info.
