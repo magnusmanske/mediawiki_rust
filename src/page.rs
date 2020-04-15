@@ -129,7 +129,7 @@ impl Page {
         }
 
         let result = api.post_query_api_json(&params)?;
-        match result["edit"].as_str() {
+        match result["edit"]["result"].as_str() {
             Some("Success") => Ok(()),
             _ => Err(Box::new(PageError::EditError(result))),
         }
