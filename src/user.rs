@@ -96,7 +96,7 @@ impl User {
     }
 
     /// Loads the user info, which is stored in the object; returns Ok(()) if successful
-    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<dyn Error>> {
+    pub async fn load_user_info(&mut self, api: &Api) -> Result<(), Box<dyn Error>> {
         match self.user_info {
             Some(_) => return Ok(()),
             None => {
@@ -108,7 +108,7 @@ impl User {
                 .iter()
                 .map(|x| (x.0.to_string(), x.1.to_string()))
                 .collect();
-                let res = api.query_api_json(&params, "GET")?;
+                let res = api.query_api_json(&params, "GET").await?;
                 self.user_info = Some(res);
                 Ok(())
             }
@@ -150,21 +150,18 @@ mod tests {
     use super::*;
     use crate::api::*;
 
-    fn wd_api() -> &'static Api {
-        lazy_static! {
-            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        }
-        &API
+    async fn wd_api() -> Api {
+        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
     }
 
-    #[test]
-    fn user_not_logged_in_by_default() {
+    #[tokio::test]
+    async fn user_not_logged_in_by_default() {
         let user = User::new();
         assert!(!user.logged_in());
     }
 
-    #[test]
-    fn user_login() {
+    #[tokio::test]
+    async fn user_login() {
         let user_name = "test user 1234";
         let user_id = 12345;
         let mut user = User::new();
@@ -175,10 +172,10 @@ mod tests {
         assert_eq!(user.user_id(), user_id);
     }
 
-    #[test]
-    fn user_rights() {
+    #[tokio::test]
+    async fn user_rights() {
         let mut user = User::new();
-        user.load_user_info(wd_api()).unwrap();
+        user.load_user_info(&wd_api().await).await.unwrap();
         assert!(!user.is_bot());
         assert!(user.can_edit());
         assert!(!user.can_upload());
