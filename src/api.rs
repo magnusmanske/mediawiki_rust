@@ -19,6 +19,7 @@ extern crate cookie;
 extern crate hmac;
 extern crate reqwest;
 extern crate sha1;
+extern crate nanoid;
 
 use crate::api::hmac::Mac;
 use crate::title::Title;
@@ -33,7 +34,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
 use urlencoding;
-use uuid::Uuid;
+use nanoid::nanoid;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
 pub type NamespaceID = i64;
@@ -716,7 +717,7 @@ impl Api {
             .as_secs()
             .to_string();
 
-        let nonce = Uuid::new_v4().to_simple().to_string();
+        let nonce = nanoid!(10);
 
         let mut headers = HeaderMap::new();
 

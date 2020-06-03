@@ -19,7 +19,7 @@ urlencoding = "1"
 config = "0.10"
 cookie = "0.13"
 lazy_static = "1.4"
-uuid = { version = "0.8", features = ["v4"] }
+nanoid = "0.3.0"
 url = "2.1"
 base64 = "0.11"
 hmac = "0.7.1"
