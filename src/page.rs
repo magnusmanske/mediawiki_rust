@@ -14,8 +14,6 @@ The `Page` class deals with operations done on pages, like editing.
     unused_qualifications
 )]
 
-extern crate lazy_static;
-
 use crate::api::Api;
 use crate::title::Title;
 use serde_json::Value;
