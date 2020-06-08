@@ -1,0 +1,8 @@
+target
+doc
+Cargo.lock
+.cargo
+.DS_Store
+*/.DS_Store
+*.ini
+*.json
