@@ -550,7 +550,7 @@ impl Api {
     }
 
     /// POST wrapper for `query_api_json`.
-    /// Requires `&mut self`, for sassion cookie storage
+    /// Requires `&mut self`, for session cookie storage
     pub fn post_query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
@@ -946,12 +946,29 @@ mod tests {
     use super::{Api, Title};
 
     #[test]
+    fn api_url() {
+        let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        assert_eq!("https://www.wikidata.org/w/api.php", api.api_url());
+    }
+
+    #[test]
     fn site_info() {
         let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
         );
+        assert!(api.get_site_info_string("general", "notarealkey").is_err());
+    }
+
+    #[test]
+    fn get_token() {
+        let mut api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        // Token for logged out users is always the same
+        assert!(!api.user.logged_in());
+        assert_eq!("+\\", api.get_token("csrf").unwrap());
+        assert_eq!("+\\", api.get_edit_token().unwrap());
+        assert!(api.get_token("notarealtokentype").is_err());
     }
 
     #[test]
