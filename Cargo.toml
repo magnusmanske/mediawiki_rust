@@ -12,11 +12,9 @@ edition = "2018"
 [dependencies]
 time = "=0.2.7"
 serde_json = "1"
-reqwest = { version = "0.10", features = ["blocking", "json"] }
-user_agent = "0.9"
+reqwest = { version = "0.10", features = ["blocking","cookies", "json"] }
 urlencoding = "1"
 config = "0.10"
-cookie = "0.13"
 nanoid = "0.3.0"
 url = "2.1"
 base64 = "0.11"

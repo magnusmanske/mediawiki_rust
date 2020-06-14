@@ -15,7 +15,6 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 )]
 
 extern crate base64;
-extern crate cookie;
 extern crate hmac;
 extern crate reqwest;
 extern crate sha1;
@@ -24,7 +23,6 @@ extern crate nanoid;
 use crate::api::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
-use cookie::{Cookie, CookieJar};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -99,7 +97,6 @@ pub struct Api {
     api_url: String,
     site_info: Value,
     client: reqwest::blocking::Client,
-    cookie_jar: CookieJar,
     user: User,
     user_agent: String,
     maxlag_seconds: Option<u64>,
@@ -125,8 +122,7 @@ impl Api {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
-            client: builder.build()?,
-            cookie_jar: CookieJar::new(),
+            client: builder.cookie_store(true).build()?,
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
@@ -558,36 +554,6 @@ impl Api {
         self.query_api_json_mut(params, "POST")
     }
 
-    /// Adds or replaces cookies in the cookie jar from a http `Response`
-    pub fn set_cookies_from_response(&mut self, resp: &reqwest::blocking::Response) {
-        let cookie_strings = resp
-            .headers()
-            .get_all(reqwest::header::SET_COOKIE)
-            .iter()
-            .filter_map(|v| match v.to_str() {
-                Ok(x) => Some(x.to_string()),
-                Err(_) => None,
-            })
-            .collect::<Vec<String>>();
-        for cs in cookie_strings {
-            match Cookie::parse(cs.clone()) {
-                Ok(cookie) => {
-                    self.cookie_jar.add(cookie);
-                }
-                Err(_) => {}
-            }
-        }
-    }
-
-    /// Generates a single string to pass as COOKIE parameter in a http `Request`
-    pub fn cookies_to_string(&self) -> String {
-        self.cookie_jar
-            .iter()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>()
-            .join("; ")
-    }
-
     /// Runs a query against the MediaWiki API, and returns a text.
     /// Uses `query_raw`
     pub fn query_api_raw(
@@ -765,7 +731,6 @@ impl Api {
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(header.as_str())?,
         );
-        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
@@ -791,13 +756,11 @@ impl Api {
             "GET" => self
                 .client
                 .get(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .header(reqwest::header::USER_AGENT, self.user_agent_full())
                 .query(&params),
             "POST" => self
                 .client
                 .post(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .header(reqwest::header::USER_AGENT, self.user_agent_full())
                 .form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
@@ -837,7 +800,6 @@ impl Api {
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
         let resp = self.query_raw_response(api_url, params, method)?;
-        self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
     }
 
