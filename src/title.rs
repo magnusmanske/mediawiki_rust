@@ -14,8 +14,6 @@ The `Title` class deals with page titles and namespaces
     unused_qualifications
 )]
 
-extern crate lazy_static;
-
 use std::hash::{Hash, Hasher};
 
 /// Shortcut for crate::api::NamespaceID

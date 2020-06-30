@@ -16,11 +16,11 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 
 extern crate base64;
 extern crate cookie;
-extern crate hmac;
 extern crate reqwest;
 extern crate sha1;
 
-use crate::api::hmac::Mac;
+use nanoid::nanoid;
+use crate::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
 use cookie::{Cookie, CookieJar};
@@ -33,7 +33,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
 use urlencoding;
-use uuid::Uuid;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
 pub type NamespaceID = i64;
@@ -44,24 +43,17 @@ const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
 type HmacSha1 = hmac::Hmac<sha1::Sha1>;
 
-#[macro_export]
-/// To quickly create a hashmap.
-/// Example: `hashmap!["action"=>"query","meta"=>"siteinfo","siprop"=>"general|namespaces|namespacealiases|libraries|extensions|statistics"]`
-macro_rules! hashmap {
-    ($( $key: expr => $val: expr ),*) => {{
-         let mut map = ::std::collections::HashMap::new();
-         $( map.insert($key, $val); )*
-         map
-    }}
-}
-
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
 pub struct OAuthParams {
-    g_consumer_key: Option<String>,
-    g_consumer_secret: Option<String>,
-    g_token_key: Option<String>,
-    g_token_secret: Option<String>,
+    /// Consumer Key
+    pub g_consumer_key: Option<String>,
+    /// Consumer secret
+    pub g_consumer_secret: Option<String>,
+    /// Token key
+    pub g_token_key: Option<String>,
+    /// Token secret
+    pub g_token_secret: Option<String>,
     g_user_agent: Option<String>,
     agent: Option<String>,
     consumer_key: Option<String>,
@@ -173,9 +165,9 @@ impl Api {
     }
 
     /// Loads the current user info; returns Ok(()) is successful
-    pub async fn load_user_info(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn load_current_user_info(&mut self) -> Result<(), Box<dyn Error>> {
         let mut user = std::mem::take(&mut self.user);
-        user.load_user_info(&self).await?;
+        self.load_user_info(&mut user).await?;
         self.user = user;
         Ok(())
     }
@@ -777,7 +769,7 @@ impl Api {
             .as_secs()
             .to_string();
 
-        let nonce = Uuid::new_v4().to_simple().to_string();
+        let nonce = nanoid!(10);
 
         let mut headers = HeaderMap::new();
 
@@ -930,7 +922,7 @@ impl Api {
         let res = self.query_api_json_mut(&params, "POST").await?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
-            self.load_user_info().await
+            self.load_current_user_info().await
         } else {
             Err(From::from("Login failed"))
         }
@@ -1000,6 +992,23 @@ impl Api {
             None => {}
         }
         entities
+    }
+
+    /// Loads the user info from the API into the user structure
+    pub async fn load_user_info ( &self, user: &mut User ) -> Result<(), Box<dyn Error>> {
+        if  !user.has_user_info()  {
+            let params: HashMap<String, String> = vec![
+                ("action", "query"),
+                ("meta", "userinfo"),
+                ("uiprop", "blockinfo|groups|groupmemberships|implicitgroups|rights|options|ratelimits|realname|registrationdate|unreadcount|centralids|hasmsg"),
+            ]
+            .iter()
+            .map(|x| (x.0.to_string(), x.1.to_string()))
+            .collect();
+            let res = self.query_api_json(&params, "GET").await?;
+            user.set_user_info(Some(res));
+        }
+        Ok(())
     }
 }
 
