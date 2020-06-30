@@ -144,9 +144,9 @@ fn main() {
     _wikidata_item_tester();
 }*/
 
-fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Error>> {
+async fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Error>> {
     let q = "Q13406268"; // Second sandbox item
-    let token = api.get_edit_token().unwrap();
+    let token = api.get_edit_token().await.unwrap();
     let params: HashMap<String, String> = vec![
         ("action".to_string(), "wbcreateclaim".to_string()),
         ("entity".to_string(), q.to_string()),
@@ -161,19 +161,19 @@ fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Er
     .into_iter()
     .collect();
 
-    api.post_query_api_json(&params)
+    api.post_query_api_json(&params).await
 }
 
-fn _login_api_from_config(api: &mut mediawiki::api::Api) {
+async fn _login_api_from_config(api: &mut mediawiki::api::Api) {
     let mut settings = Config::default();
     // File::with_name(..) is shorthand for File::from(Path::new(..))
     settings.merge(config::File::with_name("test.ini")).unwrap();
     let lgname = settings.get_str("user.user").unwrap();
     let lgpassword = settings.get_str("user.pass").unwrap();
-    api.login(lgname, lgpassword).unwrap();
+    api.login(lgname, lgpassword).await.unwrap();
 }
 
-fn _oauth_edit(api: &mut mediawiki::api::Api) {
+async fn _oauth_edit(api: &mut mediawiki::api::Api) {
     let sandbox_item = "Q13406268";
     let file = File::open("oauth_test.json").expect("File oauth_test.json not found");
     let j =
@@ -197,16 +197,17 @@ fn _oauth_edit(api: &mut mediawiki::api::Api) {
 
     params.insert(
         "token".to_string(),
-        api.get_edit_token().expect("Could not get edit token"),
+        api.get_edit_token().await.expect("Could not get edit token"),
     );
 
-    match api.post_query_api_json_mut(&params) {
+    match api.post_query_api_json_mut(&params).await {
         Ok(_) => println!("Edited https://www.wikidata.org/wiki/{}", sandbox_item),
         Err(e) => panic!("{:?}", &e),
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     /*
         if false {
             let mut settings = Config::default();
@@ -241,7 +242,9 @@ fn main() {
         }
     */
 
-    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php")
+        .await
+        .unwrap();
     let x = api.get_namespace_info(0);
     println!("{:?}", x);
     let x = api.get_local_namespace_name(0);

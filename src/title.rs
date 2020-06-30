@@ -278,79 +278,76 @@ mod tests {
     use super::*;
     use crate::api::*;
 
-    fn wd_api() -> &'static Api {
-        lazy_static! {
-            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        }
-        &API
+    async fn wd_api() -> Api {
+        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
     }
 
-    #[test]
-    fn new_from_full_main_namespace() {
+    #[tokio::test]
+    async fn new_from_full_main_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Main namespace", wd_api()),
+            Title::new_from_full(&"Main namespace", &wd_api().await),
             Title::new("Main namespace", 0)
         );
     }
 
-    #[test]
-    fn new_from_full_canonical_namespace() {
+    #[tokio::test]
+    async fn new_from_full_canonical_namespace() {
         assert_eq!(
-            Title::new_from_full(&"File:Some file.jpg", wd_api()),
+            Title::new_from_full(&"File:Some file.jpg", &wd_api().await),
             Title::new("Some file.jpg", 6)
         );
     }
 
-    #[test]
-    fn new_from_full_canonical_namespace_with_colon() {
+    #[tokio::test]
+    async fn new_from_full_canonical_namespace_with_colon() {
         assert_eq!(
-            Title::new_from_full(&"Project talk:A project:yes, really", wd_api()),
+            Title::new_from_full(&"Project talk:A project:yes, really", &wd_api().await),
             Title::new("A project:yes, really", 5)
         );
     }
 
-    #[test]
-    fn new_from_full_namespace_alias() {
+    #[tokio::test]
+    async fn new_from_full_namespace_alias() {
         assert_eq!(
-            Title::new_from_full(&"Item:Q12345", wd_api()),
+            Title::new_from_full(&"Item:Q12345", &wd_api().await),
             Title::new("Q12345", 0)
         );
     }
 
-    #[test]
-    fn new_from_full_special_namespace() {
+    #[tokio::test]
+    async fn new_from_full_special_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Special:A title", wd_api()),
+            Title::new_from_full(&"Special:A title", &wd_api().await),
             Title::new("A title", -1)
         );
     }
 
-    #[test]
-    fn new_from_full_invalid_namespace() {
+    #[tokio::test]
+    async fn new_from_full_invalid_namespace() {
         assert_eq!(
-            Title::new_from_full(&"This is not a namespace:A title", wd_api()),
+            Title::new_from_full(&"This is not a namespace:A title", &wd_api().await),
             Title::new("This is not a namespace:A title", 0)
         );
     }
 
-    #[test]
-    fn spaces_to_underscores() {
+    #[tokio::test]
+    async fn spaces_to_underscores() {
         assert_eq!(
             Title::spaces_to_underscores(&" A little  test "),
             "A_little__test"
         );
     }
 
-    #[test]
-    fn underscores_to_spaces() {
+    #[tokio::test]
+    async fn underscores_to_spaces() {
         assert_eq!(
             Title::underscores_to_spaces(&"_A_little__test_"),
             "A little  test"
         );
     }
 
-    #[test]
-    fn first_letter_uppercase() {
+    #[tokio::test]
+    async fn first_letter_uppercase() {
         assert_eq!(Title::first_letter_uppercase(&""), "");
         assert_eq!(
             Title::first_letter_uppercase(&"FooBar"),
@@ -363,9 +360,9 @@ mod tests {
         assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
     }
 
-    #[test]
-    fn full() {
-        let api = wd_api();
+    #[tokio::test]
+    async fn full() {
+        let api = &wd_api().await;
         let title = Title::new_from_full(&"User talk:Magnus_Manske", api);
         assert_eq!(
             title.full_pretty(api),
