@@ -18,6 +18,7 @@ extern crate base64;
 extern crate cookie;
 extern crate reqwest;
 extern crate sha1;
+extern crate nanoid;
 
 use nanoid::nanoid;
 use crate::hmac::Mac;
@@ -33,6 +34,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
 use urlencoding;
+use nanoid::nanoid;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
 pub type NamespaceID = i64;
@@ -1023,6 +1025,17 @@ mod tests {
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
         );
+        assert!(api.get_site_info_string("general", "notarealkey").is_err());
+    }
+
+    #[test]
+    fn get_token() {
+        let mut api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+        // Token for logged out users is always the same
+        assert!(!api.user.logged_in());
+        assert_eq!("+\\", api.get_token("csrf").unwrap());
+        assert_eq!("+\\", api.get_edit_token().unwrap());
+        assert!(api.get_token("notarealtokentype").is_err());
     }
 
     #[tokio::test]
