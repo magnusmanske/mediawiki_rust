@@ -98,6 +98,7 @@ pub struct Api {
     edit_delay_ms: Option<u64>,
     max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
+    oauth2: Option<String>,
 }
 
 impl Api {
@@ -125,6 +126,7 @@ impl Api {
             max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
             oauth: None,
+            oauth2: None,
         };
         ret.load_site_info().await?;
         Ok(ret)
@@ -138,6 +140,11 @@ impl Api {
     /// Sets the OAuth parameters
     pub fn set_oauth(&mut self, oauth: Option<OAuthParams>) {
         self.oauth = oauth;
+    }
+
+    /// Set an OAuth 2 access token
+    pub fn set_oauth2(&mut self, oauth2: &str) {
+        self.oauth2 = Some(oauth2.to_string());
     }
 
     /// Returns a reference to the current OAuth parameters
@@ -840,18 +847,23 @@ impl Api {
             return self.oauth_request_builder(method, api_url, params);
         }
 
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
+        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
+        if let Some(access_token) = &self.oauth2 {
+            headers.insert(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token).parse()?);
+        }
+
         Ok(match method {
             "GET" => self
                 .client
                 .get(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .headers(headers)
                 .query(&params),
             "POST" => self
                 .client
                 .post(api_url)
-                .header(reqwest::header::COOKIE, self.cookies_to_string())
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .headers(headers)
                 .form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
         })
