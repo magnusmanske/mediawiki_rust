@@ -417,7 +417,7 @@ mod tests {
     async fn page_coordinates() {
         let page = Page::new(Title::new("Q64", 0)); // Berlin
         let result = page.coordinates(&wd_api().await).await.unwrap();
-        assert!(result.len() > 0);
+        assert!(!result.is_empty());
 
         // Distance to Cologne
         let result = page
