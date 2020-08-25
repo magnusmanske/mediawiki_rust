@@ -88,7 +88,7 @@ impl OAuthParams {
 pub struct Api {
     api_url: String,
     site_info: Value,
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
     user: User,
     user_agent: String,
     maxlag_seconds: Option<u64>,
@@ -792,7 +792,6 @@ impl Api {
         }
 
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
         if let Some(access_token) = &self.oauth2 {
             headers.insert(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token).parse()?);
@@ -842,8 +841,9 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let resp = self.query_raw_response(api_url, params, method)?;
-        Ok(resp.text()?)
+        let resp = self.query_raw_response(api_url, params, method).await?;
+        let result = resp.text().await;
+        result.map_err(|e|Box::new(e) as Box<dyn Error>)
     }
 
     /// Runs a query against a generic URL, and returns a text.
