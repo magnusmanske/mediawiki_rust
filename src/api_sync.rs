@@ -1,12 +1,13 @@
 /*!
-The `Api` class serves as a univeral interface to a MediaWiki API.
+The `ApiSync` class serves as a univeral interface to a MediaWiki API.
+This sync version is kept for backwards compatablilty.
 */
 
 #![deny(
     missing_docs,
     missing_debug_implementations,
     missing_copy_implementations,
-    //trivial_casts,
+    trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
     unstable_features,
@@ -15,15 +16,17 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 )]
 
 extern crate base64;
-//extern crate hmac;
+extern crate cookie;
+extern crate hmac;
 extern crate reqwest;
 extern crate sha1;
-extern crate nanoid;
 
-use nanoid::nanoid;
+use crate::api::OAuthParams;
 use crate::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
+use cookie::{Cookie, CookieJar};
+use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -32,6 +35,7 @@ use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
+use urlencoding;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
 pub type NamespaceID = i64;
@@ -42,89 +46,48 @@ const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
 type HmacSha1 = hmac::Hmac<sha1::Sha1>;
 
-/// `OAuthParams` contains parameters for OAuth requests
+/// `ApiSync` is the main class to interact with a MediaWiki API
 #[derive(Debug, Clone)]
-pub struct OAuthParams {
-    /// Consumer Key
-    pub g_consumer_key: Option<String>,
-    /// Consumer secret
-    pub g_consumer_secret: Option<String>,
-    /// Token key
-    pub g_token_key: Option<String>,
-    /// Token secret
-    pub g_token_secret: Option<String>,
-    g_user_agent: Option<String>,
-    agent: Option<String>,
-    consumer_key: Option<String>,
-    consumer_secret: Option<String>,
-    api_url: Option<String>,
-    public_mw_oauth_url: Option<String>,
-    tool: Option<String>,
-}
-
-impl OAuthParams {
-    /// Imports data from JSON stored in the QuickStatements DB batch_oauth.serialized_json field
-    pub fn new_from_json(j: &Value) -> Self {
-        Self {
-            g_consumer_key: j["gConsumerKey"].as_str().map(|s| s.to_string()),
-            g_consumer_secret: j["gConsumerSecret"].as_str().map(|s| s.to_string()),
-            g_token_key: j["gTokenKey"].as_str().map(|s| s.to_string()),
-            g_token_secret: j["gTokenSecret"].as_str().map(|s| s.to_string()),
-            g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
-            agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
-            consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
-            consumer_secret: j["params"]["consumerSecret"]
-                .as_str()
-                .map(|s| s.to_string()),
-            api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
-            public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
-            tool: j["tool"].as_str().map(|s| s.to_string()),
-        }
-    }
-}
-
-/// `Api` is the main class to interact with a MediaWiki API
-#[derive(Debug, Clone)]
-pub struct Api {
+pub struct ApiSync {
     api_url: String,
     site_info: Value,
     client: reqwest::blocking::Client,
+    cookie_jar: CookieJar,
     user: User,
     user_agent: String,
     maxlag_seconds: Option<u64>,
     edit_delay_ms: Option<u64>,
     max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
-    oauth2: Option<String>,
 }
 
-impl Api {
-    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+impl ApiSync {
+    /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
-    pub async fn new(api_url: &str) -> Result<Api, Box<dyn Error>> {
-        Api::new_from_builder(api_url, reqwest::Client::builder()).await
+    pub fn new(api_url: &str) -> Result<ApiSync, Box<dyn Error>> {
+        ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
-    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     /// Uses a bespoke reqwest::ClientBuilder.
-    pub async fn new_from_builder(
+    pub fn new_from_builder(
         api_url: &str,
-        builder: reqwest::ClientBuilder,
-    ) -> Result<Api, Box<dyn Error>> {
-        let mut ret = Api {
+        builder: reqwest::blocking::ClientBuilder,
+    ) -> Result<ApiSync, Box<dyn Error>> {
+        let mut ret = ApiSync {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
-            client: builder.cookie_store(true).build()?,
+            client: builder.build()?,
+            cookie_jar: CookieJar::new(),
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
             maxlag_seconds: DEFAULT_MAXLAG,
             max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
             oauth: None,
-            oauth2: None,
         };
-        ret.load_site_info().await?;
+        ret.load_site_info()?;
         Ok(ret)
     }
 
@@ -138,23 +101,18 @@ impl Api {
         self.oauth = oauth;
     }
 
-    /// Set an OAuth 2 access token
-    pub fn set_oauth2(&mut self, oauth2: &str) {
-        self.oauth2 = Some(oauth2.to_string());
-    }
-
     /// Returns a reference to the current OAuth parameters
     pub fn oauth(&self) -> &Option<OAuthParams> {
         &self.oauth
     }
 
     /// Returns a reference to the reqwest client
-    pub fn client(&self) -> &reqwest::Client {
+    pub fn client(&self) -> &reqwest::blocking::Client {
         &self.client
     }
 
     /// Returns a mutable reference to the reqwest client
-    pub fn client_mut(&mut self) -> &mut reqwest::Client {
+    pub fn client_mut(&mut self) -> &mut reqwest::blocking::Client {
         &mut self.client
     }
 
@@ -169,16 +127,16 @@ impl Api {
     }
 
     /// Loads the current user info; returns Ok(()) is successful
-    pub async fn load_current_user_info(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn load_current_user_info(&mut self) -> Result<(), Box<dyn Error>> {
         let mut user = std::mem::take(&mut self.user);
-        self.load_user_info(&mut user).await?;
+        self.load_user_info(&mut user)?;
         self.user = user;
         Ok(())
     }
 
     /// Returns the maximum number of retry attempts
     pub fn max_retry_attempts(&self) -> u64 {
-        self.max_retry_attempts
+        return self.max_retry_attempts;
     }
 
     /// Sets the maximum number of retry attempts
@@ -188,7 +146,7 @@ impl Api {
 
     /// Returns a reference to the serde_json Value containing the site info
     pub fn get_site_info(&self) -> &Value {
-        &self.site_info
+        return &self.site_info;
     }
 
     /// Returns a serde_json Value in site info, within the `["query"]` object.
@@ -223,9 +181,9 @@ impl Api {
 
     /// Loads the site info.
     /// Should only ever be called from `new()`
-    async fn load_site_info(&mut self) -> Result<&Value, Box<dyn Error>> {
+    fn load_site_info(&mut self) -> Result<&Value, Box<dyn Error>> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
-        self.site_info = self.get_query_api_json(&params).await?;
+        self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
     }
 
@@ -234,15 +192,21 @@ impl Api {
     /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
-            (a @ &mut Value::Object(_), Value::Object(b)) => if let Some(a) = a.as_object_mut() {
-                for (k, v) in b {
-                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
+            (a @ &mut Value::Object(_), Value::Object(b)) => match a.as_object_mut() {
+                Some(a) => {
+                    for (k, v) in b {
+                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                    }
                 }
+                None => {}
             },
-            (a @ &mut Value::Array(_), Value::Array(b)) => if let Some(a) = a.as_array_mut() {
-                for v in b {
-                    a.push(v);
+            (a @ &mut Value::Array(_), Value::Array(b)) => match a.as_array_mut() {
+                Some(a) => {
+                    for v in b {
+                        a.push(v);
+                    }
                 }
+                None => {}
             },
             (a, b) => *a = b,
         }
@@ -251,7 +215,7 @@ impl Api {
     /// Turns a Vec of str tuples into a Hashmap of String, to be used in API calls
     pub fn params_into(&self, params: &[(&str, &str)]) -> HashMap<String, String> {
         params
-            .iter()
+            .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
     }
@@ -262,17 +226,17 @@ impl Api {
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
-    pub async fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
+    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
         let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
-        if !token_type.is_empty() {
+        if token_type.len() != 0 {
             params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
         key += &"token";
-        if token_type.is_empty() {
+        if token_type.len() == 0 {
             key = "csrftoken".into()
         }
-        let x = self.query_api_json_mut(&params, "GET").await?;
+        let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
             Value::String(s) => Ok(s.to_string()),
             _ => Err(From::from(format!("Could not get token: {:?}", x))),
@@ -280,16 +244,16 @@ impl Api {
     }
 
     /// Calls `get_token()` to return an edit token
-    pub async fn get_edit_token(&mut self) -> Result<String, Box<dyn Error>> {
-        self.get_token("csrf").await
+    pub fn get_edit_token(&mut self) -> Result<String, Box<dyn Error>> {
+        self.get_token("csrf")
     }
 
     /// Same as `get_query_api_json` but automatically loads all results via the `continue` parameter
-    pub async fn get_query_api_json_all(
+    pub fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.get_query_api_json_limit(params, None).await
+        self.get_query_api_json_limit(params, None)
     }
 
     /// Tries to return the len() of an API query result. Returns 0 if unknown
@@ -307,57 +271,13 @@ impl Api {
         }
     }
 
-/// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
-    pub async fn get_query_api_json_limit(
-        &self,
-        params: &HashMap<String, String>,
-        max: Option<usize>,
-    ) -> Result<Value, Box<dyn Error>> {
-        let mut cont = HashMap::<String, String>::new();
-        let mut ret = serde_json::json!({});
-        loop {
-            let mut params_cont = params.clone();
-            for (k, v) in &cont {
-                params_cont.insert(k.to_string(), v.to_string());
-            }
-            let result = self.get_query_api_json(&params_cont).await?;
-            cont.clear();
-            let conti = result["continue"].clone();
-            self.json_merge(&mut ret, result);
-            if let Some(m) = max {
-                if self.query_result_count(&ret) >= m {
-                    break;
-                }
-            }
-            match conti {
-                Value::Object(obj) => {
-                    cont.clear();
-                    obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        let continue_value =
-                            x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
-                        cont.insert(x.0.to_string(), continue_value);
-                    });
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        if let Some(x) = ret.as_object_mut() {
-            x.remove("continue");
-        }
-
-        Ok(ret)
-    }
-
-    /*
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
-    pub async fn get_query_api_json_limit(
+    pub fn get_query_api_json_limit(
         &self,
         params: &HashMap<String, String>,
         max: Option<usize>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.get_query_api_json_limit_iter(params, max).await
+        self.get_query_api_json_limit_iter(params, max)
             .try_fold(Value::Null, |mut acc, result| {
                 self.json_merge(&mut acc, result?);
                 Ok(acc)
@@ -366,13 +286,13 @@ impl Api {
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
     /// Returns an iterator; each item is a "page" of results.
-    pub async fn get_query_api_json_limit_iter<'a>(
+    pub fn get_query_api_json_limit_iter<'a>(
         &'a self,
         params: &HashMap<String, String>,
         max: Option<usize>,
     ) -> impl Iterator<Item = Result<Value, Box<dyn Error>>> + 'a {
         struct ApiQuery<'a> {
-            api: &'a Api,
+            api: &'a ApiSync,
             params: HashMap<String, String>,
             values_remaining: Option<usize>,
             continue_params: Value,
@@ -380,7 +300,6 @@ impl Api {
 
         impl<'a> Iterator for ApiQuery<'a> {
             type Item = Result<Value, Box<dyn Error>>;
-            
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(0) = self.values_remaining {
                     return None;
@@ -398,11 +317,7 @@ impl Api {
                     );
                 }
 
-                async {
-                let query_result =  
-                self.api.get_query_api_json(&current_params).await;
-            
-                let ret = match query_result {
+                Some(match self.api.get_query_api_json(&current_params) {
                     Ok(mut result) => {
                         self.continue_params = result["continue"].clone();
                         if self.continue_params.is_null() {
@@ -414,16 +329,11 @@ impl Api {
                         result.as_object_mut().map(|r| r.remove("continue"));
                         Ok(result)
                     }
-                    Err(e) => {
+                    e @ Err(_) => {
                         self.values_remaining = Some(0);
-                        //Err(Box::new(e) as Box<dyn Error>)
-                        let s = format!("{:?}",e);
-                        let err: Box<dyn Error + Send + Sync> = From::from(s);
-                        Err(err as Box<dyn Error>)
+                        e
                     }
-                } ;
-                Some(ret)
-            }
+                })
             }
         }
 
@@ -434,11 +344,10 @@ impl Api {
             continue_params: Value::Null,
         }
     }
-    */
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
     /// Parameters are a hashmap; `format=json` is enforced.
-    pub async fn query_api_json(
+    pub fn query_api_json(
         &self,
         params: &HashMap<String, String>,
         method: &str,
@@ -449,7 +358,7 @@ impl Api {
         let mut cumulative: u64 = 0;
         loop {
             self.set_cumulative_maxlag_params(&mut params, method, cumulative);
-            let t = self.query_api_raw(&params, method).await?;
+            let t = self.query_api_raw(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
@@ -470,7 +379,7 @@ impl Api {
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
     /// Parameters are a hashmap; `format=json` is enforced.
-    async fn query_api_json_mut(
+    fn query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
@@ -481,7 +390,7 @@ impl Api {
         let mut cumulative: u64 = 0;
         loop {
             self.set_cumulative_maxlag_params(&mut params, method, cumulative);
-            let t = self.query_api_raw_mut(&params, method).await?;
+            let t = self.query_api_raw_mut(&params, method)?;
             let v: Value = serde_json::from_str(&t)?;
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
@@ -539,8 +448,11 @@ impl Api {
         if !self.is_edit_query(params, method) {
             return;
         }
-        if let Some(maxlag_seconds) = self.maxlag_seconds {
-            params.insert("maxlag".to_string(), maxlag_seconds.to_string());
+        match self.maxlag_seconds {
+            Some(maxlag_seconds) => {
+                params.insert("maxlag".to_string(), maxlag_seconds.to_string());
+            }
+            None => {}
         }
     }
 
@@ -554,9 +466,12 @@ impl Api {
         if !self.is_edit_query(params, method) {
             return;
         }
-        if let Some(maxlag_seconds) = self.maxlag_seconds {
-            let added = cumulative + maxlag_seconds;
-            params.insert("maxlag".to_string(), added.to_string());
+        match self.maxlag_seconds {
+            Some(maxlag_seconds) => {
+                let added = cumulative + maxlag_seconds;
+                params.insert("maxlag".to_string(), added.to_string());
+            }
+            None => {}
         }
     }
 
@@ -572,48 +487,78 @@ impl Api {
     }
 
     /// GET wrapper for `query_api_json`
-    pub async fn get_query_api_json(
+    pub fn get_query_api_json(
         &self,
         params: &HashMap<String, String>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.query_api_json(params, "GET").await
+        self.query_api_json(params, "GET")
     }
 
     /// POST wrapper for `query_api_json`
-    pub async fn post_query_api_json(
+    pub fn post_query_api_json(
         &self,
         params: &HashMap<String, String>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.query_api_json(params, "POST").await
+        self.query_api_json(params, "POST")
     }
 
     /// POST wrapper for `query_api_json`.
-    /// Requires `&mut self`, for sassion cookie storage
-    pub async fn post_query_api_json_mut(
+    /// Requires `&mut self`, for session cookie storage
+    pub fn post_query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.query_api_json_mut(params, "POST").await
+        self.query_api_json_mut(params, "POST")
+    }
+
+    /// Adds or replaces cookies in the cookie jar from a http `Response`
+    pub fn set_cookies_from_response(&mut self, resp: &reqwest::blocking::Response) {
+        let cookie_strings = resp
+            .headers()
+            .get_all(reqwest::header::SET_COOKIE)
+            .iter()
+            .filter_map(|v| match v.to_str() {
+                Ok(x) => Some(x.to_string()),
+                Err(_) => None,
+            })
+            .collect::<Vec<String>>();
+        for cs in cookie_strings {
+            match Cookie::parse(cs.clone()) {
+                Ok(cookie) => {
+                    self.cookie_jar.add(cookie);
+                }
+                Err(_) => {}
+            }
+        }
+    }
+
+    /// Generates a single string to pass as COOKIE parameter in a http `Request`
+    pub fn cookies_to_string(&self) -> String {
+        self.cookie_jar
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join("; ")
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
     /// Uses `query_raw`
-    pub async fn query_api_raw(
+    pub fn query_api_raw(
         &self,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        self.query_raw(&self.api_url, params, method).await
+        self.query_raw(&self.api_url, params, method)
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
     /// Uses `query_raw_mut`
-    async fn query_api_raw_mut(
+    fn query_api_raw_mut(
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        self.query_raw_mut(&self.api_url.clone(), params, method).await
+        self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
     /// Generates a `RequestBuilder` for the API URL
@@ -621,7 +566,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         self.request_builder(&self.api_url, params, method)
     }
 
@@ -666,27 +611,30 @@ impl Api {
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
                     let v = self.rawurlencode(&k2);
-                    Some(k.clone() + "=" + &v)
+                    Some(k.clone() + &"=" + &v)
                 }
                 None => None,
             })
             .collect();
 
         let url = Url::parse(api_url)?;
-        let mut url_string = url.scheme().to_owned() + "://";
+        let mut url_string = url.scheme().to_owned() + &"://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
-        if let Some(port) = url.port() { write!(url_string, ":{}", port).unwrap() }
+        match url.port() {
+            Some(port) => write!(url_string, ":{}", port).unwrap(),
+            None => {}
+        }
         url_string += url.path();
 
         let ret = self.rawurlencode(&method)
-            + "&"
+            + &"&"
             + &self.rawurlencode(&url_string)
-            + "&"
+            + &"&"
             + &self.rawurlencode(&ret.join("&"));
 
         let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
             (Some(g_consumer_secret), Some(g_token_secret)) => {
-                self.rawurlencode(g_consumer_secret) + "&" + &self.rawurlencode(g_token_secret)
+                self.rawurlencode(g_consumer_secret) + &"&" + &self.rawurlencode(g_token_secret)
             }
             _ => {
                 return Err(From::from("g_consumer_secret or g_token_secret not set"));
@@ -707,7 +655,7 @@ impl Api {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -760,7 +708,7 @@ impl Api {
                 let value = value.to_str().unwrap();
                 let key = self.rawurlencode(&key);
                 let value = self.rawurlencode(&value);
-                key + "=\"" + &value + "\""
+                key.to_string() + &"=\"" + &value + &"\""
             })
             .collect();
         header += &parts.join(", ");
@@ -770,6 +718,7 @@ impl Api {
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(header.as_str())?,
         );
+        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
 
         match method {
@@ -785,28 +734,23 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
-        }
-
-        let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::COOKIE, self.cookies_to_string().parse()?);
-        headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
-        if let Some(access_token) = &self.oauth2 {
-            headers.insert(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token).parse()?);
         }
 
         Ok(match method {
             "GET" => self
                 .client
                 .get(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .header(reqwest::header::USER_AGENT, self.user_agent_full())
                 .query(&params),
             "POST" => self
                 .client
                 .post(api_url)
+                .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .header(reqwest::header::USER_AGENT, self.user_agent_full())
                 .form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
@@ -814,16 +758,16 @@ impl Api {
     }
 
     /// Performs a query, pauses if required, and returns the raw response
-    async fn query_raw_response(
+    fn query_raw_response(
         &self,
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::Response, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
         let req = self.request_builder(api_url, params, method)?;
-        let resp = req.send().await?;
+        let resp = req.send()?;
         self.enact_edit_delay(params, method);
-        Ok(resp)
+        return Ok(resp);
     }
 
     /// Delays the current thread, if the query performs an edit, and a delay time is set
@@ -831,13 +775,30 @@ impl Api {
         if !self.is_edit_query(params, method) {
             return;
         }
-        if let Some(ms) = self.edit_delay_ms { thread::sleep(time::Duration::from_millis(ms)) }
+        match self.edit_delay_ms {
+            Some(ms) => thread::sleep(time::Duration::from_millis(ms)),
+            None => {}
+        }
     }
 
     /// Runs a query against a generic URL, stores cookies, and returns a text
     /// Used for non-stateless queries, such as logins
-    async fn query_raw_mut(
+    fn query_raw_mut(
         &mut self,
+        api_url: &str,
+        params: &HashMap<String, String>,
+        method: &str,
+    ) -> Result<String, Box<dyn Error>> {
+        let resp = self.query_raw_response(api_url, params, method)?;
+        self.set_cookies_from_response(&resp);
+        Ok(resp.text()?)
+    }
+
+    /// Runs a query against a generic URL, and returns a text.
+    /// Does not store cookies, but also does not require `&self` to be mutable.
+    /// Used for simple queries
+    pub fn query_raw(
+        &self,
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
@@ -846,35 +807,21 @@ impl Api {
         Ok(resp.text()?)
     }
 
-    /// Runs a query against a generic URL, and returns a text.
-    /// Does not store cookies, but also does not require `&self` to be mutable.
-    /// Used for simple queries
-    pub async fn query_raw(
-        &self,
-        api_url: &str,
-        params: &HashMap<String, String>,
-        method: &str,
-    ) -> Result<String, Box<dyn Error>> {
-        let resp = self.query_raw_response(api_url, params, method).await?;
-        let result = resp.text().await;
-        result.map_err(|e|Box::new(e) as Box<dyn Error>)
-    }
-
     /// Performs a login against the MediaWiki API.
     /// If successful, user information is stored in `User`, and in the cookie jar
-    pub async fn login<S: Into<String>>(
+    pub fn login<S: Into<String>>(
         &mut self,
         lgname: S,
         lgpassword: S,
     ) -> Result<(), Box<dyn Error>> {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
-        let lgtoken = self.get_token("login").await?;
-        let params = hashmap!("action".to_string()=>"login".to_string(),"lgname".to_string()=>lgname.into(),"lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken);
-        let res = self.query_api_json_mut(&params, "POST").await?;
+        let lgtoken = self.get_token("login")?;
+        let params = hashmap!("action".to_string()=>"login".to_string(),"lgname".to_string()=>lgname.into(),"lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken.into());
+        let res = self.query_api_json_mut(&params, "POST")?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
-            self.load_current_user_info().await
+            self.load_current_user_info()
         } else {
             Err(From::from("Login failed"))
         }
@@ -888,7 +835,7 @@ impl Api {
                 .as_object()
                 .unwrap() // OK
                 .iter()
-                .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
+                .flat_map(|(_k, v)| ApiSync::result_array_to_titles(&v))
                 .collect();
         }
         data.as_array()
@@ -900,22 +847,11 @@ impl Api {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
-    pub async fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
+    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(&query_api_url, &params, "POST").await?;
-        match response.json().await {
-            Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
-        }
-    }
-
-    /// Performs a SPARQL query against a wikibase installation.
-    /// Uses the given sparql endpoint
-    pub async fn sparql_query_endpoint(&self, query: &str, query_api_url: &str) -> Result<Value, Box<dyn Error>> {
-        let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(&query_api_url, &params, "POST").await?;
-        match response.json().await {
+        let response = self.query_raw_response(&query_api_url, &params, "POST")?;
+        match response.json() {
             Ok(json) => Ok(json),
             Err(e) => Err(From::from(format!("{}", e))),
         }
@@ -941,19 +877,25 @@ impl Api {
         variable_name: &str,
     ) -> Vec<String> {
         let mut entities = vec![];
-        if let Some(bindings) = sparql_result["results"]["bindings"].as_array() {
-            for b in bindings {
-                if let Some(entity_url) = b[variable_name]["value"].as_str() {
-                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+        match sparql_result["results"]["bindings"].as_array() {
+            Some(bindings) => {
+                for b in bindings {
+                    match b[variable_name]["value"].as_str() {
+                        Some(entity_url) => {
+                            entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                        }
+                        None => {}
+                    }
                 }
             }
+            None => {}
         }
         entities
     }
 
     /// Loads the user info from the API into the user structure
-    pub async fn load_user_info ( &self, user: &mut User ) -> Result<(), Box<dyn Error>> {
-        if  !user.has_user_info()  {
+    pub fn load_user_info(&self, user: &mut User) -> Result<(), Box<dyn Error>> {
+        if !user.has_user_info() {
             let params: HashMap<String, String> = vec![
                 ("action", "query"),
                 ("meta", "userinfo"),
@@ -962,7 +904,8 @@ impl Api {
             .iter()
             .map(|x| (x.0.to_string(), x.1.to_string()))
             .collect();
-            let res = self.query_api_json(&params, "GET").await?;
+            let res = self.query_api_json(&params, "GET")?;
+            println!("{:?}", &res);
             user.set_user_info(Some(res));
         }
         Ok(())
@@ -971,11 +914,17 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
-    use super::{Api, Title};
+    use super::{ApiSync, Title};
 
-    #[tokio::test]
-    async fn site_info() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+    #[test]
+    fn api_url() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        assert_eq!("https://www.wikidata.org/w/api.php", api.api_url());
+    }
+
+    #[test]
+    fn site_info() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -983,28 +932,28 @@ mod tests {
         assert!(api.get_site_info_string("general", "notarealkey").is_err());
     }
 
-    #[tokio::test]
-    async fn get_token() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+    #[test]
+    fn get_token() {
+        let mut api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         // Token for logged out users is always the same
         assert!(!api.user.logged_in());
-        assert_eq!("+\\", api.get_token("csrf").await.unwrap());
-        assert_eq!("+\\", api.get_edit_token().await.unwrap());
-        assert!(api.get_token("notarealtokentype").await.is_err());
+        assert_eq!("+\\", api.get_token("csrf").unwrap());
+        assert_eq!("+\\", api.get_edit_token().unwrap());
+        assert!(api.get_token("notarealtokentype").is_err());
     }
 
-    #[tokio::test]
-    async fn api_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+    #[test]
+    fn api_limit() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         let params =
             api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "the")]);
-        let result = api.get_query_api_json_limit(&params, Some(20)).await.unwrap();
+        let result = api.get_query_api_json_limit(&params, Some(20)).unwrap();
         assert_eq!(result["query"]["search"].as_array().unwrap().len(), 20);
     }
 
-    #[tokio::test]
-    async fn api_no_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+    #[test]
+    fn api_no_limit() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
@@ -1014,31 +963,31 @@ mod tests {
                 "John haswbstatement:P31=Q5 -haswbstatement:P735",
             ),
         ]);
-        let result = api.get_query_api_json_all(&params).await.unwrap();
+        let result = api.get_query_api_json_all(&params).unwrap();
         match result["query"]["search"].as_array() {
             Some(arr) => assert!(arr.len() > 1500),
             None => panic!("result.query.search is not an array"),
         }
     }
 
-    #[tokio::test]
-    async fn sparql_query() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).await.unwrap() ;
+    #[test]
+    fn sparql_query() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
 
-    #[tokio::test]
-    async fn entities_from_sparql_result() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).await.unwrap() ;
+    #[test]
+    fn entities_from_sparql_result() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).unwrap() ;
         let titles = api.entities_from_sparql_result(&res, "q");
         assert!(titles.contains(&"Q36499535".to_string()));
     }
 
-    #[tokio::test]
-    async fn extract_entity_from_uri() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+    #[test]
+    fn extract_entity_from_uri() {
+        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123")
                 .unwrap(),
@@ -1055,11 +1004,11 @@ mod tests {
             .is_err());
     }
 
-    #[tokio::test]
-    async fn result_array_to_titles() {
-        //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
+    #[test]
+    fn result_array_to_titles() {
+        //let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
-            Api::result_array_to_titles(
+            ApiSync::result_array_to_titles(
                 &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8},{"title":"Prefix:Baz","ns":9}]})
             ),
             vec![
@@ -1070,9 +1019,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn result_namespaces() {
-        let api = Api::new("https://de.wikipedia.org/w/api.php").await.unwrap();
+    #[test]
+    fn result_namespaces() {
+        let api = ApiSync::new("https://de.wikipedia.org/w/api.php").unwrap();
         assert_eq!(api.get_local_namespace_name(0), Some(""));
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
         assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));

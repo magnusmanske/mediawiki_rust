@@ -14,8 +14,6 @@ The `Title` class deals with page titles and namespaces
     unused_qualifications
 )]
 
-use std::hash::{Hash, Hasher};
-
 /// Shortcut for crate::api::NamespaceID
 type NamespaceID = crate::api::NamespaceID;
 
@@ -48,27 +46,20 @@ pub struct Title {
     namespace_id: NamespaceID,
 }
 
-impl Hash for Title {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.namespace_id.hash(state);
-        self.title.hash(state);
-    }
-}
-
 impl Title {
     /// Constructor, where un-prefixed title and namespace are known.
     /// Assumes title has correct capitalization
     pub fn new(title: &str, namespace_id: NamespaceID) -> Title {
         Title {
             title: Title::underscores_to_spaces(&title),
-            namespace_id: namespace_id,
+            namespace_id,
         }
     }
 
     /// Constructor, where full namespace-prefixed title is known.
     /// Uses Api to parse valid namespaces
     pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
-        let mut v: Vec<&str> = full_title.split(":").collect();
+        let mut v: Vec<&str> = full_title.split(':').collect();
         if v.len() == 1 {
             return Self::new(&full_title, 0);
         }
@@ -77,56 +68,41 @@ impl Title {
         let site_info = api.get_site_info();
 
         // Canonical namespaces
-        match site_info["query"]["namespaces"].as_object() {
-            Some(namespaces) => {
-                for (_, ns) in namespaces {
-                    match ns["*"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                return Self::new_from_namespace_object(title, ns);
-                            }
-                        }
-                        None => {}
+        if let Some(namespaces) = site_info["query"]["namespaces"].as_object() {
+            for (_, ns) in namespaces {
+                if let Some(namespace) = ns["*"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        return Self::new_from_namespace_object(title, ns);
                     }
-                    match ns["canonical"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                return Self::new_from_namespace_object(title, ns);
-                            }
-                        }
-                        None => {}
+                }
+                if let Some(namespace) = ns["canonical"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        return Self::new_from_namespace_object(title, ns);
                     }
                 }
             }
-            None => {}
         }
 
         // Aliases
-        match site_info["query"]["namespacealiases"].as_array() {
-            Some(namespaces) => {
-                for ns in namespaces {
-                    match ns["*"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                let namespace_id = ns["id"].as_i64().unwrap();
-                                let title = match ns["case"].as_str() {
-                                    Some("first-letter") => Title::first_letter_uppercase(&title),
-                                    _ => title.to_string(),
-                                };
-                                return Self::new(&title, namespace_id);
-                            }
-                        }
-                        None => {}
+        if let Some(namespaces) = site_info["query"]["namespacealiases"].as_array() {
+            for ns in namespaces {
+                if let Some(namespace) = ns["*"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        let namespace_id = ns["id"].as_i64().unwrap();
+                        let title = match ns["case"].as_str() {
+                            Some("first-letter") => Title::first_letter_uppercase(&title),
+                            _ => title,
+                        };
+                        return Self::new(&title, namespace_id);
                     }
                 }
             }
-            None => {}
         }
 
         // Fallback
@@ -138,19 +114,19 @@ impl Title {
         let namespace_id = ns["id"].as_i64().unwrap();
         let title = match ns["case"].as_str() {
             Some("first-letter") => Title::first_letter_uppercase(&title),
-            _ => title.to_string(),
+            _ => title,
         };
-        return Self::new(&title, namespace_id);
+        Self::new(&title, namespace_id)
     }
 
     /// Constructor, used by ``Api::result_array_to_titles``
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
-        let namespace_id = data["ns"].as_i64().unwrap_or(0).into();
+        let namespace_id = data["ns"].as_i64().unwrap_or(0);
         let mut title = data["title"].as_str().unwrap_or("").to_string();
 
         // If namespace!=0, remove namespace prefix. THIS IS NOT IDEAL AND SHOULD USE Api AS IN new_from_full!
         if namespace_id > 0 {
-            let mut v: Vec<&str> = title.split(":").collect();
+            let mut v: Vec<&str> = title.split(':').collect();
             if v.len() > 1 {
                 v.remove(0);
                 title = v.join(":");
@@ -159,7 +135,7 @@ impl Title {
 
         Title {
             title: Title::underscores_to_spaces(&title),
-            namespace_id: namespace_id,
+            namespace_id,
         }
     }
 
@@ -203,7 +179,7 @@ impl Title {
         Some(
             match Title::underscores_to_spaces(&self.local_namespace_name(api)?).as_str() {
                 "" => self.pretty().to_string(),
-                ns => ns.to_owned() + ":" + &self.pretty(),
+                ns => ns.to_owned() + ":" + self.pretty(),
             },
         )
     }
@@ -278,79 +254,76 @@ mod tests {
     use super::*;
     use crate::api::*;
 
-    fn wd_api() -> &'static Api {
-        lazy_static! {
-            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        }
-        &API
+    async fn wd_api() -> Api {
+        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
     }
 
-    #[test]
-    fn new_from_full_main_namespace() {
+    #[tokio::test]
+    async fn new_from_full_main_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Main namespace", wd_api()),
+            Title::new_from_full(&"Main namespace", &wd_api().await),
             Title::new("Main namespace", 0)
         );
     }
 
-    #[test]
-    fn new_from_full_canonical_namespace() {
+    #[tokio::test]
+    async fn new_from_full_canonical_namespace() {
         assert_eq!(
-            Title::new_from_full(&"File:Some file.jpg", wd_api()),
+            Title::new_from_full(&"File:Some file.jpg", &wd_api().await),
             Title::new("Some file.jpg", 6)
         );
     }
 
-    #[test]
-    fn new_from_full_canonical_namespace_with_colon() {
+    #[tokio::test]
+    async fn new_from_full_canonical_namespace_with_colon() {
         assert_eq!(
-            Title::new_from_full(&"Project talk:A project:yes, really", wd_api()),
+            Title::new_from_full(&"Project talk:A project:yes, really", &wd_api().await),
             Title::new("A project:yes, really", 5)
         );
     }
 
-    #[test]
-    fn new_from_full_namespace_alias() {
+    #[tokio::test]
+    async fn new_from_full_namespace_alias() {
         assert_eq!(
-            Title::new_from_full(&"Item:Q12345", wd_api()),
+            Title::new_from_full(&"Item:Q12345", &wd_api().await),
             Title::new("Q12345", 0)
         );
     }
 
-    #[test]
-    fn new_from_full_special_namespace() {
+    #[tokio::test]
+    async fn new_from_full_special_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Special:A title", wd_api()),
+            Title::new_from_full(&"Special:A title", &wd_api().await),
             Title::new("A title", -1)
         );
     }
 
-    #[test]
-    fn new_from_full_invalid_namespace() {
+    #[tokio::test]
+    async fn new_from_full_invalid_namespace() {
         assert_eq!(
-            Title::new_from_full(&"This is not a namespace:A title", wd_api()),
+            Title::new_from_full(&"This is not a namespace:A title", &wd_api().await),
             Title::new("This is not a namespace:A title", 0)
         );
     }
 
-    #[test]
-    fn spaces_to_underscores() {
+    #[tokio::test]
+    async fn spaces_to_underscores() {
         assert_eq!(
             Title::spaces_to_underscores(&" A little  test "),
             "A_little__test"
         );
     }
 
-    #[test]
-    fn underscores_to_spaces() {
+    #[tokio::test]
+    async fn underscores_to_spaces() {
         assert_eq!(
             Title::underscores_to_spaces(&"_A_little__test_"),
             "A little  test"
         );
     }
 
-    #[test]
-    fn first_letter_uppercase() {
+    #[tokio::test]
+    async fn first_letter_uppercase() {
         assert_eq!(Title::first_letter_uppercase(&""), "");
         assert_eq!(
             Title::first_letter_uppercase(&"FooBar"),
@@ -363,9 +336,9 @@ mod tests {
         assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
     }
 
-    #[test]
-    fn full() {
-        let api = wd_api();
+    #[tokio::test]
+    async fn full() {
+        let api = &wd_api().await;
         let title = Title::new_from_full(&"User talk:Magnus_Manske", api);
         assert_eq!(
             title.full_pretty(api),

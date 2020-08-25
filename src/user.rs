@@ -1,5 +1,5 @@
 /*!
-The `User` class deals with the (current) Api user.
+The `User` class deals with the (current) ApiSync user.
 */
 
 #![deny(
@@ -14,12 +14,9 @@ The `User` class deals with the (current) Api user.
     unused_qualifications
 )]
 
-use crate::api::Api;
 use serde_json::Value;
-use std::collections::HashMap;
-use std::error::Error;
 
-/// `User` contains the login data for the `Api`
+/// `User` contains the login data for the `ApiSync`
 #[derive(Debug, Default, Clone)]
 pub struct User {
     lgusername: String,
@@ -42,6 +39,11 @@ impl User {
     /// Checks if the user is logged in
     pub fn logged_in(&self) -> bool {
         self.is_logged_in
+    }
+
+    /// Checks if user info has been loaded
+    pub fn has_user_info(&self) -> bool {
+        self.user_info.is_some()
     }
 
     /// Checks is the user has a spefic right (e.g. "bot", "autocinfirmed")
@@ -95,24 +97,9 @@ impl User {
         self.has_right("patrol")
     }
 
-    /// Loads the user info, which is stored in the object; returns Ok(()) if successful
-    pub fn load_user_info(&mut self, api: &Api) -> Result<(), Box<dyn Error>> {
-        match self.user_info {
-            Some(_) => return Ok(()),
-            None => {
-                let params: HashMap<String, String> = vec![
-                    ("action", "query"),
-                    ("meta", "userinfo"),
-                    ("uiprop", "blockinfo|groups|groupmemberships|implicitgroups|rights|options|ratelimits|realname|registrationdate|unreadcount|centralids|hasmsg"),
-                ]
-                .iter()
-                .map(|x| (x.0.to_string(), x.1.to_string()))
-                .collect();
-                let res = api.query_api_json(&params, "GET")?;
-                self.user_info = Some(res);
-                Ok(())
-            }
-        }
+    /// Sets the user_info
+    pub fn set_user_info(&mut self, user_info: Option<Value>) {
+        self.user_info = user_info;
     }
 
     /// Returns the user name ("" if not logged in)
@@ -125,7 +112,7 @@ impl User {
         self.lguserid
     }
 
-    /// Tries to set user information from the `Api` call
+    /// Tries to set user information from the `ApiSync` call
     pub fn set_from_login(&mut self, login: &Value) -> Result<(), &str> {
         if login["result"] == "Success" {
             match login["lgusername"].as_str() {
@@ -148,13 +135,10 @@ impl User {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::*;
+    use crate::api_sync::*;
 
-    fn wd_api() -> &'static Api {
-        lazy_static! {
-            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        }
-        &API
+    fn wd_api() -> ApiSync {
+        ApiSync::new("https://www.wikidata.org/w/api.php").unwrap()
     }
 
     #[test]
@@ -178,11 +162,19 @@ mod tests {
     #[test]
     fn user_rights() {
         let mut user = User::new();
-        user.load_user_info(wd_api()).unwrap();
+        wd_api().load_user_info(&mut user).unwrap();
         assert!(!user.is_bot());
         assert!(user.can_edit());
         assert!(!user.can_upload());
         assert!(user.has_right("createaccount"));
         assert!(!user.has_right("thisisnotaright"));
+    }
+
+    #[test]
+    fn user_has_info() {
+        let mut user = User::new();
+        assert!(!user.has_user_info());
+        wd_api().load_user_info(&mut user).unwrap();
+        assert!(user.has_user_info());
     }
 }

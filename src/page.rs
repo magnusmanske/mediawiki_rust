@@ -47,7 +47,7 @@ impl Page {
     /// If the page is missing, will return a `PageError::Missing`.
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
-    pub fn text(&self, api: &Api) -> Result<String, PageError> {
+    pub async fn text(&self, api: &Api) -> Result<String, PageError> {
         let title = self
             .title
             .full_pretty(api)
@@ -64,7 +64,7 @@ impl Page {
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
         let result = api
-            .get_query_api_json(&params)
+            .get_query_api_json(&params).await
             .map_err(|e| PageError::RequestError(e))?;
 
         let page = &result["query"]["pages"][0];
@@ -99,7 +99,7 @@ impl Page {
     /// May return a `PageError` or any error from [`Api::post_query_api_json`].
     ///
     /// [`Api::post_query_api_json`]: ../api/struct.Api.html#method.post_query_api_json
-    pub fn edit_text(
+    pub async fn edit_text(
         &self,
         api: &mut Api,
         text: impl Into<String>,
@@ -117,7 +117,7 @@ impl Page {
             ("summary", &summary.into()),
             ("bot", bot),
             ("formatversion", "2"),
-            ("token", &api.get_edit_token()?),
+            ("token", &api.get_edit_token().await?),
         ]
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
@@ -127,7 +127,7 @@ impl Page {
             params.insert("assert".to_string(), "user".to_string());
         }
 
-        let result = api.post_query_api_json(&params)?;
+        let result = api.post_query_api_json(&params).await?;
         match result["edit"]["result"].as_str() {
             Some("Success") => Ok(()),
             _ => Err(Box::new(PageError::EditError(result))),
@@ -135,7 +135,7 @@ impl Page {
     }
 
     /// Performs an "action=query" API action and returns the result.
-    fn action_query(
+    async fn action_query(
         &self,
         api: &Api,
         additional_params: &[(&str, &str)],
@@ -148,7 +148,7 @@ impl Page {
         for (k, v) in additional_params {
             params.insert(k.to_string(), v.to_string());
         }
-        api.get_query_api_json_all(&params)
+        api.get_query_api_json_all(&params).await
     }
 
     // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
@@ -185,7 +185,7 @@ impl Page {
     }
 
     /// Returns the categories of a page, as a JSON Value Vec
-    pub fn categories(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+    pub async fn categories(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
         let result = self.action_query(
             api,
             &[
@@ -193,18 +193,18 @@ impl Page {
                 ("cllimit", "max"),
                 ("clprop", "hidden|sortkey|timestamp"),
             ],
-        )?;
+        ).await?;
         self.extract_page_properties_from_api_results(result, "categories")
     }
 
     /// Returns the categories of a page, as a JSON Value Vec
-    pub fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")])?;
+    pub async fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")]).await?;
         self.extract_page_properties_from_api_results(result, "iwlinks")
     }
 
     /// Returns the templates of a page, as a Title Vec
-    pub fn templates(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+    pub async fn templates(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
         let result = self.action_query(
             api,
             &[
@@ -212,23 +212,23 @@ impl Page {
                 ("tllimit", "max"),
                 ("tlnamespace", "*"),
             ],
-        )?;
+        ).await?;
         let result = self.extract_page_properties_from_api_results(result, "templates")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the wiki-internal links on a page, as a Title Vec
-    pub fn links(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+    pub async fn links(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
         let result = self.action_query(
             api,
             &[("prop", "links"), ("pllimit", "max"), ("plnamespace", "*")],
-        )?;
+        ).await?;
         let result = self.extract_page_properties_from_api_results(result, "links")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the wiki-internal links on a page, as a Title Vec
-    pub fn links_here(
+    pub async fn links_here(
         &self,
         api: &Api,
         direct_links: bool,
@@ -248,20 +248,20 @@ impl Page {
                 ("lhnamespace", "*"),
                 ("lhshow", lhshow),
             ],
-        )?;
+        ).await?;
         let result = self.extract_page_properties_from_api_results(result, "linkshere")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the images used on a page, as a Title Vec
-    pub fn images(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "images"), ("imlimit", "max")])?;
+    pub async fn images(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "images"), ("imlimit", "max")]).await?;
         let result = self.extract_page_properties_from_api_results(result, "images")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the coordinates of a page, as a JSON Value Vec
-    pub fn coordinates(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+    pub async fn coordinates(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
         self.extract_page_properties_from_api_results(
             self.action_query(
                 api,
@@ -271,13 +271,13 @@ impl Page {
                     ("coprop", "country|dim|globe|name|region|type"),
                     ("coprimary", "all"),
                 ],
-            )?,
+            ).await?,
             "coordinates",
         )
     }
 
     /// Returns the coordinates of a page, including distance from a point, as a JSON Value Vec
-    pub fn coordinates_distance(
+    pub async fn coordinates_distance(
         &self,
         api: &Api,
         lat: f64,
@@ -293,14 +293,14 @@ impl Page {
                     ("coprimary", "all"),
                     ("codistancefrompoint", format!("{}|{}", lat, lon).as_str()),
                 ],
-            )?,
+            ).await?,
             "coordinates",
         )
     }
 
     /// Returns the external links of a page, as a String Vec
-    pub fn external_links(&self, api: &Api) -> Result<Vec<String>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "extlinks"), ("ellimit", "max")])?;
+    pub async fn external_links(&self, api: &Api) -> Result<Vec<String>, Box<dyn Error>> {
+        let result = self.action_query(api, &[("prop", "extlinks"), ("ellimit", "max")]).await?;
         Ok(self
             .extract_page_properties_from_api_results(result, "extlinks")?
             .iter()
@@ -377,54 +377,51 @@ mod tests {
     use super::*;
     use crate::api::*;
 
-    fn wd_api() -> &'static Api {
-        lazy_static! {
-            static ref API: Api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
-        }
-        &API
+    async fn wd_api() -> Api {
+        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
     }
 
-    #[test]
-    fn page_text_main_page_nonempty() {
+    #[tokio::test]
+    async fn page_text_main_page_nonempty() {
         let page = Page::new(Title::new("Main Page", 4));
-        let text = page.text(wd_api()).unwrap();
+        let text = page.text(&wd_api().await).await.unwrap();
         assert!(!text.is_empty());
     }
 
-    #[test]
-    fn page_text_nonexistent() {
+    #[tokio::test]
+    async fn page_text_nonexistent() {
         let title = Title::new("This page does not exist", 0);
         let page = Page::new(title.clone());
-        match page.text(wd_api()) {
+        match page.text(&wd_api().await).await {
             Err(PageError::Missing(t)) => assert!(t == title),
             x => panic!("expected missing error, found {:?}", x),
         }
     }
 
-    #[test]
-    fn page_categories() {
+    #[tokio::test]
+    async fn page_categories() {
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.categories(wd_api()).unwrap();
+        let result = page.categories(&wd_api().await).await.unwrap();
         assert!(result.len() > 1);
     }
 
-    #[test]
-    fn page_templates() {
+    #[tokio::test]
+    async fn page_templates() {
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.templates(wd_api()).unwrap();
+        let result = page.templates(&wd_api().await).await.unwrap();
         assert!(result.len() > 5);
         assert!(result.contains(&Title::new("Protected", 10)))
     }
 
-    #[test]
-    fn page_coordinates() {
+    #[tokio::test]
+    async fn page_coordinates() {
         let page = Page::new(Title::new("Q64", 0)); // Berlin
-        let result = page.coordinates(wd_api()).unwrap();
-        assert!(result.len() > 0);
+        let result = page.coordinates(&wd_api().await).await.unwrap();
+        assert!(!result.is_empty());
 
         // Distance to Cologne
         let result = page
-            .coordinates_distance(wd_api(), 50.94222222, 6.95777778)
+            .coordinates_distance(&wd_api().await, 50.94222222, 6.95777778).await
             .unwrap();
         result
             .iter()
@@ -435,38 +432,38 @@ mod tests {
             });
     }
 
-    #[test]
-    fn page_external_links() {
+    #[tokio::test]
+    async fn page_external_links() {
         let page = Page::new(Title::new("Q64", 0));
-        let result = page.external_links(wd_api()).unwrap();
+        let result = page.external_links(&wd_api().await).await.unwrap();
         assert!(result.contains(&"https://www.berlin.de/".to_string()));
     }
 
-    #[test]
-    fn page_links() {
+    #[tokio::test]
+    async fn page_links() {
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.links(wd_api()).unwrap();
+        let result = page.links(&wd_api().await).await.unwrap();
         assert!(result.contains(&Title::new("Bot requests", 4)))
     }
 
-    #[test]
-    fn page_images() {
+    #[tokio::test]
+    async fn page_images() {
         let page = Page::new(Title::new("Q64", 0));
-        let result = page.images(wd_api()).unwrap();
+        let result = page.images(&wd_api().await).await.unwrap();
         assert!(result.contains(&Title::new("Berlin banner.jpg", 6)))
     }
 
-    #[test]
-    fn page_links_here() {
+    #[tokio::test]
+    async fn page_links_here() {
         let page = Page::new(Title::new("Q1481", 0));
-        let result = page.links_here(wd_api(), true, false).unwrap();
+        let result = page.links_here(&wd_api().await, true, false).await.unwrap();
         assert!(result.contains(&Title::new("Q7894", 0)))
     }
 
-    #[test]
-    fn page_interwiki_links() {
+    #[tokio::test]
+    async fn page_interwiki_links() {
         let page = Page::new(Title::new("Wikidata list", 10));
-        let result = page.interwiki_links(wd_api()).unwrap();
+        let result = page.interwiki_links(&wd_api().await).await.unwrap();
         // println!("{:?}", &result);
         assert!(result.contains(&json!({"prefix":"mw","*":"Wikidata_query_service/User_Manual"})));
     }
