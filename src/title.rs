@@ -14,8 +14,6 @@ The `Title` class deals with page titles and namespaces
     unused_qualifications
 )]
 
-use std::hash::{Hash, Hasher};
-
 /// Shortcut for crate::api::NamespaceID
 type NamespaceID = crate::api::NamespaceID;
 
@@ -48,27 +46,20 @@ pub struct Title {
     namespace_id: NamespaceID,
 }
 
-impl Hash for Title {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.namespace_id.hash(state);
-        self.title.hash(state);
-    }
-}
-
 impl Title {
     /// Constructor, where un-prefixed title and namespace are known.
     /// Assumes title has correct capitalization
     pub fn new(title: &str, namespace_id: NamespaceID) -> Title {
         Title {
             title: Title::underscores_to_spaces(&title),
-            namespace_id: namespace_id,
+            namespace_id,
         }
     }
 
     /// Constructor, where full namespace-prefixed title is known.
     /// Uses Api to parse valid namespaces
     pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
-        let mut v: Vec<&str> = full_title.split(":").collect();
+        let mut v: Vec<&str> = full_title.split(':').collect();
         if v.len() == 1 {
             return Self::new(&full_title, 0);
         }
@@ -77,56 +68,41 @@ impl Title {
         let site_info = api.get_site_info();
 
         // Canonical namespaces
-        match site_info["query"]["namespaces"].as_object() {
-            Some(namespaces) => {
-                for (_, ns) in namespaces {
-                    match ns["*"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                return Self::new_from_namespace_object(title, ns);
-                            }
-                        }
-                        None => {}
+        if let Some(namespaces) = site_info["query"]["namespaces"].as_object() {
+            for (_, ns) in namespaces {
+                if let Some(namespace) = ns["*"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        return Self::new_from_namespace_object(title, ns);
                     }
-                    match ns["canonical"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                return Self::new_from_namespace_object(title, ns);
-                            }
-                        }
-                        None => {}
+                }
+                if let Some(namespace) = ns["canonical"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        return Self::new_from_namespace_object(title, ns);
                     }
                 }
             }
-            None => {}
         }
 
         // Aliases
-        match site_info["query"]["namespacealiases"].as_array() {
-            Some(namespaces) => {
-                for ns in namespaces {
-                    match ns["*"].as_str() {
-                        Some(namespace) => {
-                            if Title::underscores_to_spaces(&namespace)
-                                == namespace_name
-                            {
-                                let namespace_id = ns["id"].as_i64().unwrap();
-                                let title = match ns["case"].as_str() {
-                                    Some("first-letter") => Title::first_letter_uppercase(&title),
-                                    _ => title.to_string(),
-                                };
-                                return Self::new(&title, namespace_id);
-                            }
-                        }
-                        None => {}
+        if let Some(namespaces) = site_info["query"]["namespacealiases"].as_array() {
+            for ns in namespaces {
+                if let Some(namespace) = ns["*"].as_str() {
+                    if Title::underscores_to_spaces(&namespace)
+                        == namespace_name
+                    {
+                        let namespace_id = ns["id"].as_i64().unwrap();
+                        let title = match ns["case"].as_str() {
+                            Some("first-letter") => Title::first_letter_uppercase(&title),
+                            _ => title,
+                        };
+                        return Self::new(&title, namespace_id);
                     }
                 }
             }
-            None => {}
         }
 
         // Fallback
@@ -138,19 +114,19 @@ impl Title {
         let namespace_id = ns["id"].as_i64().unwrap();
         let title = match ns["case"].as_str() {
             Some("first-letter") => Title::first_letter_uppercase(&title),
-            _ => title.to_string(),
+            _ => title,
         };
-        return Self::new(&title, namespace_id);
+        Self::new(&title, namespace_id)
     }
 
     /// Constructor, used by ``Api::result_array_to_titles``
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
-        let namespace_id = data["ns"].as_i64().unwrap_or(0).into();
+        let namespace_id = data["ns"].as_i64().unwrap_or(0);
         let mut title = data["title"].as_str().unwrap_or("").to_string();
 
         // If namespace!=0, remove namespace prefix. THIS IS NOT IDEAL AND SHOULD USE Api AS IN new_from_full!
         if namespace_id > 0 {
-            let mut v: Vec<&str> = title.split(":").collect();
+            let mut v: Vec<&str> = title.split(':').collect();
             if v.len() > 1 {
                 v.remove(0);
                 title = v.join(":");
@@ -159,7 +135,7 @@ impl Title {
 
         Title {
             title: Title::underscores_to_spaces(&title),
-            namespace_id: namespace_id,
+            namespace_id,
         }
     }
 
@@ -203,7 +179,7 @@ impl Title {
         Some(
             match Title::underscores_to_spaces(&self.local_namespace_name(api)?).as_str() {
                 "" => self.pretty().to_string(),
-                ns => ns.to_owned() + ":" + &self.pretty(),
+                ns => ns.to_owned() + ":" + self.pretty(),
             },
         )
     }
