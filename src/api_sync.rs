@@ -35,7 +35,6 @@ use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 use url::Url;
-use urlencoding;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
 pub type NamespaceID = i64;
@@ -136,7 +135,7 @@ impl ApiSync {
 
     /// Returns the maximum number of retry attempts
     pub fn max_retry_attempts(&self) -> u64 {
-        return self.max_retry_attempts;
+        self.max_retry_attempts
     }
 
     /// Sets the maximum number of retry attempts
@@ -146,7 +145,7 @@ impl ApiSync {
 
     /// Returns a reference to the serde_json Value containing the site info
     pub fn get_site_info(&self) -> &Value {
-        return &self.site_info;
+        &self.site_info
     }
 
     /// Returns a serde_json Value in site info, within the `["query"]` object.
@@ -192,21 +191,15 @@ impl ApiSync {
     /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
-            (a @ &mut Value::Object(_), Value::Object(b)) => match a.as_object_mut() {
-                Some(a) => {
-                    for (k, v) in b {
-                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
-                    }
+            (a @ &mut Value::Object(_), Value::Object(b)) => if let Some(a) = a.as_object_mut() {
+                for (k, v) in b {
+                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
                 }
-                None => {}
             },
-            (a @ &mut Value::Array(_), Value::Array(b)) => match a.as_array_mut() {
-                Some(a) => {
-                    for v in b {
-                        a.push(v);
-                    }
+            (a @ &mut Value::Array(_), Value::Array(b)) => if let Some(a) = a.as_array_mut() {
+                for v in b {
+                    a.push(v);
                 }
-                None => {}
             },
             (a, b) => *a = b,
         }
@@ -215,7 +208,7 @@ impl ApiSync {
     /// Turns a Vec of str tuples into a Hashmap of String, to be used in API calls
     pub fn params_into(&self, params: &[(&str, &str)]) -> HashMap<String, String> {
         params
-            .into_iter()
+            .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
     }
@@ -228,12 +221,12 @@ impl ApiSync {
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
     pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
         let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
-        if token_type.len() != 0 {
+        if !token_type.is_empty() {
             params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
         key += &"token";
-        if token_type.len() == 0 {
+        if token_type.is_empty() {
             key = "csrftoken".into()
         }
         let x = self.query_api_json_mut(&params, "GET")?;
@@ -448,11 +441,8 @@ impl ApiSync {
         if !self.is_edit_query(params, method) {
             return;
         }
-        match self.maxlag_seconds {
-            Some(maxlag_seconds) => {
-                params.insert("maxlag".to_string(), maxlag_seconds.to_string());
-            }
-            None => {}
+        if let Some(maxlag_seconds) = self.maxlag_seconds {
+            params.insert("maxlag".to_string(), maxlag_seconds.to_string());
         }
     }
 
@@ -466,12 +456,9 @@ impl ApiSync {
         if !self.is_edit_query(params, method) {
             return;
         }
-        match self.maxlag_seconds {
-            Some(maxlag_seconds) => {
-                let added = cumulative + maxlag_seconds;
-                params.insert("maxlag".to_string(), added.to_string());
-            }
-            None => {}
+        if let Some(maxlag_seconds) = self.maxlag_seconds {
+            let added = cumulative + maxlag_seconds;
+            params.insert("maxlag".to_string(), added.to_string());
         }
     }
 
@@ -523,11 +510,8 @@ impl ApiSync {
             })
             .collect::<Vec<String>>();
         for cs in cookie_strings {
-            match Cookie::parse(cs.clone()) {
-                Ok(cookie) => {
-                    self.cookie_jar.add(cookie);
-                }
-                Err(_) => {}
+            if let Ok(cookie) = Cookie::parse(cs.clone()) {
+                self.cookie_jar.add(cookie);
             }
         }
     }
@@ -611,30 +595,27 @@ impl ApiSync {
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
                     let v = self.rawurlencode(&k2);
-                    Some(k.clone() + &"=" + &v)
+                    Some(k.clone() + "=" + &v)
                 }
                 None => None,
             })
             .collect();
 
         let url = Url::parse(api_url)?;
-        let mut url_string = url.scheme().to_owned() + &"://";
+        let mut url_string = url.scheme().to_owned() + "://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
-        match url.port() {
-            Some(port) => write!(url_string, ":{}", port).unwrap(),
-            None => {}
-        }
+        if let Some(port) = url.port() { write!(url_string, ":{}", port).unwrap() }
         url_string += url.path();
 
         let ret = self.rawurlencode(&method)
-            + &"&"
+            + "&"
             + &self.rawurlencode(&url_string)
-            + &"&"
+            + "&"
             + &self.rawurlencode(&ret.join("&"));
 
         let key: String = match (&oauth.g_consumer_secret, &oauth.g_token_secret) {
             (Some(g_consumer_secret), Some(g_token_secret)) => {
-                self.rawurlencode(g_consumer_secret) + &"&" + &self.rawurlencode(g_token_secret)
+                self.rawurlencode(g_consumer_secret) + "&" + &self.rawurlencode(g_token_secret)
             }
             _ => {
                 return Err(From::from("g_consumer_secret or g_token_secret not set"));
@@ -708,7 +689,7 @@ impl ApiSync {
                 let value = value.to_str().unwrap();
                 let key = self.rawurlencode(&key);
                 let value = self.rawurlencode(&value);
-                key.to_string() + &"=\"" + &value + &"\""
+                key + "=\"" + &value + "\""
             })
             .collect();
         header += &parts.join(", ");
@@ -767,7 +748,7 @@ impl ApiSync {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
-        return Ok(resp);
+        Ok(resp)
     }
 
     /// Delays the current thread, if the query performs an edit, and a delay time is set
@@ -775,10 +756,7 @@ impl ApiSync {
         if !self.is_edit_query(params, method) {
             return;
         }
-        match self.edit_delay_ms {
-            Some(ms) => thread::sleep(time::Duration::from_millis(ms)),
-            None => {}
-        }
+        if let Some(ms) = self.edit_delay_ms { thread::sleep(time::Duration::from_millis(ms)) }
     }
 
     /// Runs a query against a generic URL, stores cookies, and returns a text
@@ -817,7 +795,7 @@ impl ApiSync {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
-        let params = hashmap!("action".to_string()=>"login".to_string(),"lgname".to_string()=>lgname.into(),"lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken.into());
+        let params = hashmap!("action".to_string()=>"login".to_string(),"lgname".to_string()=>lgname.into(),"lgpassword".to_string()=>lgpassword.into(),"lgtoken".to_string()=>lgtoken);
         let res = self.query_api_json_mut(&params, "POST")?;
         if res["login"]["result"] == "Success" {
             self.user.set_from_login(&res["login"])?;
@@ -877,18 +855,12 @@ impl ApiSync {
         variable_name: &str,
     ) -> Vec<String> {
         let mut entities = vec![];
-        match sparql_result["results"]["bindings"].as_array() {
-            Some(bindings) => {
-                for b in bindings {
-                    match b[variable_name]["value"].as_str() {
-                        Some(entity_url) => {
-                            entities.push(self.extract_entity_from_uri(entity_url).unwrap());
-                        }
-                        None => {}
-                    }
+        if let Some(bindings) = sparql_result["results"]["bindings"].as_array() {
+            for b in bindings {
+                if let Some(entity_url) = b[variable_name]["value"].as_str() {
+                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
                 }
             }
-            None => {}
         }
         entities
     }
