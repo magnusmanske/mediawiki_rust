@@ -63,6 +63,12 @@ pub struct ApiSync {
 impl ApiSync {
     /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let api = mediawiki::api_sync::ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
+    /// ```
     pub fn new(api_url: &str) -> Result<ApiSync, Box<dyn Error>> {
         ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
