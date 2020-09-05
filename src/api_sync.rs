@@ -21,16 +21,16 @@ extern crate hmac;
 extern crate reqwest;
 extern crate sha1;
 
-use crate::api::OAuthParams;
+use crate::api::{ApiError, OAuthParams};
 use crate::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
+use anyhow::Result;
 use cookie::{Cookie, CookieJar};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
@@ -63,7 +63,7 @@ pub struct ApiSync {
 impl ApiSync {
     /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
-    pub fn new(api_url: &str) -> Result<ApiSync, Box<dyn Error>> {
+    pub fn new(api_url: &str) -> Result<ApiSync> {
         ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
@@ -73,7 +73,7 @@ impl ApiSync {
     pub fn new_from_builder(
         api_url: &str,
         builder: reqwest::blocking::ClientBuilder,
-    ) -> Result<ApiSync, Box<dyn Error>> {
+    ) -> Result<ApiSync> {
         let mut ret = ApiSync {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
@@ -126,7 +126,7 @@ impl ApiSync {
     }
 
     /// Loads the current user info; returns Ok(()) is successful
-    pub fn load_current_user_info(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn load_current_user_info(&mut self) -> Result<()> {
         let mut user = std::mem::take(&mut self.user);
         self.load_user_info(&mut user)?;
         self.user = user;
@@ -154,10 +154,10 @@ impl ApiSync {
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, ApiError> {
         match self.get_site_info_value(k1, k2).as_str() {
             Some(s) => Ok(s),
-            None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
+            None => Err(ApiError::MissingSiteinfo(k1.to_string(), k2.to_string())),
         }
     }
 
@@ -180,7 +180,7 @@ impl ApiSync {
 
     /// Loads the site info.
     /// Should only ever be called from `new()`
-    fn load_site_info(&mut self) -> Result<&Value, Box<dyn Error>> {
+    fn load_site_info(&mut self) -> Result<&Value> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
         self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
@@ -219,7 +219,7 @@ impl ApiSync {
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
-    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
+    pub fn get_token(&mut self, token_type: &str) -> Result<String> {
         let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
         if !token_type.is_empty() {
             params.insert("type".to_string(), token_type.to_string());
@@ -232,20 +232,17 @@ impl ApiSync {
         let x = self.query_api_json_mut(&params, "GET")?;
         match &x["query"]["tokens"][&key] {
             Value::String(s) => Ok(s.to_string()),
-            _ => Err(From::from(format!("Could not get token: {:?}", x))),
+            _ => Err(ApiError::TokenError(x).into()),
         }
     }
 
     /// Calls `get_token()` to return an edit token
-    pub fn get_edit_token(&mut self) -> Result<String, Box<dyn Error>> {
+    pub fn get_edit_token(&mut self) -> Result<String> {
         self.get_token("csrf")
     }
 
     /// Same as `get_query_api_json` but automatically loads all results via the `continue` parameter
-    pub fn get_query_api_json_all(
-        &self,
-        params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    pub fn get_query_api_json_all(&self, params: &HashMap<String, String>) -> Result<Value> {
         self.get_query_api_json_limit(params, None)
     }
 
@@ -269,7 +266,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value> {
         self.get_query_api_json_limit_iter(params, max)
             .try_fold(Value::Null, |mut acc, result| {
                 self.json_merge(&mut acc, result?);
@@ -283,7 +280,7 @@ impl ApiSync {
         &'a self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> impl Iterator<Item = Result<Value, Box<dyn Error>>> + 'a {
+    ) -> impl Iterator<Item = Result<Value>> + 'a {
         struct ApiQuery<'a> {
             api: &'a ApiSync,
             params: HashMap<String, String>,
@@ -292,7 +289,7 @@ impl ApiSync {
         }
 
         impl<'a> Iterator for ApiQuery<'a> {
-            type Item = Result<Value, Box<dyn Error>>;
+            type Item = Result<Value>;
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(0) = self.values_remaining {
                     return None;
@@ -340,11 +337,7 @@ impl ApiSync {
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
     /// Parameters are a hashmap; `format=json` is enforced.
-    pub fn query_api_json(
-        &self,
-        params: &HashMap<String, String>,
-        method: &str,
-    ) -> Result<Value, Box<dyn Error>> {
+    pub fn query_api_json(&self, params: &HashMap<String, String>, method: &str) -> Result<Value> {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
@@ -356,10 +349,9 @@ impl ApiSync {
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from(format!(
-                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
-                            &self.max_retry_attempts, cumulative
-                        )));
+                        return Err(
+                            ApiError::MaxlagAttempts(self.max_retry_attempts, cumulative).into(),
+                        );
                     }
                     attempts_left -= 1;
                     cumulative += lag_seconds;
@@ -376,7 +368,7 @@ impl ApiSync {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value> {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
@@ -388,10 +380,9 @@ impl ApiSync {
             match self.check_maxlag(&v) {
                 Some(lag_seconds) => {
                     if attempts_left == 0 {
-                        return Err(From::from(format!(
-                            "Max attempts reached [MAXLAG] after {} attempts, cumulative maxlag {}",
-                            &self.max_retry_attempts, cumulative
-                        )));
+                        return Err(
+                            ApiError::MaxlagAttempts(self.max_retry_attempts, cumulative).into(),
+                        );
                     }
                     attempts_left -= 1;
                     cumulative += lag_seconds;
@@ -474,27 +465,18 @@ impl ApiSync {
     }
 
     /// GET wrapper for `query_api_json`
-    pub fn get_query_api_json(
-        &self,
-        params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    pub fn get_query_api_json(&self, params: &HashMap<String, String>) -> Result<Value> {
         self.query_api_json(params, "GET")
     }
 
     /// POST wrapper for `query_api_json`
-    pub fn post_query_api_json(
-        &self,
-        params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    pub fn post_query_api_json(&self, params: &HashMap<String, String>) -> Result<Value> {
         self.query_api_json(params, "POST")
     }
 
     /// POST wrapper for `query_api_json`.
     /// Requires `&mut self`, for session cookie storage
-    pub fn post_query_api_json_mut(
-        &mut self,
-        params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    pub fn post_query_api_json_mut(&mut self, params: &HashMap<String, String>) -> Result<Value> {
         self.query_api_json_mut(params, "POST")
     }
 
@@ -527,11 +509,7 @@ impl ApiSync {
 
     /// Runs a query against the MediaWiki API, and returns a text.
     /// Uses `query_raw`
-    pub fn query_api_raw(
-        &self,
-        params: &HashMap<String, String>,
-        method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    pub fn query_api_raw(&self, params: &HashMap<String, String>, method: &str) -> Result<String> {
         self.query_raw(&self.api_url, params, method)
     }
 
@@ -541,7 +519,7 @@ impl ApiSync {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String> {
         self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
@@ -550,7 +528,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder> {
         self.request_builder(&self.api_url, params, method)
     }
 
@@ -586,7 +564,7 @@ impl ApiSync {
         api_url: &str,
         to_sign: &HashMap<String, String>,
         oauth: &OAuthParams,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String> {
         let mut keys: Vec<String> = to_sign.iter().map(|(k, _)| self.rawurlencode(k)).collect();
         keys.sort();
 
@@ -603,7 +581,9 @@ impl ApiSync {
 
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + "://";
-        url_string += url.host_str().ok_or("url.host_str is None")?;
+        url_string += url
+            .host_str()
+            .ok_or_else(|| ApiError::InvalidUrl("url.host_str is None".to_string()))?;
         if let Some(port) = url.port() { write!(url_string, ":{}", port).unwrap() }
         url_string += url.path();
 
@@ -618,11 +598,12 @@ impl ApiSync {
                 self.rawurlencode(g_consumer_secret) + "&" + &self.rawurlencode(g_token_secret)
             }
             _ => {
-                return Err(From::from("g_consumer_secret or g_token_secret not set"));
+                return Err(ApiError::MissingOAuthSecret.into());
             }
         };
 
-        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?; //crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
+        let mut hmac = HmacSha1::new_varkey(&key.into_bytes())
+            .map_err(|err| anyhow::Error::msg(err.to_string()))?;
         hmac.input(&ret.into_bytes());
         let bytes = hmac.result().code();
         let ret: String = base64::encode(&bytes);
@@ -636,14 +617,10 @@ impl ApiSync {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
-            None => {
-                return Err(From::from(
-                    "oauth_request_builder called but self.oauth is None",
-                ))
-            }
+            None => unreachable!("This function should only be called if self.oauth is set"),
         };
 
         let timestamp = SystemTime::now()
@@ -705,7 +682,7 @@ impl ApiSync {
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
             "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
-            other => panic!("Unsupported method '{}'", other),
+            other => Err(ApiError::UnsupportedHTTPMethod(other.to_string()).into()),
         }
     }
 
@@ -715,7 +692,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
@@ -734,7 +711,7 @@ impl ApiSync {
                 .header(reqwest::header::COOKIE, self.cookies_to_string())
                 .header(reqwest::header::USER_AGENT, self.user_agent_full())
                 .form(&params),
-            other => return Err(From::from(format!("Unsupported method '{}'", other))),
+            other => return Err(ApiError::UnsupportedHTTPMethod(other.to_string()).into()),
         })
     }
 
@@ -744,7 +721,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::Response> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
@@ -766,7 +743,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String> {
         let resp = self.query_raw_response(api_url, params, method)?;
         self.set_cookies_from_response(&resp);
         Ok(resp.text()?)
@@ -780,18 +757,14 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String> {
         let resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
 
     /// Performs a login against the MediaWiki API.
     /// If successful, user information is stored in `User`, and in the cookie jar
-    pub fn login<S: Into<String>>(
-        &mut self,
-        lgname: S,
-        lgpassword: S,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn login<S: Into<String>>(&mut self, lgname: S, lgpassword: S) -> Result<()> {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
@@ -801,7 +774,7 @@ impl ApiSync {
             self.user.set_from_login(&res["login"])?;
             self.load_current_user_info()
         } else {
-            Err(From::from("Login failed"))
+            Err(ApiError::LoginFailure("Login failed".to_string()).into())
         }
     }
 
@@ -825,26 +798,20 @@ impl ApiSync {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
-    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
+    pub fn sparql_query(&self, query: &str) -> Result<Value> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self.query_raw_response(&query_api_url, &params, "POST")?;
-        match response.json() {
-            Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
-        }
+        Ok(response.json()?)
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
-    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
+    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
         if uri.starts_with(concept_base_uri) {
             Ok(uri[concept_base_uri.len()..].to_string())
         } else {
-            Err(From::from(format!(
-                "{} does not start with {}",
-                uri, concept_base_uri
-            )))
+            Err(ApiError::WrongConceptUri(uri.to_string(), concept_base_uri.to_string()).into())
         }
     }
 
@@ -866,7 +833,7 @@ impl ApiSync {
     }
 
     /// Loads the user info from the API into the user structure
-    pub fn load_user_info(&self, user: &mut User) -> Result<(), Box<dyn Error>> {
+    pub fn load_user_info(&self, user: &mut User) -> Result<()> {
         if !user.has_user_info() {
             let params: HashMap<String, String> = vec![
                 ("action", "query"),

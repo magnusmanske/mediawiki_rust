@@ -1,9 +1,9 @@
 extern crate config;
 
+use anyhow::Result;
 use config::*;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs::File;
 
 /*
@@ -144,7 +144,7 @@ fn main() {
     _wikidata_item_tester();
 }*/
 
-async fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value, Box<dyn Error>> {
+async fn _edit_sandbox_item(api: &mut mediawiki::api::Api) -> Result<Value> {
     let q = "Q13406268"; // Second sandbox item
     let token = api.get_edit_token().await.unwrap();
     let params: HashMap<String, String> = vec![
