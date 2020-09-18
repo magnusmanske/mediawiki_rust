@@ -801,12 +801,12 @@ impl Api {
             "GET" => self
                 .client
                 .get(api_url)
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .headers(headers)
                 .query(&params),
             "POST" => self
                 .client
                 .post(api_url)
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .headers(headers)
                 .form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
         })
