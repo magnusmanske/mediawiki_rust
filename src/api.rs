@@ -101,6 +101,14 @@ pub struct Api {
 impl Api {
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+    /// let api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+    /// # });
+    /// ```
     pub async fn new(api_url: &str) -> Result<Api, Box<dyn Error>> {
         Api::new_from_builder(api_url, reqwest::Client::builder()).await
     }
