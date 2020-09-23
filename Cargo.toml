@@ -13,10 +13,8 @@ edition = "2018"
 serde_json = "1"
 tokio = { version = "^0.2", features = ["macros"] }
 reqwest = { version = "^0.10", features = ["blocking", "cookies", "json"] }
-user_agent = "0.11"
 urlencoding = "1"
 config = "0.10"
-cookie = "0.13"
 nanoid = "0.3"
 url = "2.1"
 base64 = "0.12"
