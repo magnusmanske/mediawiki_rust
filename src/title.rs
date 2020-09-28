@@ -40,7 +40,7 @@ pub fn toggle_namespace_id(id: NamespaceID) -> Option<NamespaceID> {
 }
 
 /// Title struct
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Title {
     title: String, // Always stored without underscores
     namespace_id: NamespaceID,
