@@ -361,7 +361,6 @@ impl Api {
             if let Value::Object(obj) = &query_state.continue_params {
                 current_params.extend(
                     obj.iter()
-                        .filter(|x| x.0 != "continue")
                         // The default to_string() method for Value puts double-quotes around strings
                         .map(|(k, v)| {
                             (k.to_string(), v.as_str().map_or(v.to_string(), Into::into))
