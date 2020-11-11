@@ -10,17 +10,17 @@ authors = ["Magnus Manske <magnusmanske@googlemail.com>"]
 edition = "2018"
 
 [dependencies]
-serde_json = "1"
-tokio = { version = "^0.2", features = ["macros"] }
+serde_json = "^1"
+tokio = { version = "^0.2", features = ["macros"] } # ,"rt-multi-thread"
 reqwest = { version = "^0.10", features = ["blocking", "cookies", "json"] }
-urlencoding = "1"
-config = "0.10"
-nanoid = "0.3"
-url = "2.1"
-base64 = "0.12"
-hmac = "0.7.1"
-sha-1 = "0.8.2"
 futures = "^0.3"
+urlencoding = "^1"
+config = "^0.10"
+nanoid = "^0.3"
+url = "^2.2"
+base64 = "^0.13"
+hmac = "^0.10.1"
+sha2 = "^0.9.2"
 
 [dev-dependencies]
-lazy_static = "1.4"
+lazy_static = "^1.4"

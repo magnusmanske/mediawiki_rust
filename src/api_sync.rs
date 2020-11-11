@@ -18,10 +18,10 @@ This sync version is kept for backwards compatablilty.
 extern crate base64;
 extern crate hmac;
 extern crate reqwest;
-extern crate sha1;
 
+use hmac::{Hmac, Mac, NewMac};
+use sha2::Sha256;
 use crate::api::OAuthParams;
-use crate::hmac::Mac;
 use crate::title::Title;
 use crate::user::User;
 use nanoid::nanoid;
@@ -41,7 +41,7 @@ const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
-type HmacSha1 = hmac::Hmac<sha1::Sha1>;
+type HmacSha256 = Hmac<Sha256>;
 
 /// `ApiSync` is the main class to interact with a MediaWiki API
 #[derive(Debug, Clone)]
@@ -597,9 +597,10 @@ impl ApiSync {
             }
         };
 
-        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?; //crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
-        hmac.input(&ret.into_bytes());
-        let bytes = hmac.result().code();
+        
+        let mut hmac = HmacSha256::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        hmac.update(&ret.into_bytes());
+        let bytes = hmac.finalize().into_bytes();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)

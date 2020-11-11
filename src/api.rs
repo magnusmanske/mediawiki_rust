@@ -17,11 +17,12 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 extern crate base64;
 //extern crate hmac;
 extern crate reqwest;
-extern crate sha1;
+extern crate sha2;
 extern crate nanoid;
 
 use nanoid::nanoid;
-use crate::hmac::Mac;
+use hmac::{Hmac, Mac, NewMac};
+use sha2::Sha256;
 use crate::title::Title;
 use crate::user::User;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -41,7 +42,7 @@ const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
-type HmacSha1 = hmac::Hmac<sha1::Sha1>;
+type HmacSha256 = Hmac<Sha256>;
 
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
@@ -648,9 +649,9 @@ impl Api {
             }
         };
 
-        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?; //crypto::hmac::Hmac::new(Sha1::new(), &key.into_bytes());
-        hmac.input(&ret.into_bytes());
-        let bytes = hmac.result().code();
+        let mut hmac = HmacSha256::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        hmac.update(&ret.into_bytes());
+        let bytes = hmac.finalize().into_bytes();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)
