@@ -27,6 +27,7 @@ use crate::title::Title;
 use crate::user::User;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
+use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -316,134 +317,80 @@ impl Api {
         }
     }
 
-/// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
-    pub async fn get_query_api_json_limit(
-        &self,
-        params: &HashMap<String, String>,
-        max: Option<usize>,
-    ) -> Result<Value, Box<dyn Error>> {
-        let mut cont = HashMap::<String, String>::new();
-        let mut ret = serde_json::json!({});
-        loop {
-            let mut params_cont = params.clone();
-            for (k, v) in &cont {
-                params_cont.insert(k.to_string(), v.to_string());
-            }
-            let result = self.get_query_api_json(&params_cont).await?;
-            cont.clear();
-            let conti = result["continue"].clone();
-            self.json_merge(&mut ret, result);
-            if let Some(m) = max {
-                if self.query_result_count(&ret) >= m {
-                    break;
-                }
-            }
-            match conti {
-                Value::Object(obj) => {
-                    cont.clear();
-                    obj.iter().filter(|x| x.0 != "continue").for_each(|x| {
-                        let continue_value =
-                            x.1.as_str().map_or(x.1.to_string(), |s| s.to_string());
-                        cont.insert(x.0.to_string(), continue_value);
-                    });
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        if let Some(x) = ret.as_object_mut() {
-            x.remove("continue");
-        }
-
-        Ok(ret)
-    }
-
-    /*
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
     pub async fn get_query_api_json_limit(
         &self,
         params: &HashMap<String, String>,
         max: Option<usize>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.get_query_api_json_limit_iter(params, max).await
-            .try_fold(Value::Null, |mut acc, result| {
-                self.json_merge(&mut acc, result?);
-                Ok(acc)
-            })
+        self.get_query_api_json_limit_iter(params, max).await.fold(Ok(Value::Null), |acc, result| async move {
+            match (acc, result) {
+                (Ok(mut acc), Ok(result)) => { self.json_merge(&mut acc, result); Ok(acc) },
+                (Ok(_), e @ Err(_)) => e,
+                (e @ Err(_), _) => e,
+            }
+        }).await
     }
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
-    /// Returns an iterator; each item is a "page" of results.
+    /// Returns a stream; each item is a "page" of results.
     pub async fn get_query_api_json_limit_iter<'a>(
         &'a self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> impl Iterator<Item = Result<Value, Box<dyn Error>>> + 'a {
-        struct ApiQuery<'a> {
+    ) -> impl Stream<Item = Result<Value, Box<dyn Error>>> + 'a {
+        struct QueryState<'a> {
             api: &'a Api,
             params: HashMap<String, String>,
             values_remaining: Option<usize>,
             continue_params: Value,
         }
 
-        impl<'a> Iterator for ApiQuery<'a> {
-            type Item = Result<Value, Box<dyn Error>>;
-            
-            fn next(&mut self) -> Option<Self::Item> {
-                if let Some(0) = self.values_remaining {
-                    return None;
-                }
-
-                let mut current_params = self.params.clone();
-                if let Value::Object(obj) = &self.continue_params {
-                    current_params.extend(
-                        obj.iter()
-                            .filter(|x| x.0 != "continue")
-                            // The default to_string() method for Value puts double-quotes around strings
-                            .map(|(k, v)| {
-                                (k.to_string(), v.as_str().map_or(v.to_string(), Into::into))
-                            }),
-                    );
-                }
-
-                async {
-                let query_result =  
-                self.api.get_query_api_json(&current_params).await;
-            
-                let ret = match query_result {
-                    Ok(mut result) => {
-                        self.continue_params = result["continue"].clone();
-                        if self.continue_params.is_null() {
-                            self.values_remaining = Some(0);
-                        } else if let Some(num) = self.values_remaining {
-                            self.values_remaining =
-                                Some(num.saturating_sub(self.api.query_result_count(&result)));
-                        }
-                        result.as_object_mut().map(|r| r.remove("continue"));
-                        Ok(result)
-                    }
-                    Err(e) => {
-                        self.values_remaining = Some(0);
-                        //Err(Box::new(e) as Box<dyn Error>)
-                        let s = format!("{:?}",e);
-                        let err: Box<dyn Error + Send + Sync> = From::from(s);
-                        Err(err as Box<dyn Error>)
-                    }
-                } ;
-                Some(ret)
-            }
-            }
-        }
-
-        ApiQuery {
+        let initial_query_state = QueryState {
             api: self,
             params: params.clone(),
             values_remaining: max,
             continue_params: Value::Null,
-        }
+        };
+
+        futures::stream::unfold(initial_query_state, |mut query_state| async move {
+            if let Some(0) = query_state.values_remaining {
+                return None;
+            }
+
+            let mut current_params = query_state.params.clone();
+            if let Value::Object(obj) = &query_state.continue_params {
+                current_params.extend(
+                    obj.iter()
+                        // The default to_string() method for Value puts double-quotes around strings
+                        .map(|(k, v)| {
+                            (k.to_string(), v.as_str().map_or(v.to_string(), Into::into))
+                        }),
+                );
+            }
+
+            let query_result = query_state.api.get_query_api_json(&current_params).await;
+
+            let ret = match query_result {
+                Ok(mut result) => {
+                    query_state.continue_params = result["continue"].clone();
+                    if query_state.continue_params.is_null() {
+                        query_state.values_remaining = Some(0);
+                    } else if let Some(num) = query_state.values_remaining {
+                        query_state.values_remaining =
+                            Some(num.saturating_sub(query_state.api.query_result_count(&result)));
+                    }
+                    result.as_object_mut().map(|r| r.remove("continue"));
+                    Ok(result)
+                }
+                e @ Err(_) => {
+                    query_state.values_remaining = Some(0);
+                    e
+                }
+            };
+            Some((ret, query_state))
+        })
     }
-    */
 
     /// Runs a query against the MediaWiki API, using `method` GET or POST.
     /// Parameters are a hashmap; `format=json` is enforced.
