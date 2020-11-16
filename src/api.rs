@@ -631,7 +631,7 @@ impl Api {
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + "://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
-        if let Some(port) = url.port() { write!(url_string, ":{}", port).unwrap() }
+        if let Some(port) = url.port() { write!(url_string, ":{}", port)? }
         url_string += url.path();
 
         let ret = self.rawurlencode(&method)
@@ -684,9 +684,18 @@ impl Api {
 
         headers.insert(
             "oauth_consumer_key",
-            oauth.g_consumer_key.as_ref().unwrap().parse()?,
+            oauth.g_consumer_key
+                .as_ref()
+                .ok_or("Falied to get ref for oauth_consumer_key")?
+                .parse()?,
         );
-        headers.insert("oauth_token", oauth.g_token_key.as_ref().unwrap().parse()?);
+        headers.insert(
+            "oauth_token", 
+            oauth.g_token_key
+            .as_ref()
+            .ok_or("Falied to get ref for g_token_key")?
+            .parse()?
+        );
         headers.insert("oauth_version", "1.0".parse()?);
         headers.insert("oauth_nonce", nonce.parse()?);
         headers.insert("oauth_timestamp", timestamp.parse()?);
@@ -709,16 +718,15 @@ impl Api {
 
         // Collapse headers
         let mut header = "OAuth ".to_string();
-        let parts: Vec<String> = headers
-            .iter()
-            .map(|(key, value)| {
-                let key = key.to_string();
-                let value = value.to_str().unwrap();
-                let key = self.rawurlencode(&key);
-                let value = self.rawurlencode(&value);
-                key + "=\"" + &value + "\""
-            })
-            .collect();
+        let mut parts = Vec::new();
+        for (key, value) in &headers {
+            let key = key.to_string();
+            let value = value.to_str().map_err(|e|e.to_string())?;
+            let key = self.rawurlencode(&key);
+            let value = self.rawurlencode(&value);
+            let part = key + "=\"" + &value + "\"" ;
+            parts.push(part);
+        }
         header += &parts.join(", ");
 
         let mut headers = HeaderMap::new();
@@ -839,19 +847,17 @@ impl Api {
     /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
     pub fn result_array_to_titles(data: &Value) -> Vec<Title> {
         // See if it's the "root" of the result, then try each sub-object separately
-        if data.is_object() {
-            return data
-                .as_object()
-                .unwrap() // OK
-                .iter()
-                .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
-                .collect();
-        }
-        data.as_array()
-            .unwrap_or(&vec![])
-            .iter()
+        if let Some(obj) = data.as_object() {
+            obj.iter()
+            .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
+            .collect() 
+        } else if let Some(arr) = data.as_array() {
+            arr.iter()
             .map(|v| Title::new_from_api_result(&v))
             .collect()
+        } else {
+            vec![]
+        }
     }
 
     /// Performs a SPARQL query against a wikibase installation.
@@ -900,7 +906,9 @@ impl Api {
         if let Some(bindings) = sparql_result["results"]["bindings"].as_array() {
             for b in bindings {
                 if let Some(entity_url) = b[variable_name]["value"].as_str() {
-                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                    if let Ok(entity) = self.extract_entity_from_uri(entity_url) {
+                        entities.push(entity);
+                    }
                 }
             }
         }
