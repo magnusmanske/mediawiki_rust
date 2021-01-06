@@ -19,14 +19,14 @@ extern crate base64;
 extern crate hmac;
 extern crate reqwest;
 
-use hmac::{Hmac, Mac, NewMac};
-use sha2::Sha256;
 use crate::api::OAuthParams;
 use crate::title::Title;
 use crate::user::User;
+use hmac::{Hmac, Mac, NewMac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -193,16 +193,20 @@ impl ApiSync {
     /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
-            (a @ &mut Value::Object(_), Value::Object(b)) => if let Some(a) = a.as_object_mut() {
-                for (k, v) in b {
-                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
+            (a @ &mut Value::Object(_), Value::Object(b)) => {
+                if let Some(a) = a.as_object_mut() {
+                    for (k, v) in b {
+                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                    }
                 }
-            },
-            (a @ &mut Value::Array(_), Value::Array(b)) => if let Some(a) = a.as_array_mut() {
-                for v in b {
-                    a.push(v);
+            }
+            (a @ &mut Value::Array(_), Value::Array(b)) => {
+                if let Some(a) = a.as_array_mut() {
+                    for v in b {
+                        a.push(v);
+                    }
                 }
-            },
+            }
             (a, b) => *a = b,
         }
     }
@@ -579,7 +583,9 @@ impl ApiSync {
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + "://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
-        if let Some(port) = url.port() { write!(url_string, ":{}", port).unwrap() }
+        if let Some(port) = url.port() {
+            write!(url_string, ":{}", port).unwrap()
+        }
         url_string += url.path();
 
         let ret = self.rawurlencode(&method)
@@ -597,7 +603,6 @@ impl ApiSync {
             }
         };
 
-        
         let mut hmac = HmacSha256::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
@@ -729,7 +734,9 @@ impl ApiSync {
         if !self.is_edit_query(params, method) {
             return;
         }
-        if let Some(ms) = self.edit_delay_ms { thread::sleep(time::Duration::from_millis(ms)) }
+        if let Some(ms) = self.edit_delay_ms {
+            thread::sleep(time::Duration::from_millis(ms))
+        }
     }
 
     /// Runs a query against a generic URL, stores cookies, and returns a text

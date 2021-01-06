@@ -64,7 +64,8 @@ impl Page {
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
         let result = api
-            .get_query_api_json(&params).await
+            .get_query_api_json(&params)
+            .await
             .map_err(|e| PageError::RequestError(e))?;
 
         let page = &result["query"]["pages"][0];
@@ -186,43 +187,51 @@ impl Page {
 
     /// Returns the categories of a page, as a JSON Value Vec
     pub async fn categories(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
-        let result = self.action_query(
-            api,
-            &[
-                ("prop", "categories"),
-                ("cllimit", "max"),
-                ("clprop", "hidden|sortkey|timestamp"),
-            ],
-        ).await?;
+        let result = self
+            .action_query(
+                api,
+                &[
+                    ("prop", "categories"),
+                    ("cllimit", "max"),
+                    ("clprop", "hidden|sortkey|timestamp"),
+                ],
+            )
+            .await?;
         self.extract_page_properties_from_api_results(result, "categories")
     }
 
     /// Returns the categories of a page, as a JSON Value Vec
     pub async fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")]).await?;
+        let result = self
+            .action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")])
+            .await?;
         self.extract_page_properties_from_api_results(result, "iwlinks")
     }
 
     /// Returns the templates of a page, as a Title Vec
     pub async fn templates(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
-        let result = self.action_query(
-            api,
-            &[
-                ("prop", "templates"),
-                ("tllimit", "max"),
-                ("tlnamespace", "*"),
-            ],
-        ).await?;
+        let result = self
+            .action_query(
+                api,
+                &[
+                    ("prop", "templates"),
+                    ("tllimit", "max"),
+                    ("tlnamespace", "*"),
+                ],
+            )
+            .await?;
         let result = self.extract_page_properties_from_api_results(result, "templates")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the wiki-internal links on a page, as a Title Vec
     pub async fn links(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
-        let result = self.action_query(
-            api,
-            &[("prop", "links"), ("pllimit", "max"), ("plnamespace", "*")],
-        ).await?;
+        let result = self
+            .action_query(
+                api,
+                &[("prop", "links"), ("pllimit", "max"), ("plnamespace", "*")],
+            )
+            .await?;
         let result = self.extract_page_properties_from_api_results(result, "links")?;
         Ok(self.json_result_into_titles(result, api))
     }
@@ -240,22 +249,26 @@ impl Page {
             (false, true) => "redirect",
             (false, false) => "",
         };
-        let result = self.action_query(
-            api,
-            &[
-                ("prop", "linkshere"),
-                ("lhlimit", "max"),
-                ("lhnamespace", "*"),
-                ("lhshow", lhshow),
-            ],
-        ).await?;
+        let result = self
+            .action_query(
+                api,
+                &[
+                    ("prop", "linkshere"),
+                    ("lhlimit", "max"),
+                    ("lhnamespace", "*"),
+                    ("lhshow", lhshow),
+                ],
+            )
+            .await?;
         let result = self.extract_page_properties_from_api_results(result, "linkshere")?;
         Ok(self.json_result_into_titles(result, api))
     }
 
     /// Returns the images used on a page, as a Title Vec
     pub async fn images(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "images"), ("imlimit", "max")]).await?;
+        let result = self
+            .action_query(api, &[("prop", "images"), ("imlimit", "max")])
+            .await?;
         let result = self.extract_page_properties_from_api_results(result, "images")?;
         Ok(self.json_result_into_titles(result, api))
     }
@@ -271,7 +284,8 @@ impl Page {
                     ("coprop", "country|dim|globe|name|region|type"),
                     ("coprimary", "all"),
                 ],
-            ).await?,
+            )
+            .await?,
             "coordinates",
         )
     }
@@ -293,14 +307,17 @@ impl Page {
                     ("coprimary", "all"),
                     ("codistancefrompoint", format!("{}|{}", lat, lon).as_str()),
                 ],
-            ).await?,
+            )
+            .await?,
             "coordinates",
         )
     }
 
     /// Returns the external links of a page, as a String Vec
     pub async fn external_links(&self, api: &Api) -> Result<Vec<String>, Box<dyn Error>> {
-        let result = self.action_query(api, &[("prop", "extlinks"), ("ellimit", "max")]).await?;
+        let result = self
+            .action_query(api, &[("prop", "extlinks"), ("ellimit", "max")])
+            .await?;
         Ok(self
             .extract_page_properties_from_api_results(result, "extlinks")?
             .iter()
@@ -378,7 +395,9 @@ mod tests {
     use crate::api::*;
 
     async fn wd_api() -> Api {
-        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
+        Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
@@ -421,7 +440,8 @@ mod tests {
 
         // Distance to Cologne
         let result = page
-            .coordinates_distance(&wd_api().await, 50.94222222, 6.95777778).await
+            .coordinates_distance(&wd_api().await, 50.94222222, 6.95777778)
+            .await
             .unwrap();
         result
             .iter()

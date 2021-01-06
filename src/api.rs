@@ -16,18 +16,18 @@ The `Api` class serves as a univeral interface to a MediaWiki API.
 
 extern crate base64;
 //extern crate hmac;
+extern crate nanoid;
 extern crate reqwest;
 extern crate sha2;
-extern crate nanoid;
 
-use nanoid::nanoid;
-use hmac::{Hmac, Mac, NewMac};
-use sha2::Sha256;
 use crate::title::Title;
 use crate::user::User;
+use futures::{Stream, StreamExt};
+use hmac::{Hmac, Mac, NewMac};
+use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
-use futures::{Stream, StreamExt};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -244,16 +244,20 @@ impl Api {
     /// This allows for combining multiple API results via the `continue` parameter
     fn json_merge(&self, a: &mut Value, b: Value) {
         match (a, b) {
-            (a @ &mut Value::Object(_), Value::Object(b)) => if let Some(a) = a.as_object_mut() {
-                for (k, v) in b {
-                    self.json_merge(a.entry(k).or_insert(Value::Null), v);
+            (a @ &mut Value::Object(_), Value::Object(b)) => {
+                if let Some(a) = a.as_object_mut() {
+                    for (k, v) in b {
+                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                    }
                 }
-            },
-            (a @ &mut Value::Array(_), Value::Array(b)) => if let Some(a) = a.as_array_mut() {
-                for v in b {
-                    a.push(v);
+            }
+            (a @ &mut Value::Array(_), Value::Array(b)) => {
+                if let Some(a) = a.as_array_mut() {
+                    for v in b {
+                        a.push(v);
+                    }
                 }
-            },
+            }
             (a, b) => *a = b,
         }
     }
@@ -323,13 +327,19 @@ impl Api {
         params: &HashMap<String, String>,
         max: Option<usize>,
     ) -> Result<Value, Box<dyn Error>> {
-        self.get_query_api_json_limit_iter(params, max).await.fold(Ok(Value::Null), |acc, result| async move {
-            match (acc, result) {
-                (Ok(mut acc), Ok(result)) => { self.json_merge(&mut acc, result); Ok(acc) },
-                (Ok(_), e @ Err(_)) => e,
-                (e @ Err(_), _) => e,
-            }
-        }).await
+        self.get_query_api_json_limit_iter(params, max)
+            .await
+            .fold(Ok(Value::Null), |acc, result| async move {
+                match (acc, result) {
+                    (Ok(mut acc), Ok(result)) => {
+                        self.json_merge(&mut acc, result);
+                        Ok(acc)
+                    }
+                    (Ok(_), e @ Err(_)) => e,
+                    (e @ Err(_), _) => e,
+                }
+            })
+            .await
     }
 
     /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
@@ -569,7 +579,8 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<String, Box<dyn Error>> {
-        self.query_raw_mut(&self.api_url.clone(), params, method).await
+        self.query_raw_mut(&self.api_url.clone(), params, method)
+            .await
     }
 
     /// Generates a `RequestBuilder` for the API URL
@@ -631,7 +642,9 @@ impl Api {
         let url = Url::parse(api_url)?;
         let mut url_string = url.scheme().to_owned() + "://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
-        if let Some(port) = url.port() { write!(url_string, ":{}", port)? }
+        if let Some(port) = url.port() {
+            write!(url_string, ":{}", port)?
+        }
         url_string += url.path();
 
         let ret = self.rawurlencode(&method)
@@ -684,17 +697,19 @@ impl Api {
 
         headers.insert(
             "oauth_consumer_key",
-            oauth.g_consumer_key
+            oauth
+                .g_consumer_key
                 .as_ref()
                 .ok_or("Falied to get ref for oauth_consumer_key")?
                 .parse()?,
         );
         headers.insert(
-            "oauth_token", 
-            oauth.g_token_key
-            .as_ref()
-            .ok_or("Falied to get ref for g_token_key")?
-            .parse()?
+            "oauth_token",
+            oauth
+                .g_token_key
+                .as_ref()
+                .ok_or("Falied to get ref for g_token_key")?
+                .parse()?,
         );
         headers.insert("oauth_version", "1.0".parse()?);
         headers.insert("oauth_nonce", nonce.parse()?);
@@ -721,10 +736,10 @@ impl Api {
         let mut parts = Vec::new();
         for (key, value) in &headers {
             let key = key.to_string();
-            let value = value.to_str().map_err(|e|e.to_string())?;
+            let value = value.to_str().map_err(|e| e.to_string())?;
             let key = self.rawurlencode(&key);
             let value = self.rawurlencode(&value);
-            let part = key + "=\"" + &value + "\"" ;
+            let part = key + "=\"" + &value + "\"";
             parts.push(part);
         }
         header += &parts.join(", ");
@@ -758,20 +773,15 @@ impl Api {
         let mut headers = HeaderMap::new();
         headers.insert(reqwest::header::USER_AGENT, self.user_agent_full().parse()?);
         if let Some(access_token) = &self.oauth2 {
-            headers.insert(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token).parse()?);
+            headers.insert(
+                reqwest::header::AUTHORIZATION,
+                format!("Bearer {}", access_token).parse()?,
+            );
         }
 
         Ok(match method {
-            "GET" => self
-                .client
-                .get(api_url)
-                .headers(headers)
-                .query(&params),
-            "POST" => self
-                .client
-                .post(api_url)
-                .headers(headers)
-                .form(&params),
+            "GET" => self.client.get(api_url).headers(headers).query(&params),
+            "POST" => self.client.post(api_url).headers(headers).form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
         })
     }
@@ -794,7 +804,9 @@ impl Api {
         if !self.is_edit_query(params, method) {
             return;
         }
-        if let Some(ms) = self.edit_delay_ms { thread::sleep(time::Duration::from_millis(ms)) }
+        if let Some(ms) = self.edit_delay_ms {
+            thread::sleep(time::Duration::from_millis(ms))
+        }
     }
 
     /// Runs a query against a generic URL, stores cookies, and returns a text
@@ -807,7 +819,7 @@ impl Api {
     ) -> Result<String, Box<dyn Error>> {
         let resp = self.query_raw_response(api_url, params, method).await?;
         let result = resp.text().await;
-        result.map_err(|e|Box::new(e) as Box<dyn Error>)
+        result.map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
     /// Runs a query against a generic URL, and returns a text.
@@ -821,7 +833,7 @@ impl Api {
     ) -> Result<String, Box<dyn Error>> {
         let resp = self.query_raw_response(api_url, params, method).await?;
         let result = resp.text().await;
-        result.map_err(|e|Box::new(e) as Box<dyn Error>)
+        result.map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
     /// Performs a login against the MediaWiki API.
@@ -849,12 +861,10 @@ impl Api {
         // See if it's the "root" of the result, then try each sub-object separately
         if let Some(obj) = data.as_object() {
             obj.iter()
-            .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
-            .collect() 
+                .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
+                .collect()
         } else if let Some(arr) = data.as_array() {
-            arr.iter()
-            .map(|v| Title::new_from_api_result(&v))
-            .collect()
+            arr.iter().map(|v| Title::new_from_api_result(&v)).collect()
         } else {
             vec![]
         }
@@ -865,7 +875,9 @@ impl Api {
     pub async fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(&query_api_url, &params, "POST").await?;
+        let response = self
+            .query_raw_response(&query_api_url, &params, "POST")
+            .await?;
         match response.json().await {
             Ok(json) => Ok(json),
             Err(e) => Err(From::from(format!("{}", e))),
@@ -874,9 +886,15 @@ impl Api {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Uses the given sparql endpoint
-    pub async fn sparql_query_endpoint(&self, query: &str, query_api_url: &str) -> Result<Value, Box<dyn Error>> {
+    pub async fn sparql_query_endpoint(
+        &self,
+        query: &str,
+        query_api_url: &str,
+    ) -> Result<Value, Box<dyn Error>> {
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(&query_api_url, &params, "POST").await?;
+        let response = self
+            .query_raw_response(&query_api_url, &params, "POST")
+            .await?;
         match response.json().await {
             Ok(json) => Ok(json),
             Err(e) => Err(From::from(format!("{}", e))),
@@ -916,8 +934,8 @@ impl Api {
     }
 
     /// Loads the user info from the API into the user structure
-    pub async fn load_user_info ( &self, user: &mut User ) -> Result<(), Box<dyn Error>> {
-        if  !user.has_user_info()  {
+    pub async fn load_user_info(&self, user: &mut User) -> Result<(), Box<dyn Error>> {
+        if !user.has_user_info() {
             let params: HashMap<String, String> = vec![
                 ("action", "query"),
                 ("meta", "userinfo"),
@@ -939,7 +957,9 @@ mod tests {
 
     #[tokio::test]
     async fn site_info() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -949,7 +969,9 @@ mod tests {
 
     #[tokio::test]
     async fn get_token() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let mut api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         // Token for logged out users is always the same
         assert!(!api.user.logged_in());
         assert_eq!("+\\", api.get_token("csrf").await.unwrap());
@@ -959,16 +981,23 @@ mod tests {
 
     #[tokio::test]
     async fn api_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         let params =
             api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "the")]);
-        let result = api.get_query_api_json_limit(&params, Some(20)).await.unwrap();
+        let result = api
+            .get_query_api_json_limit(&params, Some(20))
+            .await
+            .unwrap();
         assert_eq!(result["query"]["search"].as_array().unwrap().len(), 20);
     }
 
     #[tokio::test]
     async fn api_no_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
@@ -987,14 +1016,18 @@ mod tests {
 
     #[tokio::test]
     async fn sparql_query() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).await.unwrap() ;
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
 
     #[tokio::test]
     async fn entities_from_sparql_result() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).await.unwrap() ;
         let titles = api.entities_from_sparql_result(&res, "q");
         assert!(titles.contains(&"Q36499535".to_string()));
@@ -1002,7 +1035,9 @@ mod tests {
 
     #[tokio::test]
     async fn extract_entity_from_uri() {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         assert_eq!(
             api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123")
                 .unwrap(),
@@ -1036,7 +1071,9 @@ mod tests {
 
     #[tokio::test]
     async fn result_namespaces() {
-        let api = Api::new("https://de.wikipedia.org/w/api.php").await.unwrap();
+        let api = Api::new("https://de.wikipedia.org/w/api.php")
+            .await
+            .unwrap();
         assert_eq!(api.get_local_namespace_name(0), Some(""));
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
         assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));
