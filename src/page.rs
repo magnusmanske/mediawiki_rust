@@ -14,6 +14,7 @@ The `Page` class deals with operations done on pages, like editing.
     unused_qualifications
 )]
 
+use crate::media_wiki_error::MediaWikiError;
 use crate::api::Api;
 use crate::title::Title;
 use serde_json::Value;
@@ -66,7 +67,7 @@ impl Page {
         let result = api
             .get_query_api_json(&params)
             .await
-            .map_err(|e| PageError::RequestError(e))?;
+            .map_err(PageError::MediaWiki)?;
 
         let page = &result["query"]["pages"][0];
         if page["missing"].as_bool() == Some(true) {
@@ -140,7 +141,7 @@ impl Page {
         &self,
         api: &Api,
         additional_params: &[(&str, &str)],
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, PageError> {
         let title = self
             .title
             .full_pretty(api)
@@ -149,7 +150,7 @@ impl Page {
         for (k, v) in additional_params {
             params.insert(k.to_string(), v.to_string());
         }
-        api.get_query_api_json_all(&params).await
+        api.get_query_api_json_all(&params).await.map_err(|e|PageError::RequestError(Box::new(e)))
     }
 
     // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
@@ -368,6 +369,9 @@ pub enum PageError {
 
     /// Unexpected data structure (eg array instead of object) in API JSON result
     UnexpectedResultFormat(String),
+
+    /// MediaWikiError wrapper
+    MediaWiki(MediaWikiError),
 }
 
 impl fmt::Display for PageError {
@@ -383,11 +387,22 @@ impl fmt::Display for PageError {
             PageError::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
             PageError::RequestError(error) => write!(f, "request error: {}", error),
             PageError::UnexpectedResultFormat(error) => write!(f, "result format error: {}", error),
+            PageError::MediaWiki(error) => write!(f, "result format error: {}", error),
         }
     }
 }
 
 impl Error for PageError {}
+/*
+impl From<MediaWikiError> for PageError {  
+    fn from(e: MediaWikiError) -> Self {
+        match e {
+            MediaWikiError::Reqwest(e) => PageError::RequestError(Box::new(e)),
+            MediaWikiError::ReqwestHeader(e) => PageError::RequestError(Box::new(e)),
+        }
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {
