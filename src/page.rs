@@ -112,13 +112,16 @@ impl Page {
             .full_pretty(api)
             .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
         let bot = if api.user().is_bot() { "true" } else { "false" };
+        let text = text.into();
+        let checksum = format!("{:x}", md5::compute(&text));
         let mut params: HashMap<String, String> = [
             ("action", "edit"),
             ("title", &title),
-            ("text", &text.into()),
+            ("text", &text),
             ("summary", &summary.into()),
             ("bot", bot),
             ("formatversion", "2"),
+            ("md5", &checksum),
             ("token", &api.get_edit_token().await?),
         ]
         .iter()
