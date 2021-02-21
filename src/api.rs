@@ -30,8 +30,7 @@ use serde_json::Value;
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{thread, time};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use url::Url;
 
 /// Alias for a namespace (could be -1 for Special pages etc.)
@@ -426,7 +425,7 @@ impl Api {
                     }
                     attempts_left -= 1;
                     cumulative += lag_seconds;
-                    thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
+                    tokio::time::sleep(Duration::from_millis(1000 * lag_seconds)).await;
                 }
                 None => return Ok(v),
             }
@@ -458,7 +457,7 @@ impl Api {
                     }
                     attempts_left -= 1;
                     cumulative += lag_seconds;
-                    thread::sleep(time::Duration::from_millis(1000 * lag_seconds));
+                    tokio::time::sleep(Duration::from_millis(1000 * lag_seconds)).await;
                 }
                 None => return Ok(v),
             }
@@ -794,17 +793,17 @@ impl Api {
     ) -> Result<reqwest::Response, MediaWikiError> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send().await?;
-        self.enact_edit_delay(params, method);
+        self.enact_edit_delay(params, method).await;
         Ok(resp)
     }
 
     /// Delays the current thread, if the query performs an edit, and a delay time is set
-    fn enact_edit_delay(&self, params: &HashMap<String, String>, method: &str) {
+    async fn enact_edit_delay(&self, params: &HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
         }
         if let Some(ms) = self.edit_delay_ms {
-            thread::sleep(time::Duration::from_millis(ms))
+            tokio::time::sleep(Duration::from_millis(ms)).await;
         }
     }
 
