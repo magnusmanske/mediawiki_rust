@@ -1,5 +1,5 @@
 /*!
-The `Api` class serves as a univeral interface to a MediaWiki API.
+The `Api` class serves as a universal interface to a MediaWiki API.
 */
 
 #![deny(
@@ -498,7 +498,7 @@ impl Api {
         true
     }
 
-    /// Sets the maglag parameter for a query, if necessary
+    /// Sets the maxlag parameter for a query, if necessary
     fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
@@ -508,7 +508,7 @@ impl Api {
         }
     }
 
-    /// Sets the maglag parameter for a query, if necessary
+    /// Sets the maxlag parameter for a query, if necessary
     fn set_cumulative_maxlag_params(
         &self,
         params: &mut HashMap<String, String>,
@@ -524,7 +524,7 @@ impl Api {
         }
     }
 
-    /// Checks for a MAGLAG error, and returns the lag if so
+    /// Checks for a maxlag error, and returns the lag if so
     fn check_maxlag(&self, v: &Value) -> Option<u64> {
         match v["error"]["code"].as_str() {
             Some(code) => match code {
@@ -552,7 +552,7 @@ impl Api {
     }
 
     /// POST wrapper for `query_api_json`.
-    /// Requires `&mut self`, for sassion cookie storage
+    /// Requires `&mut self`, for session cookie storage
     pub async fn post_query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
@@ -698,7 +698,7 @@ impl Api {
             oauth
                 .g_consumer_key
                 .as_ref()
-                .ok_or("Falied to get ref for oauth_consumer_key")?
+                .ok_or("Failed to get ref for oauth_consumer_key")?
                 .parse()?,
         );
         headers.insert(

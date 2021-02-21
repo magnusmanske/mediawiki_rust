@@ -46,7 +46,7 @@ impl User {
         self.user_info.is_some()
     }
 
-    /// Checks is the user has a spefic right (e.g. "bot", "autocinfirmed")
+    /// Checks is the user has a specific right (e.g. "bot", "autoconfirmed")
     pub fn has_right(&self, right: &str) -> bool {
         match &self.user_info {
             Some(ui) => {
