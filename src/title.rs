@@ -71,16 +71,12 @@ impl Title {
         if let Some(namespaces) = site_info["query"]["namespaces"].as_object() {
             for (_, ns) in namespaces {
                 if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(&namespace)
-                        == namespace_name
-                    {
+                    if Title::underscores_to_spaces(&namespace) == namespace_name {
                         return Self::new_from_namespace_object(title, ns);
                     }
                 }
                 if let Some(namespace) = ns["canonical"].as_str() {
-                    if Title::underscores_to_spaces(&namespace)
-                        == namespace_name
-                    {
+                    if Title::underscores_to_spaces(&namespace) == namespace_name {
                         return Self::new_from_namespace_object(title, ns);
                     }
                 }
@@ -91,9 +87,7 @@ impl Title {
         if let Some(namespaces) = site_info["query"]["namespacealiases"].as_array() {
             for ns in namespaces {
                 if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(&namespace)
-                        == namespace_name
-                    {
+                    if Title::underscores_to_spaces(&namespace) == namespace_name {
                         let namespace_id = ns["id"].as_i64().unwrap();
                         let title = match ns["case"].as_str() {
                             Some("first-letter") => Title::first_letter_uppercase(&title),
@@ -245,7 +239,10 @@ impl Title {
     ///     Title::new("Test", -1));
     /// ```
     pub fn into_toggle_talk(self) -> Self {
-        Title::new(&self.title, toggle_namespace_id(self.namespace_id).unwrap_or(self.namespace_id))
+        Title::new(
+            &self.title,
+            toggle_namespace_id(self.namespace_id).unwrap_or(self.namespace_id),
+        )
     }
 }
 
@@ -255,7 +252,9 @@ mod tests {
     use crate::api::*;
 
     async fn wd_api() -> Api {
-        Api::new("https://www.wikidata.org/w/api.php").await.unwrap()
+        Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap()
     }
 
     #[tokio::test]
@@ -325,14 +324,8 @@ mod tests {
     #[tokio::test]
     async fn first_letter_uppercase() {
         assert_eq!(Title::first_letter_uppercase(&""), "");
-        assert_eq!(
-            Title::first_letter_uppercase(&"FooBar"),
-            "FooBar"
-        );
-        assert_eq!(
-            Title::first_letter_uppercase(&"fooBar"),
-            "FooBar"
-        );
+        assert_eq!(Title::first_letter_uppercase(&"FooBar"), "FooBar");
+        assert_eq!(Title::first_letter_uppercase(&"fooBar"), "FooBar");
         assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
     }
 
