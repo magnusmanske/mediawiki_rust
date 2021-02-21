@@ -1,6 +1,6 @@
 /*!
-The `ApiSync` class serves as a univeral interface to a MediaWiki API.
-This sync version is kept for backwards compatablilty.
+The `ApiSync` class serves as a universal interface to a MediaWiki API.
+This sync version is kept for backwards compatibility.
 */
 
 #![deny(
@@ -438,7 +438,7 @@ impl ApiSync {
         true
     }
 
-    /// Sets the maglag parameter for a query, if necessary
+    /// Sets the maxlag parameter for a query, if necessary
     fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
         if !self.is_edit_query(params, method) {
             return;
@@ -448,7 +448,7 @@ impl ApiSync {
         }
     }
 
-    /// Sets the maglag parameter for a query, if necessary
+    /// Sets the maxlag parameter for a query, if necessary
     fn set_cumulative_maxlag_params(
         &self,
         params: &mut HashMap<String, String>,
@@ -464,7 +464,7 @@ impl ApiSync {
         }
     }
 
-    /// Checks for a MAGLAG error, and returns the lag if so
+    /// Checks for a maxlag error, and returns the lag if so
     fn check_maxlag(&self, v: &Value) -> Option<u64> {
         match v["error"]["code"].as_str() {
             Some(code) => match code {
