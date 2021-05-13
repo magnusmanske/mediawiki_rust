@@ -856,7 +856,6 @@ impl ApiSync {
             .map(|x| (x.0.to_string(), x.1.to_string()))
             .collect();
             let res = self.query_api_json(&params, "GET")?;
-            println!("{:?}", &res);
             user.set_user_info(Some(res));
         }
         Ok(())
