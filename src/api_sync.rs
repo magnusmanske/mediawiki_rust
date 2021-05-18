@@ -3,17 +3,7 @@ The `ApiSync` class serves as a universal interface to a MediaWiki API.
 This sync version is kept for backwards compatibility.
 */
 
-#![deny(
-    missing_docs,
-    missing_debug_implementations,
-    missing_copy_implementations,
-    trivial_casts,
-    trivial_numeric_casts,
-    unsafe_code,
-    unstable_features,
-    unused_import_braces,
-    unused_qualifications
-)]
+#![deny(missing_docs)]
 
 extern crate base64;
 extern crate hmac;

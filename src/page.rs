@@ -2,17 +2,7 @@
 The `Page` class deals with operations done on pages, like editing.
 */
 
-#![deny(
-    missing_docs,
-    missing_debug_implementations,
-    missing_copy_implementations,
-    trivial_casts,
-    trivial_numeric_casts,
-    unsafe_code,
-    unstable_features,
-    unused_import_braces,
-    unused_qualifications
-)]
+#![deny(missing_docs)]
 
 use crate::media_wiki_error::MediaWikiError;
 use crate::api::Api;
