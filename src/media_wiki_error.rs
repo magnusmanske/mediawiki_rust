@@ -13,7 +13,6 @@ pub enum MediaWikiError {
 }
 
 impl Error for MediaWikiError {}
-unsafe impl Send for MediaWikiError {}
 
 impl fmt::Display for MediaWikiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
