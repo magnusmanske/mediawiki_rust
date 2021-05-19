@@ -475,7 +475,7 @@ mod tests {
     async fn page_images() {
         let page = Page::new(Title::new("Q64", 0));
         let result = page.images(&wd_api().await).await.unwrap();
-        assert!(result.contains(&Title::new("Cityscape Berlin.jpg", 6)))
+        assert!(result.contains(&Title::new("Berlin skyline 2009.jpg", 6)))
     }
 
     #[tokio::test]
