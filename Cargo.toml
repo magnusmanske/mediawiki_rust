@@ -14,13 +14,13 @@ serde_json = "^1"
 tokio = { version = "^1", features = ["full","rt-multi-thread"] }
 reqwest = { version = "^0.11", features = ["blocking", "cookies", "json"] }
 futures = "^0.3"
-urlencoding = "^1"
-config = "^0.13.2"
-nanoid = "^0.3"
+urlencoding = "^2"
+config = "^0.13"
+nanoid = "^0.4"
 url = "^2.2"
 base64 = "^0.13"
-hmac = "^0.10.1"
-sha2 = "^0.9.2"
+hmac = "^0.12"
+sha2 = "^0.10"
 
 [dev-dependencies]
 lazy_static = "^1.4"

@@ -12,7 +12,7 @@ extern crate reqwest;
 use crate::api::OAuthParams;
 use crate::title::Title;
 use crate::user::User;
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
@@ -545,7 +545,7 @@ impl ApiSync {
 
     /// Encodes a string
     fn rawurlencode(&self, s: &str) -> String {
-        urlencoding::encode(s)
+        urlencoding::encode(s).into_owned()
     }
 
     /// Signs an OAuth request
@@ -593,7 +593,7 @@ impl ApiSync {
             }
         };
 
-        let mut hmac = HmacSha256::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        let mut hmac = HmacSha256::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
         let ret: String = base64::encode(&bytes);
