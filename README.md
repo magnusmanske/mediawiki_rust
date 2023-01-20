@@ -8,7 +8,7 @@
 
 ## Get all categories of "Albert Einstein" on English Wikipedia
 ```rust
-let mut api = mediawiki::api::Api::new("https://en.wikipedia.org/w/api.php").unwrap();
+let api = mediawiki::api_sync::ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
 
 // Query parameters
 let params = api.params_into(&[
