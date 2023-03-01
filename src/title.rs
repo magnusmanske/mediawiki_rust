@@ -78,7 +78,7 @@ impl Title {
             for ns in namespaces {
                 if let Some(namespace) = ns["*"].as_str() {
                     if Title::underscores_to_spaces(&namespace) == namespace_name {
-                        let namespace_id = ns["id"].as_i64().unwrap();
+                        let namespace_id = ns["id"].as_i64().unwrap_or(0);
                         let title = match ns["case"].as_str() {
                             Some("first-letter") => Title::first_letter_uppercase(&title),
                             _ => title,
