@@ -194,10 +194,10 @@ impl Api {
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, MediaWikiError> {
         match self.get_site_info_value(k1, k2).as_str() {
             Some(s) => Ok(s),
-            None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
+            None => Err(MediaWikiError::String(format!("No 'query.{}.{}' value in site info", k1, k2))),
         }
     }
 
