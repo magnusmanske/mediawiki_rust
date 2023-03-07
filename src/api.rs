@@ -7,17 +7,19 @@ The `Api` class serves as a universal interface to a MediaWiki API.
 extern crate base64;
 extern crate nanoid;
 extern crate reqwest;
+extern crate sha1;
 extern crate sha2;
 
 use crate::title::Title;
 use crate::user::User;
 use crate::media_wiki_error::MediaWikiError;
 use futures::{Stream, StreamExt};
-use hmac::{Hmac, Mac};
+use crate::hmac::Mac;
+// use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
-use sha2::Sha256;
+//use sha2::Sha256;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -30,7 +32,8 @@ const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
-type HmacSha256 = Hmac<Sha256>;
+// type HmacSha256 = Hmac<Sha1>;
+type HmacSha1 = hmac::Hmac<sha1::Sha1>;
 
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
@@ -650,9 +653,12 @@ impl Api {
             }
         };
 
-        let mut hmac = HmacSha256::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
-        hmac.update(&ret.into_bytes());
-        let bytes = hmac.finalize().into_bytes();
+        // let mut hmac = HmacSha256::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        hmac.input(&ret.into_bytes());
+        let bytes = hmac.result().code();
+        // hmac.update(&ret.into_bytes());
+        // let bytes = hmac.finalize().into_bytes();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)
