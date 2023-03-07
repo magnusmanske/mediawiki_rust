@@ -19,10 +19,8 @@ config = "^0.13"
 nanoid = "^0.4"
 url = "^2.2"
 base64 = "^0.13"
-#hmac = "^0.12"
-hmac = "0.7.1"
-sha2 = "^0.10"
-sha-1 = "0.8.2"
+hmac = "^0.12"
+sha1 = "*"
 
 [dev-dependencies]
 lazy_static = "^1.4"

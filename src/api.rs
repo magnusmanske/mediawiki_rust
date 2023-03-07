@@ -8,18 +8,15 @@ extern crate base64;
 extern crate nanoid;
 extern crate reqwest;
 extern crate sha1;
-extern crate sha2;
 
 use crate::title::Title;
 use crate::user::User;
 use crate::media_wiki_error::MediaWikiError;
 use futures::{Stream, StreamExt};
-use crate::hmac::Mac;
-// use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
-//use sha2::Sha256;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -32,8 +29,7 @@ const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
-// type HmacSha256 = Hmac<Sha1>;
-type HmacSha1 = hmac::Hmac<sha1::Sha1>;
+type HmacSha1 = Hmac<sha1::Sha1>;
 
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
@@ -46,13 +42,13 @@ pub struct OAuthParams {
     pub g_token_key: Option<String>,
     /// Token secret
     pub g_token_secret: Option<String>,
-    g_user_agent: Option<String>,
-    agent: Option<String>,
-    consumer_key: Option<String>,
-    consumer_secret: Option<String>,
-    api_url: Option<String>,
-    public_mw_oauth_url: Option<String>,
-    tool: Option<String>,
+    _g_user_agent: Option<String>,
+    _agent: Option<String>,
+    _consumer_key: Option<String>,
+    _consumer_secret: Option<String>,
+    _api_url: Option<String>,
+    _public_mw_oauth_url: Option<String>,
+    _tool: Option<String>,
 }
 
 impl OAuthParams {
@@ -63,15 +59,15 @@ impl OAuthParams {
             g_consumer_secret: j["gConsumerSecret"].as_str().map(|s| s.to_string()),
             g_token_key: j["gTokenKey"].as_str().map(|s| s.to_string()),
             g_token_secret: j["gTokenSecret"].as_str().map(|s| s.to_string()),
-            g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
-            agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
-            consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
-            consumer_secret: j["params"]["consumerSecret"]
+            _g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
+            _agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
+            _consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
+            _consumer_secret: j["params"]["consumerSecret"]
                 .as_str()
                 .map(|s| s.to_string()),
-            api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
-            public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
-            tool: j["tool"].as_str().map(|s| s.to_string()),
+            _api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
+            _public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
+            _tool: j["tool"].as_str().map(|s| s.to_string()),
         }
     }
 }
@@ -653,12 +649,9 @@ impl Api {
             }
         };
 
-        // let mut hmac = HmacSha256::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
-        let mut hmac = HmacSha1::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
-        hmac.input(&ret.into_bytes());
-        let bytes = hmac.result().code();
-        // hmac.update(&ret.into_bytes());
-        // let bytes = hmac.finalize().into_bytes();
+        let mut hmac = HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        hmac.update(&ret.into_bytes());
+        let bytes = hmac.finalize().into_bytes();
         let ret: String = base64::encode(&bytes);
 
         Ok(ret)
