@@ -164,9 +164,10 @@ async fn _edit_sandbox_item(api: &mut Api) -> Result<Value, MediaWikiError> {
 }
 
 async fn _login_api_from_config(api: &mut Api) {
-    let mut settings = Config::default();
-    // File::with_name(..) is shorthand for File::from(Path::new(..))
-    settings.merge(config::File::with_name("test.ini")).unwrap();
+    let settings = Config::builder()
+        .add_source(config::File::with_name("test.ini"))
+        .build()
+        .expect("Could not build config");
     let lgname = settings.get_string("user.user").unwrap();
     let lgpassword = settings.get_string("user.pass").unwrap();
     api.login(lgname, lgpassword).await.unwrap();
