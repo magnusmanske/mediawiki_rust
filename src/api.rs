@@ -28,6 +28,7 @@ pub type NamespaceID = i64;
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
@@ -99,7 +100,7 @@ impl Api {
     /// # });
     /// ```
     pub async fn new(api_url: &str) -> Result<Api, MediaWikiError> {
-        Api::new_from_builder(api_url, reqwest::Client::builder()).await
+        Api::new_from_builder(api_url, reqwest::Client::builder().timeout(DEFAULT_TIMEOUT)).await
     }
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.

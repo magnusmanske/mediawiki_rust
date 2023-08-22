@@ -5,7 +5,7 @@ keywords = ["MediaWiki","API"]
 categories = ["api-bindings","authentication"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/magnusmanske/mediawiki_rust"
-version = "0.2.10"
+version = "0.2.11"
 authors = ["Magnus Manske <magnusmanske@googlemail.com>"]
 edition = "2018"
 
@@ -17,10 +17,10 @@ futures = "^0.3"
 urlencoding = "^2"
 config = "^0.13"
 nanoid = "^0.4"
-url = "^2.2"
-base64 = "^0.13"
+url = "^2.4"
+base64 = "^0.21"
 hmac = "^0.12"
-sha1 = "*"
+sha1 = "^0.10"
 
 [dev-dependencies]
 lazy_static = "^1.4"
