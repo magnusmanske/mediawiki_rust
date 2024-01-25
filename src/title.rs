@@ -95,7 +95,7 @@ impl Title {
 
     /// Constructor, used internally by `new_from_full`
     fn new_from_namespace_object(title: String, ns: &serde_json::Value) -> Self {
-        let namespace_id = ns["id"].as_i64().unwrap();
+        let namespace_id = ns["id"].as_i64().unwrap_or_default();
         let title = match ns["case"].as_str() {
             Some("first-letter") => Title::first_letter_uppercase(&title),
             _ => title,

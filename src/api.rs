@@ -4,14 +4,10 @@ The `Api` class serves as a universal interface to a MediaWiki API.
 
 #![deny(missing_docs)]
 
-extern crate base64;
-extern crate nanoid;
-extern crate reqwest;
-extern crate sha1;
-
 use crate::title::Title;
 use crate::user::User;
 use crate::media_wiki_error::MediaWikiError;
+use base64::prelude::*;
 use futures::{Stream, StreamExt};
 use hmac::{Hmac, Mac};
 use nanoid::nanoid;
@@ -653,7 +649,7 @@ impl Api {
         let mut hmac = HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
-        let ret: String = base64::encode(&bytes);
+        let ret: String = BASE64_STANDARD.encode(&bytes);
 
         Ok(ret)
     }

@@ -66,7 +66,7 @@ impl Page {
             if let Some(the_slot) = {
                 slots["main"].as_object().or_else(|| {
                     if slots.len() == 1 {
-                        slots.values().next().unwrap().as_object() // unwrap OK, length is 1
+                        slots.values().next()?.as_object()
                     } else {
                         None
                     }
@@ -461,7 +461,7 @@ mod tests {
     async fn page_external_links() {
         let page = Page::new(Title::new("Q64", 0));
         let result = page.external_links(&wd_api().await).await.unwrap();
-        assert!(result.contains(&"https://www.berlin.de/".to_string()));
+        assert!(result.contains(&"https://www.berlin.de/politik-verwaltung-buerger/".to_string()));
     }
 
     #[tokio::test]
@@ -475,7 +475,7 @@ mod tests {
     async fn page_images() {
         let page = Page::new(Title::new("Q64", 0));
         let result = page.images(&wd_api().await).await.unwrap();
-        assert!(result.contains(&Title::new("Berlin skyline 2009.jpg", 6)))
+        assert!(result.contains(&Title::new("Cityscape Berlin.jpg", 6)))
     }
 
     #[tokio::test]

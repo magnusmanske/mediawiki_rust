@@ -5,14 +5,10 @@ This sync version is kept for backwards compatibility.
 
 #![deny(missing_docs)]
 
-extern crate base64;
-extern crate hmac;
-extern crate reqwest;
-extern crate sha1;
-
 use crate::api::OAuthParams;
 use crate::title::Title;
 use crate::user::User;
+use base64::prelude::*;
 use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -596,7 +592,7 @@ impl ApiSync {
         let mut hmac = HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
-        let ret: String = base64::encode(&bytes);
+        let ret: String = BASE64_STANDARD.encode(&bytes);
 
         Ok(ret)
     }
