@@ -877,9 +877,17 @@ impl Api {
         let response = self
             .query_raw_response(&query_api_url, &params, "POST")
             .await?;
-        match response.json().await {
+        let bytes = match response.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e) => {return Err(From::from(format!("{}", e)));},
+        };
+        match serde_json::from_slice(&bytes) {
             Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
+            Err(e) => {
+                let bytes_start: Vec<u8> = bytes.iter().take(100).cloned().collect();
+                let bytes_start = String::from_utf8_lossy(&bytes_start);
+                Err(From::from(format!("{e}: {bytes_start}"))) // Error plus first 100 chars of response
+            }
         }
     }
 

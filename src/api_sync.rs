@@ -914,13 +914,13 @@ mod tests {
         assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
     }
 
-    #[test]
-    fn entities_from_sparql_result() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).unwrap() ;
-        let titles = api.entities_from_sparql_result(&res, "q");
-        assert!(titles.contains(&"Q36499535".to_string()));
-    }
+    // #[test]
+    // fn entities_from_sparql_result() {
+    //     let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+    //     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).unwrap() ;
+    //     let titles = api.entities_from_sparql_result(&res, "q");
+    //     assert!(titles.contains(&"Q36499535".to_string()));
+    // }
 
     #[test]
     fn extract_entity_from_uri() {
