@@ -177,12 +177,12 @@ impl ApiSync {
     /// Merges two JSON objects that are MediaWiki API results.
     /// If an array already exists in the `a` object, it will be expanded with the array from the `b` object
     /// This allows for combining multiple API results via the `continue` parameter
-    fn json_merge(&self, a: &mut Value, b: Value) {
+    fn json_merge(a: &mut Value, b: Value) {
         match (a, b) {
             (a @ &mut Value::Object(_), Value::Object(b)) => {
                 if let Some(a) = a.as_object_mut() {
                     for (k, v) in b {
-                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                        Self::json_merge(a.entry(k).or_insert(Value::Null), v);
                     }
                 }
             }
@@ -246,10 +246,7 @@ impl ApiSync {
         match result["query"].as_object() {
             Some(query) => query
                 .iter()
-                .filter_map(|(_key, part)| match part.as_array() {
-                    Some(a) => Some(a.len()),
-                    None => None,
-                })
+                .filter_map(|(_key, part)| part.as_array().map(|a| a.len()))
                 .next()
                 .unwrap_or(0),
             None => 0, // Don't know size
@@ -264,7 +261,7 @@ impl ApiSync {
     ) -> Result<Value, Box<dyn Error>> {
         self.get_query_api_json_limit_iter(params, max)
             .try_fold(Value::Null, |mut acc, result| {
-                self.json_merge(&mut acc, result?);
+                Self::json_merge(&mut acc, result?);
                 Ok(acc)
             })
     }
@@ -457,11 +454,8 @@ impl ApiSync {
     /// Checks for a maxlag error, and returns the lag if so
     fn check_maxlag(&self, v: &Value) -> Option<u64> {
         match v["error"]["code"].as_str() {
-            Some(code) => match code {
-                "maxlag" => v["error"]["lag"].as_u64().or(self.maxlag_seconds), // Current lag, if given, or fallback
-                _ => None,
-            },
-            None => None,
+            Some("maxlag") => v["error"]["lag"].as_u64().or(self.maxlag_seconds), // Current lag, if given, or fallback
+            _ => None,
         }
     }
 
@@ -559,7 +553,7 @@ impl ApiSync {
             .iter()
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
-                    let v = self.rawurlencode(&k2);
+                    let v = self.rawurlencode(k2);
                     Some(k.clone() + "=" + &v)
                 }
                 None => None,
@@ -574,7 +568,7 @@ impl ApiSync {
         }
         url_string += url.path();
 
-        let ret = self.rawurlencode(&method)
+        let ret = self.rawurlencode(method)
             + "&"
             + &self.rawurlencode(&url_string)
             + "&"
@@ -589,10 +583,11 @@ impl ApiSync {
             }
         };
 
-        let mut hmac = HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        let mut hmac =
+            HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
-        let ret: String = BASE64_STANDARD.encode(&bytes);
+        let ret: String = BASE64_STANDARD.encode(bytes);
 
         Ok(ret)
     }
@@ -643,7 +638,7 @@ impl ApiSync {
 
         headers.insert(
             "oauth_signature",
-            self.sign_oauth_request(method, api_url, &to_sign, &oauth)?
+            self.sign_oauth_request(method, api_url, &to_sign, oauth)?
                 .parse()?,
         );
 
@@ -655,7 +650,7 @@ impl ApiSync {
                 let key = key.to_string();
                 let value = value.to_str().unwrap();
                 let key = self.rawurlencode(&key);
-                let value = self.rawurlencode(&value);
+                let value = self.rawurlencode(value);
                 key + "=\"" + &value + "\""
             })
             .collect();
@@ -778,13 +773,13 @@ impl ApiSync {
                 .as_object()
                 .unwrap() // OK
                 .iter()
-                .flat_map(|(_k, v)| ApiSync::result_array_to_titles(&v))
+                .flat_map(|(_k, v)| ApiSync::result_array_to_titles(v))
                 .collect();
         }
         data.as_array()
             .unwrap_or(&vec![])
             .iter()
-            .map(|v| Title::new_from_api_result(&v))
+            .map(Title::new_from_api_result)
             .collect()
     }
 
@@ -793,7 +788,7 @@ impl ApiSync {
     pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(&query_api_url, &params, "POST")?;
+        let response = self.query_raw_response(query_api_url, &params, "POST")?;
         match response.json() {
             Ok(json) => Ok(json),
             Err(e) => Err(From::from(format!("{}", e))),
@@ -803,13 +798,12 @@ impl ApiSync {
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
     pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
-        if uri.starts_with(concept_base_uri) {
-            Ok(uri[concept_base_uri.len()..].to_string())
-        } else {
-            Err(From::from(format!(
+        match uri.strip_prefix(concept_base_uri) {
+            Some(s) => Ok(s.to_string()),
+            None => Err(From::from(format!(
                 "{} does not start with {}",
                 uri, concept_base_uri
-            )))
+            ))),
         }
     }
 
@@ -833,7 +827,7 @@ impl ApiSync {
     /// Loads the user info from the API into the user structure
     pub fn load_user_info(&self, user: &mut User) -> Result<(), Box<dyn Error>> {
         if !user.has_user_info() {
-            let params: HashMap<String, String> = vec![
+            let params: HashMap<String, String> = [
                 ("action", "query"),
                 ("meta", "userinfo"),
                 ("uiprop", "blockinfo|groups|groupmemberships|implicitgroups|rights|options|ratelimits|realname|registrationdate|unreadcount|centralids|hasmsg"),
@@ -847,7 +841,6 @@ impl ApiSync {
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

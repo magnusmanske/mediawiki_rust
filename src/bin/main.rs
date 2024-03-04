@@ -3,8 +3,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 
-use mediawiki::media_wiki_error::MediaWikiError;
 use mediawiki::api::Api;
+use mediawiki::media_wiki_error::MediaWikiError;
 /*
 extern crate mediawiki;
 extern crate wikibase;
@@ -182,7 +182,7 @@ async fn _oauth_edit(api: &mut Api) {
     api.set_oauth(Some(oauth_params));
     //let _x = api.oauth().clone();
 
-    let mut params: HashMap<String, String> = vec![
+    let mut params: HashMap<String, String> = [
         ("action", "wbeditentity"),
         ("id", sandbox_item),
         (

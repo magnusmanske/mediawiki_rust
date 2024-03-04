@@ -41,7 +41,7 @@ impl Title {
     /// Assumes title has correct capitalization
     pub fn new(title: &str, namespace_id: NamespaceID) -> Title {
         Title {
-            title: Title::underscores_to_spaces(&title),
+            title: Title::underscores_to_spaces(title),
             namespace_id,
         }
     }
@@ -51,9 +51,9 @@ impl Title {
     pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
         let mut v: Vec<&str> = full_title.split(':').collect();
         if v.len() == 1 {
-            return Self::new(&full_title, 0);
+            return Self::new(full_title, 0);
         }
-        let namespace_name = Title::first_letter_uppercase(&v.remove(0));
+        let namespace_name = Title::first_letter_uppercase(v.remove(0));
         let title = Title::underscores_to_spaces(&v.join(":"));
         let site_info = api.get_site_info();
 
@@ -61,12 +61,12 @@ impl Title {
         if let Some(namespaces) = site_info["query"]["namespaces"].as_object() {
             for (_, ns) in namespaces {
                 if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(&namespace) == namespace_name {
+                    if Title::underscores_to_spaces(namespace) == namespace_name {
                         return Self::new_from_namespace_object(title, ns);
                     }
                 }
                 if let Some(namespace) = ns["canonical"].as_str() {
-                    if Title::underscores_to_spaces(&namespace) == namespace_name {
+                    if Title::underscores_to_spaces(namespace) == namespace_name {
                         return Self::new_from_namespace_object(title, ns);
                     }
                 }
@@ -77,7 +77,7 @@ impl Title {
         if let Some(namespaces) = site_info["query"]["namespacealiases"].as_array() {
             for ns in namespaces {
                 if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(&namespace) == namespace_name {
+                    if Title::underscores_to_spaces(namespace) == namespace_name {
                         let namespace_id = ns["id"].as_i64().unwrap_or(0);
                         let title = match ns["case"].as_str() {
                             Some("first-letter") => Title::first_letter_uppercase(&title),
@@ -90,7 +90,7 @@ impl Title {
         }
 
         // Fallback
-        Self::new(&full_title, 0)
+        Self::new(full_title, 0)
     }
 
     /// Constructor, used internally by `new_from_full`
@@ -151,7 +151,7 @@ impl Title {
     /// Returns the namespace-prefixed title, with underscores
     pub fn full_with_underscores(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            match Title::spaces_to_underscores(&self.local_namespace_name(api)?).as_str() {
+            match Title::spaces_to_underscores(self.local_namespace_name(api)?).as_str() {
                 "" => self.with_underscores(),
                 ns => ns.to_owned() + ":" + &self.with_underscores(),
             },
@@ -161,7 +161,7 @@ impl Title {
     /// Returns the namespace-prefixed title, with spaces instead of underscores
     pub fn full_pretty(&self, api: &crate::api::Api) -> Option<String> {
         Some(
-            match Title::underscores_to_spaces(&self.local_namespace_name(api)?).as_str() {
+            match Title::underscores_to_spaces(self.local_namespace_name(api)?).as_str() {
                 "" => self.pretty().to_string(),
                 ns => ns.to_owned() + ":" + self.pretty(),
             },
@@ -170,12 +170,12 @@ impl Title {
 
     /// Changes all spaces to underscores
     pub fn spaces_to_underscores(s: &str) -> String {
-        s.trim().replace(" ", "_")
+        s.trim().replace(' ', "_")
     }
 
     /// Changes all underscores to spaces
     pub fn underscores_to_spaces(s: &str) -> String {
-        s.replace("_", " ").trim().to_string()
+        s.replace('_', " ").trim().to_string()
     }
 
     /// Changes the first letter to uppercase.

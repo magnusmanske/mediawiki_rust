@@ -4,8 +4,8 @@ The `Page` class deals with operations done on pages, like editing.
 
 #![deny(missing_docs)]
 
-use crate::media_wiki_error::MediaWikiError;
 use crate::api::Api;
+use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -140,7 +140,9 @@ impl Page {
         for (k, v) in additional_params {
             params.insert(k.to_string(), v.to_string());
         }
-        api.get_query_api_json_all(&params).await.map_err(|e|PageError::RequestError(Box::new(e)))
+        api.get_query_api_json_all(&params)
+            .await
+            .map_err(|e| PageError::RequestError(Box::new(e)))
     }
 
     // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
@@ -169,9 +171,10 @@ impl Page {
 
     fn json_result_into_titles(&self, arr: Vec<Value>, api: &Api) -> Vec<Title> {
         arr.iter()
-            .filter_map(|v| match v["title"].as_str() {
-                Some(title) => Some(Title::new_from_full(title, api)),
-                None => None,
+            .filter_map(|v| {
+                v["title"]
+                    .as_str()
+                    .map(|title| Title::new_from_full(title, api))
             })
             .collect()
     }
@@ -384,7 +387,7 @@ impl fmt::Display for PageError {
 
 impl Error for PageError {}
 /*
-impl From<MediaWikiError> for PageError {  
+impl From<MediaWikiError> for PageError {
     fn from(e: MediaWikiError) -> Self {
         match e {
             MediaWikiError::Reqwest(e) => PageError::RequestError(Box::new(e)),
