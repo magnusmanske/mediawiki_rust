@@ -12,6 +12,7 @@ use futures::{Stream, StreamExt};
 use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::StatusCode;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -25,6 +26,7 @@ const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
@@ -779,10 +781,28 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::Response, MediaWikiError> {
-        let req = self.request_builder(api_url, params, method)?;
-        let resp = req.send().await?;
+        let mut response;
+        loop {
+            let req = self.request_builder(api_url, params, method)?;
+            response = req.send().await?;
+
+            // If the API is overloaded, wait the requested time and try again
+            if response.status() == StatusCode::TOO_MANY_REQUESTS {
+                let wait_sec: u64 = response
+                    .headers()
+                    .get("Retry-After")
+                    .map(|v| v.as_bytes())
+                    .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS); // Fallback value
+                tokio::time::sleep(Duration::from_secs(wait_sec)).await;
+                continue;
+            }
+
+            break;
+        }
         self.enact_edit_delay(params, method).await;
-        Ok(resp)
+        Ok(response)
     }
 
     /// Delays the current thread, if the query performs an edit, and a delay time is set
