@@ -21,6 +21,7 @@ url = "^2.5"
 base64 = "^0.22"
 hmac = "^0.12"
 sha1 = "^0.10"
+unicode-case-mapping = "^0.5"
 
 [dev-dependencies]
 lazy_static = "^1.4"

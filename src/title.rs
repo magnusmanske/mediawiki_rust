@@ -185,7 +185,17 @@ impl Title {
         let mut c = s.chars();
         match c.next() {
             None => String::new(),
-            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            Some(f) => {
+                let f = unicode_case_mapping::to_titlecase(f);
+                if f[0] == 0 {
+                    s
+                } else {
+                    f.into_iter()
+                        .filter_map(|c| if c != 0 { char::from_u32(c) } else { None })
+                        .collect::<String>()
+                        + c.as_str()
+                }
+            }
         }
     }
 
@@ -317,6 +327,7 @@ mod tests {
         assert_eq!(Title::first_letter_uppercase(&"FooBar"), "FooBar");
         assert_eq!(Title::first_letter_uppercase(&"fooBar"), "FooBar");
         assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
+        assert_eq!(Title::first_letter_uppercase(&"ვიკიპედია"), "ვიკიპედია");
     }
 
     #[tokio::test]
