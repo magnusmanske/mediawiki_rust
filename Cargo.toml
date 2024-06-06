@@ -1,13 +1,13 @@
 [package]
 name = "mediawiki"
 description = "A MediaWiki client library"
-keywords = ["MediaWiki","API"]
-categories = ["api-bindings","authentication"]
+keywords = ["MediaWiki", "API"]
+categories = ["api-bindings", "authentication"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/magnusmanske/mediawiki_rust"
-version = "0.2.7"
+version = "0.2.15"
 authors = ["Magnus Manske <magnusmanske@googlemail.com>"]
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["default-tls"]
@@ -18,15 +18,16 @@ rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
 [dependencies]
 serde_json = "^1"
 tokio = { version = "^1", features = ["full","rt-multi-thread"] }
-reqwest = { version = "^0.11", features = ["blocking", "cookies", "json"], default-features = false }
+reqwest = { version = "^0.12", features = ["blocking", "cookies", "json"], default-features = false }
 futures = "^0.3"
-urlencoding = "^1"
-config = "^0.10"
-nanoid = "^0.3"
-url = "^2.2"
-base64 = "^0.13"
-hmac = "^0.10.1"
-sha2 = "^0.9.2"
+urlencoding = "^2"
+config = "^0.14"
+nanoid = "^0.4"
+url = "^2.5"
+base64 = "^0.22"
+hmac = "^0.12"
+sha1 = "^0.10"
+unicode-case-mapping = "^0.5"
 
 [dev-dependencies]
 lazy_static = "^1.4"

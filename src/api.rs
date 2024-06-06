@@ -4,20 +4,16 @@ The `Api` class serves as a universal interface to a MediaWiki API.
 
 #![deny(missing_docs)]
 
-extern crate base64;
-extern crate nanoid;
-extern crate reqwest;
-extern crate sha2;
-
+use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use crate::user::User;
-use crate::media_wiki_error::MediaWikiError;
+use base64::prelude::*;
 use futures::{Stream, StreamExt};
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::StatusCode;
 use serde_json::Value;
-use sha2::Sha256;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -29,8 +25,10 @@ pub type NamespaceID = i64;
 const DEFAULT_USER_AGENT: &str = "Rust mediawiki API";
 const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
 
-type HmacSha256 = Hmac<Sha256>;
+type HmacSha1 = Hmac<sha1::Sha1>;
 
 /// `OAuthParams` contains parameters for OAuth requests
 #[derive(Debug, Clone)]
@@ -43,13 +41,13 @@ pub struct OAuthParams {
     pub g_token_key: Option<String>,
     /// Token secret
     pub g_token_secret: Option<String>,
-    g_user_agent: Option<String>,
-    agent: Option<String>,
-    consumer_key: Option<String>,
-    consumer_secret: Option<String>,
-    api_url: Option<String>,
-    public_mw_oauth_url: Option<String>,
-    tool: Option<String>,
+    _g_user_agent: Option<String>,
+    _agent: Option<String>,
+    _consumer_key: Option<String>,
+    _consumer_secret: Option<String>,
+    _api_url: Option<String>,
+    _public_mw_oauth_url: Option<String>,
+    _tool: Option<String>,
 }
 
 impl OAuthParams {
@@ -60,15 +58,15 @@ impl OAuthParams {
             g_consumer_secret: j["gConsumerSecret"].as_str().map(|s| s.to_string()),
             g_token_key: j["gTokenKey"].as_str().map(|s| s.to_string()),
             g_token_secret: j["gTokenSecret"].as_str().map(|s| s.to_string()),
-            g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
-            agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
-            consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
-            consumer_secret: j["params"]["consumerSecret"]
+            _g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
+            _agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
+            _consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
+            _consumer_secret: j["params"]["consumerSecret"]
                 .as_str()
                 .map(|s| s.to_string()),
-            api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
-            public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
-            tool: j["tool"].as_str().map(|s| s.to_string()),
+            _api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
+            _public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
+            _tool: j["tool"].as_str().map(|s| s.to_string()),
         }
     }
 }
@@ -100,7 +98,7 @@ impl Api {
     /// # });
     /// ```
     pub async fn new(api_url: &str) -> Result<Api, MediaWikiError> {
-        Api::new_from_builder(api_url, reqwest::Client::builder()).await
+        Api::new_from_builder(api_url, reqwest::Client::builder().timeout(DEFAULT_TIMEOUT)).await
     }
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
@@ -195,10 +193,17 @@ impl Api {
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+    pub fn get_site_info_string<'a>(
+        &'a self,
+        k1: &str,
+        k2: &str,
+    ) -> Result<&'a str, MediaWikiError> {
         match self.get_site_info_value(k1, k2).as_str() {
             Some(s) => Ok(s),
-            None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
+            None => Err(MediaWikiError::String(format!(
+                "No 'query.{}.{}' value in site info",
+                k1, k2
+            ))),
         }
     }
 
@@ -230,12 +235,12 @@ impl Api {
     /// Merges two JSON objects that are MediaWiki API results.
     /// If an array already exists in the `a` object, it will be expanded with the array from the `b` object
     /// This allows for combining multiple API results via the `continue` parameter
-    fn json_merge(&self, a: &mut Value, b: Value) {
+    fn json_merge(a: &mut Value, b: Value) {
         match (a, b) {
             (a @ &mut Value::Object(_), Value::Object(b)) => {
                 if let Some(a) = a.as_object_mut() {
                     for (k, v) in b {
-                        self.json_merge(a.entry(k).or_insert(Value::Null), v);
+                        Self::json_merge(a.entry(k).or_insert(Value::Null), v);
                     }
                 }
             }
@@ -299,10 +304,7 @@ impl Api {
         match result["query"].as_object() {
             Some(query) => query
                 .iter()
-                .filter_map(|(_key, part)| match part.as_array() {
-                    Some(a) => Some(a.len()),
-                    None => None,
-                })
+                .filter_map(|(_key, part)| part.as_array().map(|a| a.len()))
                 .next()
                 .unwrap_or(0),
             None => 0, // Don't know size
@@ -320,7 +322,7 @@ impl Api {
             .fold(Ok(Value::Null), |acc, result| async move {
                 match (acc, result) {
                     (Ok(mut acc), Ok(result)) => {
-                        self.json_merge(&mut acc, result);
+                        Self::json_merge(&mut acc, result);
                         Ok(acc)
                     }
                     (Ok(_), e @ Err(_)) => e,
@@ -517,11 +519,8 @@ impl Api {
     /// Checks for a maxlag error, and returns the lag if so
     fn check_maxlag(&self, v: &Value) -> Option<u64> {
         match v["error"]["code"].as_str() {
-            Some(code) => match code {
-                "maxlag" => v["error"]["lag"].as_u64().or(self.maxlag_seconds), // Current lag, if given, or fallback
-                _ => None,
-            },
-            None => None,
+            Some("maxlag") => v["error"]["lag"].as_u64().or(self.maxlag_seconds), // Current lag, if given, or fallback
+            _ => None,
         }
     }
 
@@ -602,7 +601,7 @@ impl Api {
 
     /// Encodes a string
     fn rawurlencode(&self, s: &str) -> String {
-        urlencoding::encode(s)
+        urlencoding::encode(s).into_owned()
     }
 
     /// Signs an OAuth request
@@ -620,7 +619,7 @@ impl Api {
             .iter()
             .filter_map(|k| match to_sign.get(k) {
                 Some(k2) => {
-                    let v = self.rawurlencode(&k2);
+                    let v = self.rawurlencode(k2);
                     Some(k.clone() + "=" + &v)
                 }
                 None => None,
@@ -635,7 +634,7 @@ impl Api {
         }
         url_string += url.path();
 
-        let ret = self.rawurlencode(&method)
+        let ret = self.rawurlencode(method)
             + "&"
             + &self.rawurlencode(&url_string)
             + "&"
@@ -650,10 +649,11 @@ impl Api {
             }
         };
 
-        let mut hmac = HmacSha256::new_varkey(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
+        let mut hmac =
+            HmacSha1::new_from_slice(&key.into_bytes()).map_err(|e| format!("{:?}", e))?;
         hmac.update(&ret.into_bytes());
         let bytes = hmac.finalize().into_bytes();
-        let ret: String = base64::encode(&bytes);
+        let ret: String = BASE64_STANDARD.encode(bytes);
 
         Ok(ret)
     }
@@ -715,7 +715,7 @@ impl Api {
 
         headers.insert(
             "oauth_signature",
-            self.sign_oauth_request(method, api_url, &to_sign, &oauth)?
+            self.sign_oauth_request(method, api_url, &to_sign, oauth)?
                 .parse()?,
         );
 
@@ -726,7 +726,7 @@ impl Api {
             let key = key.to_string();
             let value = value.to_str().map_err(|e| e.to_string())?;
             let key = self.rawurlencode(&key);
-            let value = self.rawurlencode(&value);
+            let value = self.rawurlencode(value);
             let part = key + "=\"" + &value + "\"";
             parts.push(part);
         }
@@ -781,10 +781,28 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::Response, MediaWikiError> {
-        let req = self.request_builder(api_url, params, method)?;
-        let resp = req.send().await?;
+        let mut response;
+        loop {
+            let req = self.request_builder(api_url, params, method)?;
+            response = req.send().await?;
+
+            // If the API is overloaded, wait the requested time and try again
+            if response.status() == StatusCode::TOO_MANY_REQUESTS {
+                let wait_sec: u64 = response
+                    .headers()
+                    .get("Retry-After")
+                    .map(|v| v.as_bytes())
+                    .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS); // Fallback value
+                tokio::time::sleep(Duration::from_secs(wait_sec)).await;
+                continue;
+            }
+
+            break;
+        }
         self.enact_edit_delay(params, method).await;
-        Ok(resp)
+        Ok(response)
     }
 
     /// Delays the current thread, if the query performs an edit, and a delay time is set
@@ -806,7 +824,7 @@ impl Api {
         method: &str,
     ) -> Result<String, MediaWikiError> {
         let resp = self.query_raw_response(api_url, params, method).await?;
-        resp.text().await.map_err(|e|MediaWikiError::Reqwest(e))
+        resp.text().await.map_err(MediaWikiError::Reqwest)
     }
 
     /// Runs a query against a generic URL, and returns a text.
@@ -819,7 +837,7 @@ impl Api {
         method: &str,
     ) -> Result<String, MediaWikiError> {
         let resp = self.query_raw_response(api_url, params, method).await?;
-        resp.text().await.map_err(|e|MediaWikiError::Reqwest(e))
+        resp.text().await.map_err(MediaWikiError::Reqwest)
     }
 
     /// Performs a login against the MediaWiki API.
@@ -847,10 +865,10 @@ impl Api {
         // See if it's the "root" of the result, then try each sub-object separately
         if let Some(obj) = data.as_object() {
             obj.iter()
-                .flat_map(|(_k, v)| Api::result_array_to_titles(&v))
+                .flat_map(|(_k, v)| Api::result_array_to_titles(v))
                 .collect()
         } else if let Some(arr) = data.as_array() {
-            arr.iter().map(|v| Title::new_from_api_result(&v)).collect()
+            arr.iter().map(Title::new_from_api_result).collect()
         } else {
             vec![]
         }
@@ -862,7 +880,7 @@ impl Api {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self
-            .query_raw_response(&query_api_url, &params, "POST")
+            .query_raw_response(query_api_url, &params, "POST")
             .await?;
         match response.json().await {
             Ok(json) => Ok(json),
@@ -879,24 +897,33 @@ impl Api {
     ) -> Result<Value, MediaWikiError> {
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self
-            .query_raw_response(&query_api_url, &params, "POST")
+            .query_raw_response(query_api_url, &params, "POST")
             .await?;
-        match response.json().await {
+        let bytes = match response.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(From::from(format!("{}", e)));
+            }
+        };
+        match serde_json::from_slice(&bytes) {
             Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
+            Err(e) => {
+                let bytes_start: Vec<u8> = bytes.iter().take(100).cloned().collect();
+                let bytes_start = String::from_utf8_lossy(&bytes_start);
+                Err(From::from(format!("{e}: {bytes_start}"))) // Error plus first 100 chars of response
+            }
         }
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
     pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, MediaWikiError> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
-        if uri.starts_with(concept_base_uri) {
-            Ok(uri[concept_base_uri.len()..].to_string())
-        } else {
-            Err(From::from(format!(
+        match uri.strip_prefix(concept_base_uri) {
+            Some(s) => Ok(s.to_string()),
+            None => Err(From::from(format!(
                 "{} does not start with {}",
                 uri, concept_base_uri
-            )))
+            ))),
         }
     }
 
@@ -922,7 +949,7 @@ impl Api {
     /// Loads the user info from the API into the user structure
     pub async fn load_user_info(&self, user: &mut User) -> Result<(), MediaWikiError> {
         if !user.has_user_info() {
-            let params: HashMap<String, String> = vec![
+            let params: HashMap<String, String> = [
                 ("action", "query"),
                 ("meta", "userinfo"),
                 ("uiprop", "blockinfo|groups|groupmemberships|implicitgroups|rights|options|ratelimits|realname|registrationdate|unreadcount|centralids|hasmsg"),

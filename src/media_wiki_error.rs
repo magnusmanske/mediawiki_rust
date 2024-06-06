@@ -9,7 +9,7 @@ pub enum MediaWikiError {
     String(String),
     Url(url::ParseError),
     Fmt(std::fmt::Error),
-    Time(std::time::SystemTimeError)
+    Time(std::time::SystemTimeError),
 }
 
 impl Error for MediaWikiError {}
@@ -28,57 +28,56 @@ impl fmt::Display for MediaWikiError {
     }
 }
 
-impl From<serde_json::Error> for MediaWikiError {  
+impl From<serde_json::Error> for MediaWikiError {
     fn from(e: serde_json::Error) -> Self {
         Self::Serde(e)
     }
 }
 
-impl From<reqwest::Error> for MediaWikiError {  
+impl From<reqwest::Error> for MediaWikiError {
     fn from(e: reqwest::Error) -> Self {
         Self::Reqwest(e)
     }
 }
 
-impl From<reqwest::header::InvalidHeaderValue> for MediaWikiError {  
+impl From<reqwest::header::InvalidHeaderValue> for MediaWikiError {
     fn from(e: reqwest::header::InvalidHeaderValue) -> Self {
         Self::ReqwestHeader(e)
     }
 }
 
-impl From<reqwest::header::ToStrError> for MediaWikiError {  
+impl From<reqwest::header::ToStrError> for MediaWikiError {
     fn from(e: reqwest::header::ToStrError) -> Self {
         Self::String(e.to_string())
     }
 }
 
-impl From<String> for MediaWikiError {  
+impl From<String> for MediaWikiError {
     fn from(e: String) -> Self {
         Self::String(e)
     }
 }
 
-impl From<&str> for MediaWikiError {  
+impl From<&str> for MediaWikiError {
     fn from(e: &str) -> Self {
         Self::String(e.to_string())
     }
 }
 
-impl From<url::ParseError> for MediaWikiError {  
+impl From<url::ParseError> for MediaWikiError {
     fn from(e: url::ParseError) -> Self {
         Self::Url(e)
     }
 }
 
-impl From<std::fmt::Error> for MediaWikiError {  
+impl From<std::fmt::Error> for MediaWikiError {
     fn from(e: std::fmt::Error) -> Self {
         Self::Fmt(e)
     }
 }
 
-impl From<std::time::SystemTimeError> for MediaWikiError {  
+impl From<std::time::SystemTimeError> for MediaWikiError {
     fn from(e: std::time::SystemTimeError) -> Self {
         Self::Time(e)
     }
 }
-

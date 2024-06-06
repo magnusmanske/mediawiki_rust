@@ -3,8 +3,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 
-use mediawiki::media_wiki_error::MediaWikiError;
 use mediawiki::api::Api;
+use mediawiki::media_wiki_error::MediaWikiError;
 /*
 extern crate mediawiki;
 extern crate wikibase;
@@ -164,11 +164,12 @@ async fn _edit_sandbox_item(api: &mut Api) -> Result<Value, MediaWikiError> {
 }
 
 async fn _login_api_from_config(api: &mut Api) {
-    let mut settings = Config::default();
-    // File::with_name(..) is shorthand for File::from(Path::new(..))
-    settings.merge(config::File::with_name("test.ini")).unwrap();
-    let lgname = settings.get_str("user.user").unwrap();
-    let lgpassword = settings.get_str("user.pass").unwrap();
+    let settings = Config::builder()
+        .add_source(config::File::with_name("test.ini"))
+        .build()
+        .expect("Could not build config");
+    let lgname = settings.get_string("user.user").unwrap();
+    let lgpassword = settings.get_string("user.pass").unwrap();
     api.login(lgname, lgpassword).await.unwrap();
 }
 
@@ -181,7 +182,7 @@ async fn _oauth_edit(api: &mut Api) {
     api.set_oauth(Some(oauth_params));
     //let _x = api.oauth().clone();
 
-    let mut params: HashMap<String, String> = vec![
+    let mut params: HashMap<String, String> = [
         ("action", "wbeditentity"),
         ("id", sandbox_item),
         (
