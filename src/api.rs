@@ -770,6 +770,9 @@ impl Api {
         Ok(match method {
             "GET" => self.client.get(api_url).headers(headers).query(&params),
             "POST" => self.client.post(api_url).headers(headers).form(&params),
+            "PATCH" => self.client.patch(api_url).headers(headers).form(&params),
+            "PUT" => self.client.put(api_url).headers(headers).form(&params),
+            "DELETE" => self.client.delete(api_url).headers(headers).form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
         })
     }
