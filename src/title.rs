@@ -4,6 +4,8 @@ The `Title` class deals with page titles and namespaces
 
 #![deny(missing_docs)]
 
+use std::fmt::{self, Display};
+
 /// Shortcut for crate::api::NamespaceID
 type NamespaceID = crate::api::NamespaceID;
 
@@ -243,6 +245,12 @@ impl Title {
             &self.title,
             toggle_namespace_id(self.namespace_id).unwrap_or(self.namespace_id),
         )
+    }
+}
+
+impl Display for Title {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.pretty())
     }
 }
 
