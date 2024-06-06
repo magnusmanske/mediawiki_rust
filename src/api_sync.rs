@@ -6,6 +6,7 @@ This sync version is kept for backwards compatibility.
 #![deny(missing_docs)]
 
 use crate::api::OAuthParams;
+use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use crate::user::User;
 use base64::prelude::*;
@@ -14,7 +15,6 @@ use nanoid::nanoid;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
@@ -52,7 +52,7 @@ impl ApiSync {
     /// ```
     /// let api = mediawiki::api_sync::ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
     /// ```
-    pub fn new(api_url: &str) -> Result<ApiSync, Box<dyn Error>> {
+    pub fn new(api_url: &str) -> Result<ApiSync, MediaWikiError> {
         ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
@@ -62,7 +62,7 @@ impl ApiSync {
     pub fn new_from_builder(
         api_url: &str,
         builder: reqwest::blocking::ClientBuilder,
-    ) -> Result<ApiSync, Box<dyn Error>> {
+    ) -> Result<ApiSync, MediaWikiError> {
         let mut ret = ApiSync {
             api_url: api_url.to_string(),
             site_info: serde_json::from_str(r"{}")?,
@@ -114,7 +114,7 @@ impl ApiSync {
     }
 
     /// Loads the current user info; returns Ok(()) is successful
-    pub fn load_current_user_info(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn load_current_user_info(&mut self) -> Result<(), MediaWikiError> {
         let mut user = std::mem::take(&mut self.user);
         self.load_user_info(&mut user)?;
         self.user = user;
@@ -168,7 +168,7 @@ impl ApiSync {
 
     /// Loads the site info.
     /// Should only ever be called from `new()`
-    fn load_site_info(&mut self) -> Result<&Value, Box<dyn Error>> {
+    fn load_site_info(&mut self) -> Result<&Value, MediaWikiError> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
         self.site_info = self.get_query_api_json(&params)?;
         Ok(&self.site_info)
@@ -211,7 +211,7 @@ impl ApiSync {
     }
 
     /// Returns a token of a `token_type`, such as `login` or `csrf` (for editing)
-    pub fn get_token(&mut self, token_type: &str) -> Result<String, Box<dyn Error>> {
+    pub fn get_token(&mut self, token_type: &str) -> Result<String, MediaWikiError> {
         let mut params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"tokens".to_string()];
         if !token_type.is_empty() {
             params.insert("type".to_string(), token_type.to_string());
@@ -229,7 +229,7 @@ impl ApiSync {
     }
 
     /// Calls `get_token()` to return an edit token
-    pub fn get_edit_token(&mut self) -> Result<String, Box<dyn Error>> {
+    pub fn get_edit_token(&mut self) -> Result<String, MediaWikiError> {
         self.get_token("csrf")
     }
 
@@ -237,7 +237,7 @@ impl ApiSync {
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         self.get_query_api_json_limit(params, None)
     }
 
@@ -258,7 +258,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         self.get_query_api_json_limit_iter(params, max)
             .try_fold(Value::Null, |mut acc, result| {
                 Self::json_merge(&mut acc, result?);
@@ -272,7 +272,7 @@ impl ApiSync {
         &'a self,
         params: &HashMap<String, String>,
         max: Option<usize>,
-    ) -> impl Iterator<Item = Result<Value, Box<dyn Error>>> + 'a {
+    ) -> impl Iterator<Item = Result<Value, MediaWikiError>> + 'a {
         struct ApiQuery<'a> {
             api: &'a ApiSync,
             params: HashMap<String, String>,
@@ -281,7 +281,7 @@ impl ApiSync {
         }
 
         impl<'a> Iterator for ApiQuery<'a> {
-            type Item = Result<Value, Box<dyn Error>>;
+            type Item = Result<Value, MediaWikiError>;
             fn next(&mut self) -> Option<Self::Item> {
                 if let Some(0) = self.values_remaining {
                     return None;
@@ -333,7 +333,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
@@ -365,7 +365,7 @@ impl ApiSync {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
@@ -463,7 +463,7 @@ impl ApiSync {
     pub fn get_query_api_json(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         self.query_api_json(params, "GET")
     }
 
@@ -471,7 +471,7 @@ impl ApiSync {
     pub fn post_query_api_json(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         self.query_api_json(params, "POST")
     }
 
@@ -480,7 +480,7 @@ impl ApiSync {
     pub fn post_query_api_json_mut(
         &mut self,
         params: &HashMap<String, String>,
-    ) -> Result<Value, Box<dyn Error>> {
+    ) -> Result<Value, MediaWikiError> {
         self.query_api_json_mut(params, "POST")
     }
 
@@ -490,7 +490,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, MediaWikiError> {
         self.query_raw(&self.api_url, params, method)
     }
 
@@ -500,7 +500,7 @@ impl ApiSync {
         &mut self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, MediaWikiError> {
         self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
@@ -509,7 +509,7 @@ impl ApiSync {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, MediaWikiError> {
         self.request_builder(&self.api_url, params, method)
     }
 
@@ -545,7 +545,7 @@ impl ApiSync {
         api_url: &str,
         to_sign: &HashMap<String, String>,
         oauth: &OAuthParams,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, MediaWikiError> {
         let mut keys: Vec<String> = to_sign.iter().map(|(k, _)| self.rawurlencode(k)).collect();
         keys.sort();
 
@@ -598,7 +598,7 @@ impl ApiSync {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, MediaWikiError> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -676,7 +676,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::RequestBuilder, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::RequestBuilder, MediaWikiError> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
@@ -703,7 +703,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
+    ) -> Result<reqwest::blocking::Response, MediaWikiError> {
         let req = self.request_builder(api_url, params, method)?;
         let resp = req.send()?;
         self.enact_edit_delay(params, method);
@@ -727,7 +727,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, MediaWikiError> {
         let resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
@@ -740,7 +740,7 @@ impl ApiSync {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, MediaWikiError> {
         let resp = self.query_raw_response(api_url, params, method)?;
         Ok(resp.text()?)
     }
@@ -751,7 +751,7 @@ impl ApiSync {
         &mut self,
         lgname: S,
         lgpassword: S,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), MediaWikiError> {
         let lgname: &str = &lgname.into();
         let lgpassword: &str = &lgpassword.into();
         let lgtoken = self.get_token("login")?;
@@ -785,7 +785,7 @@ impl ApiSync {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
-    pub fn sparql_query(&self, query: &str) -> Result<Value, Box<dyn Error>> {
+    pub fn sparql_query(&self, query: &str) -> Result<Value, MediaWikiError> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self.query_raw_response(query_api_url, &params, "POST")?;
@@ -796,7 +796,7 @@ impl ApiSync {
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
-    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, Box<dyn Error>> {
+    pub fn extract_entity_from_uri(&self, uri: &str) -> Result<String, MediaWikiError> {
         let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
         match uri.strip_prefix(concept_base_uri) {
             Some(s) => Ok(s.to_string()),
@@ -825,7 +825,7 @@ impl ApiSync {
     }
 
     /// Loads the user info from the API into the user structure
-    pub fn load_user_info(&self, user: &mut User) -> Result<(), Box<dyn Error>> {
+    pub fn load_user_info(&self, user: &mut User) -> Result<(), MediaWikiError> {
         if !user.has_user_info() {
             let params: HashMap<String, String> = [
                 ("action", "query"),

@@ -1,7 +1,12 @@
 use std::error::Error;
 use std::fmt;
 
+use serde_json::Value;
+
+use crate::title::Title;
+
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum MediaWikiError {
     Serde(serde_json::Error),
     Reqwest(reqwest::Error),
@@ -10,6 +15,28 @@ pub enum MediaWikiError {
     Url(url::ParseError),
     Fmt(std::fmt::Error),
     Time(std::time::SystemTimeError),
+
+    /// Error while logging in.
+    Login(String),
+
+    // These are errors for the Page struct
+    /// Couldn't obtain the title for this page for use in an API request.
+    BadTitle(Title),
+
+    /// Couldn't understand the API response (provided).
+    BadResponse(Value),
+
+    /// Missing page.
+    Missing(Title),
+
+    /// Edit failed; API response is provided.
+    EditError(Value),
+
+    /// Error while performing the API request.
+    RequestError(Box<dyn Error>),
+
+    /// Unexpected data structure (eg array instead of object) in API JSON result
+    UnexpectedResultFormat(String),
 }
 
 impl Error for MediaWikiError {}
@@ -24,6 +51,18 @@ impl fmt::Display for MediaWikiError {
             Self::Url(e) => f.write_str(&e.to_string()),
             Self::Fmt(e) => f.write_str(&e.to_string()),
             Self::Time(e) => f.write_str(&e.to_string()),
+            Self::Login(s) => f.write_str(s),
+
+            Self::BadTitle(title) => write!(f, "invalid title for this Page: {:?}", title),
+            Self::BadResponse(response) => write!(
+                f,
+                "bad API response while fetching revision content: {:?}",
+                response
+            ),
+            Self::Missing(title) => write!(f, "page missing: {:?}", title),
+            Self::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
+            Self::RequestError(error) => write!(f, "request error: {}", error),
+            Self::UnexpectedResultFormat(error) => write!(f, "result format error: {}", error),
         }
     }
 }

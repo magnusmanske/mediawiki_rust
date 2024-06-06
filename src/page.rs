@@ -10,7 +10,6 @@ use crate::title::Title;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
 
 /// Represents a page.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,14 +34,14 @@ impl Page {
     /// no "main" slot.
     ///
     /// # Errors
-    /// If the page is missing, will return a `PageError::Missing`.
+    /// If the page is missing, will return a `MediaWikiError::Missing`.
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
-    pub async fn text(&self, api: &Api) -> Result<String, PageError> {
+    pub async fn text(&self, api: &Api) -> Result<String, MediaWikiError> {
         let title = self
             .title
             .full_pretty(api)
-            .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
+            .ok_or_else(|| MediaWikiError::BadTitle(self.title.clone()))?;
         let params = [
             ("action", "query"),
             ("prop", "revisions"),
@@ -54,14 +53,11 @@ impl Page {
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
-        let result = api
-            .get_query_api_json(&params)
-            .await
-            .map_err(PageError::MediaWiki)?;
+        let result = api.get_query_api_json(&params).await?;
 
         let page = &result["query"]["pages"][0];
         if page["missing"].as_bool() == Some(true) {
-            Err(PageError::Missing(self.title.clone()))
+            Err(MediaWikiError::Missing(self.title.clone()))
         } else if let Some(slots) = page["revisions"][0]["slots"].as_object() {
             if let Some(the_slot) = {
                 slots["main"].as_object().or_else(|| {
@@ -74,13 +70,13 @@ impl Page {
             } {
                 match the_slot["content"].as_str() {
                     Some(string) => Ok(string.to_string()),
-                    None => Err(PageError::BadResponse(result)),
+                    None => Err(MediaWikiError::BadResponse(result)),
                 }
             } else {
-                Err(PageError::BadResponse(result))
+                Err(MediaWikiError::BadResponse(result))
             }
         } else {
-            Err(PageError::BadResponse(result))
+            Err(MediaWikiError::BadResponse(result))
         }
     }
 
@@ -88,7 +84,7 @@ impl Page {
     /// edit summary.
     ///
     /// # Errors
-    /// May return a `PageError` or any error from [`Api::post_query_api_json`].
+    /// May return a `MediaWikiError` or any error from [`Api::post_query_api_json`].
     ///
     /// [`Api::post_query_api_json`]: ../api/struct.Api.html#method.post_query_api_json
     pub async fn edit_text(
@@ -100,7 +96,7 @@ impl Page {
         let title = self
             .title
             .full_pretty(api)
-            .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
+            .ok_or_else(|| MediaWikiError::BadTitle(self.title.clone()))?;
         let bot = if api.user().is_bot() { "true" } else { "false" };
         let mut params: HashMap<String, String> = [
             ("action", "edit"),
@@ -122,7 +118,7 @@ impl Page {
         let result = api.post_query_api_json(&params).await?;
         match result["edit"]["result"].as_str() {
             Some("Success") => Ok(()),
-            _ => Err(Box::new(PageError::EditError(result))),
+            _ => Err(Box::new(MediaWikiError::EditError(result))),
         }
     }
 
@@ -131,18 +127,18 @@ impl Page {
         &self,
         api: &Api,
         additional_params: &[(&str, &str)],
-    ) -> Result<Value, PageError> {
+    ) -> Result<Value, MediaWikiError> {
         let title = self
             .title
             .full_pretty(api)
-            .ok_or_else(|| PageError::BadTitle(self.title.clone()))?;
+            .ok_or_else(|| MediaWikiError::BadTitle(self.title.clone()))?;
         let mut params = api.params_into(&[("action", "query"), ("titles", &title)]);
         for (k, v) in additional_params {
             params.insert(k.to_string(), v.to_string());
         }
         api.get_query_api_json_all(&params)
             .await
-            .map_err(|e| PageError::RequestError(Box::new(e)))
+            .map_err(|e| MediaWikiError::RequestError(Box::new(e)))
     }
 
     // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
@@ -152,7 +148,7 @@ impl Page {
         subkey: &str,
     ) -> Result<Vec<Value>, Box<dyn Error>> {
         match result["query"]["pages"].is_null() {
-            true => Err(Box::new(PageError::Missing(self.title.clone()))),
+            true => Err(Box::new(MediaWikiError::Missing(self.title.clone()))),
             false => match result["query"]["pages"].as_object() {
                 Some(obj) => Ok(obj
                     .iter()
@@ -161,7 +157,7 @@ impl Page {
                         None => vec![],
                     })
                     .collect()),
-                None => Err(Box::new(PageError::UnexpectedResultFormat(format!(
+                None => Err(Box::new(MediaWikiError::UnexpectedResultFormat(format!(
                     "{:?}",
                     &result["query"]["pages"]
                 )))),
@@ -341,62 +337,6 @@ impl Page {
     */
 }
 
-/// Errors that can go wrong while performing operations on a `Page`.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum PageError {
-    /// Couldn't obtain the title for this page for use in an API request.
-    BadTitle(Title),
-
-    /// Couldn't understand the API response (provided).
-    BadResponse(Value),
-
-    /// Missing page.
-    Missing(Title),
-
-    /// Edit failed; API response is provided.
-    EditError(Value),
-
-    /// Error while performing the API request.
-    RequestError(Box<dyn Error>),
-
-    /// Unexpected data structure (eg array instead of object) in API JSON result
-    UnexpectedResultFormat(String),
-
-    /// MediaWikiError wrapper
-    MediaWiki(MediaWikiError),
-}
-
-impl fmt::Display for PageError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PageError::BadTitle(title) => write!(f, "invalid title for this Page: {:?}", title),
-            PageError::BadResponse(response) => write!(
-                f,
-                "bad API response while fetching revision content: {:?}",
-                response
-            ),
-            PageError::Missing(title) => write!(f, "page missing: {:?}", title),
-            PageError::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
-            PageError::RequestError(error) => write!(f, "request error: {}", error),
-            PageError::UnexpectedResultFormat(error) => write!(f, "result format error: {}", error),
-            PageError::MediaWiki(error) => write!(f, "result format error: {}", error),
-        }
-    }
-}
-
-impl Error for PageError {}
-/*
-impl From<MediaWikiError> for PageError {
-    fn from(e: MediaWikiError) -> Self {
-        match e {
-            MediaWikiError::Reqwest(e) => PageError::RequestError(Box::new(e)),
-            MediaWikiError::ReqwestHeader(e) => PageError::RequestError(Box::new(e)),
-        }
-    }
-}
-*/
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -420,7 +360,7 @@ mod tests {
         let title = Title::new("This page does not exist", 0);
         let page = Page::new(title.clone());
         match page.text(&wd_api().await).await {
-            Err(PageError::Missing(t)) => assert!(t == title),
+            Err(MediaWikiError::Missing(t)) => assert!(t == title),
             x => panic!("expected missing error, found {:?}", x),
         }
     }

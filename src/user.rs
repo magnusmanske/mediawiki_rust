@@ -6,6 +6,8 @@ The `User` class deals with the (current) ApiSync user.
 
 use serde_json::Value;
 
+use crate::media_wiki_error::MediaWikiError;
+
 /// `User` contains the login data for the `ApiSync`
 #[derive(Debug, Default, Clone)]
 pub struct User {
@@ -103,15 +105,23 @@ impl User {
     }
 
     /// Tries to set user information from the `ApiSync` call
-    pub fn set_from_login(&mut self, login: &Value) -> Result<(), &str> {
+    pub fn set_from_login(&mut self, login: &Value) -> Result<(), MediaWikiError> {
         if login["result"] == "Success" {
             match login["lgusername"].as_str() {
                 Some(s) => self.lgusername = s.to_string(),
-                None => return Err("No lgusername in login result"),
+                None => {
+                    return Err(MediaWikiError::Login(
+                        "No lgusername in login result".to_string(),
+                    ))
+                }
             }
             match login["lguserid"].as_u64() {
                 Some(u) => self.lguserid = u,
-                None => return Err("No lguserid in login result"),
+                None => {
+                    return Err(MediaWikiError::Login(
+                        "No lguserid in login result".to_string(),
+                    ))
+                }
             }
 
             self.is_logged_in = true;
