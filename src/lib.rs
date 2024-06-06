@@ -35,6 +35,7 @@ pub mod api;
 pub mod api_sync;
 pub mod media_wiki_error;
 pub mod page;
+pub mod revision;
 pub mod title;
 pub mod user;
 
@@ -42,5 +43,6 @@ pub use crate::api::Api;
 pub use crate::api_sync::ApiSync;
 pub use crate::media_wiki_error::MediaWikiError;
 pub use crate::page::Page;
+pub use crate::revision::Revision;
 pub use crate::title::Title;
 pub use crate::user::User;

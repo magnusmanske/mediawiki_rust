@@ -81,7 +81,7 @@ fn check_namespaces(api: &Api) {
 
 async fn check_page(api: &Api) {
     let title = Title::new_from_full("Jimmy Wales", api);
-    let page = Page::new(title.clone());
+    let mut page = Page::new(title.clone());
     let wikitext = page.text(api).await.unwrap();
     println!(
         "{title} has something to do with Wikipedia: {}",

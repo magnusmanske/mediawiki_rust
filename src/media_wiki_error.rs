@@ -32,9 +32,6 @@ pub enum MediaWikiError {
     /// Edit failed; API response is provided.
     EditError(Value),
 
-    /// Error while performing the API request.
-    RequestError(Box<dyn Error>),
-
     /// Unexpected data structure (eg array instead of object) in API JSON result
     UnexpectedResultFormat(String),
 }
@@ -61,7 +58,6 @@ impl fmt::Display for MediaWikiError {
             ),
             Self::Missing(title) => write!(f, "page missing: {:?}", title),
             Self::EditError(response) => write!(f, "edit resulted in error: {:?}", response),
-            Self::RequestError(error) => write!(f, "request error: {}", error),
             Self::UnexpectedResultFormat(error) => write!(f, "result format error: {}", error),
         }
     }

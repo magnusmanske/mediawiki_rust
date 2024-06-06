@@ -7,6 +7,7 @@ The `Page` class deals with operations done on pages, like editing.
 use crate::api::Api;
 use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
+use crate::Revision;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -15,12 +16,18 @@ use std::error::Error;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Page {
     title: Title,
+    page_id: Option<usize>,
+    revision: Option<Revision>,
 }
 
 impl Page {
     /// Creates a new `Page` from a `Title`.
     pub fn new(title: Title) -> Self {
-        Page { title }
+        Page {
+            title,
+            page_id: None,
+            revision: None,
+        }
     }
 
     /// Accesses the `Title` of this `Page`.
@@ -33,51 +40,45 @@ impl Page {
     /// the "main" slot is fetched, or an error is returned if there is
     /// no "main" slot.
     ///
+    /// The `revision` field of this `Page` is set to the fetched revision.
+    ///
     /// # Errors
     /// If the page is missing, will return a `MediaWikiError::Missing`.
     ///
     /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
-    pub async fn text(&self, api: &Api) -> Result<String, MediaWikiError> {
+    pub async fn text(&mut self, api: &Api) -> Result<&str, MediaWikiError> {
         let title = self
             .title
-            .full_pretty(api)
+            .full_with_underscores(api)
             .ok_or_else(|| MediaWikiError::BadTitle(self.title.clone()))?;
         let params = [
             ("action", "query"),
             ("prop", "revisions"),
             ("titles", &title),
             ("rvslots", "*"),
-            ("rvprop", "content"),
+            ("rvprop", crate::revision::RVPROP),
             ("formatversion", "2"),
         ]
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
         let result = api.get_query_api_json(&params).await?;
-
         let page = &result["query"]["pages"][0];
-        if page["missing"].as_bool() == Some(true) {
-            Err(MediaWikiError::Missing(self.title.clone()))
-        } else if let Some(slots) = page["revisions"][0]["slots"].as_object() {
-            if let Some(the_slot) = {
-                slots["main"].as_object().or_else(|| {
-                    if slots.len() == 1 {
-                        slots.values().next()?.as_object()
-                    } else {
-                        None
-                    }
-                })
-            } {
-                match the_slot["content"].as_str() {
-                    Some(string) => Ok(string.to_string()),
-                    None => Err(MediaWikiError::BadResponse(result)),
-                }
-            } else {
-                Err(MediaWikiError::BadResponse(result))
-            }
-        } else {
-            Err(MediaWikiError::BadResponse(result))
+
+        if !page.is_object() || page["missing"].as_bool() == Some(true) {
+            return Err(MediaWikiError::Missing(self.title.clone()));
         }
+        self.page_id = match page["pageid"].as_u64().map(|x| x as usize) {
+            Some(x) => Some(x),
+            None => return Err(MediaWikiError::BadResponse(result)),
+        };
+        self.revision = Some(Revision::from_json(&page["revisions"][0])?);
+        let wikitext = self.revision.as_ref().unwrap().wikitext();
+        let wikitext = match wikitext {
+            Some(x) => x,
+            None => return Err(MediaWikiError::BadResponse(result)),
+        };
+        Ok(wikitext)
     }
 
     /// Replaces the contents of this `Page` with the given text, using the given
@@ -111,6 +112,11 @@ impl Page {
         .map(|&(k, v)| (k.to_string(), v.to_string()))
         .collect();
 
+        // Set the base revision ID if available, to avoid edit conflicts
+        if let Some(baserevid) = self.revision.as_ref().map(|r| r.id()) {
+            params.insert("baserevid".to_string(), baserevid.to_string());
+        }
+
         if !api.user().user_name().is_empty() {
             params.insert("assert".to_string(), "user".to_string());
         }
@@ -136,9 +142,7 @@ impl Page {
         for (k, v) in additional_params {
             params.insert(k.to_string(), v.to_string());
         }
-        api.get_query_api_json_all(&params)
-            .await
-            .map_err(|e| MediaWikiError::RequestError(Box::new(e)))
+        api.get_query_api_json_all(&params).await
     }
 
     // From an API result in the form of query/pages, extract a sub-object for each page (should be only one)
@@ -316,6 +320,16 @@ impl Page {
             .collect())
     }
 
+    /// Returns the page ID (usually set after some API operation).
+    pub fn page_id(&self) -> Option<usize> {
+        self.page_id
+    }
+
+    /// Returns the loaded revision of the page (usually set after some API operation).
+    pub fn revision(&self) -> Option<&Revision> {
+        self.revision.as_ref()
+    }
+
     /*
     TODO for action=query:
     extracts
@@ -350,7 +364,7 @@ mod tests {
 
     #[tokio::test]
     async fn page_text_main_page_nonempty() {
-        let page = Page::new(Title::new("Main Page", 4));
+        let mut page = Page::new(Title::new("Main Page", 4));
         let text = page.text(&wd_api().await).await.unwrap();
         assert!(!text.is_empty());
     }
@@ -358,7 +372,7 @@ mod tests {
     #[tokio::test]
     async fn page_text_nonexistent() {
         let title = Title::new("This page does not exist", 0);
-        let page = Page::new(title.clone());
+        let mut page = Page::new(title.clone());
         match page.text(&wd_api().await).await {
             Err(MediaWikiError::Missing(t)) => assert!(t == title),
             x => panic!("expected missing error, found {:?}", x),
