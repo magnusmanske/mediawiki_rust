@@ -4,6 +4,7 @@ The `Title` class deals with page titles and namespaces
 
 #![deny(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
 /// Shortcut for crate::api::NamespaceID
@@ -32,7 +33,7 @@ pub fn toggle_namespace_id(id: NamespaceID) -> Option<NamespaceID> {
 }
 
 /// Title struct
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Title {
     title: String, // Always stored without underscores
     namespace_id: NamespaceID,
