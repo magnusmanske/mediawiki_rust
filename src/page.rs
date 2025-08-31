@@ -1,5 +1,5 @@
 /*!
-The `Page` class deals with operations done on pages, like editing.
+The [`Page`] class deals with operations done on pages, like editing.
 */
 
 #![deny(missing_docs)]
@@ -21,7 +21,7 @@ pub struct Page {
 }
 
 impl Page {
-    /// Creates a new `Page` from a `Title`.
+    /// Creates a new [`Page`] from a [`Title`].
     pub fn new(title: Title) -> Self {
         Page {
             title,
@@ -30,22 +30,20 @@ impl Page {
         }
     }
 
-    /// Accesses the `Title` of this `Page`.
+    /// Accesses the [`Title`] of this [`Page`].
     pub fn title(&self) -> &Title {
         &self.title
     }
 
-    /// Fetches the current text of this `Page`. If there is one slot in
+    /// Fetches the current text of this [`Page`]. If there is one slot in
     /// the current revision, it is fetched; if there are multiple slots,
     /// the "main" slot is fetched, or an error is returned if there is
     /// no "main" slot.
     ///
-    /// The `revision` field of this `Page` is set to the fetched revision.
+    /// [`Page`] will cache the fetched revision.
     ///
     /// # Errors
-    /// If the page is missing, will return a `MediaWikiError::Missing`.
-    ///
-    /// [`Api::get_query_api_json`]: ../api/struct.Api.html#method.get_query_api_json
+    /// If the page is missing, will return a [`MediaWikiError::Missing`].
     pub async fn text(&mut self, api: &Api) -> Result<&str, MediaWikiError> {
         let title = self
             .title
@@ -81,13 +79,11 @@ impl Page {
         Ok(wikitext)
     }
 
-    /// Replaces the contents of this `Page` with the given text, using the given
+    /// Replaces the contents of this [`Page`] with the given text, using the given
     /// edit summary.
     ///
     /// # Errors
-    /// May return a `MediaWikiError` or any error from [`Api::post_query_api_json`].
-    ///
-    /// [`Api::post_query_api_json`]: ../api/struct.Api.html#method.post_query_api_json
+    /// May return a [`MediaWikiError`] or any error from [`Api::post_query_api_json`].
     pub async fn edit_text(
         &self,
         api: &mut Api,

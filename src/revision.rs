@@ -1,5 +1,5 @@
 /*!
-The `Revision` class deals with page revisions.
+The [`Revision`] class deals with page revisions.
 */
 
 #![deny(missing_docs)]

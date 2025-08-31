@@ -1,5 +1,5 @@
 /*!
-The `ApiSync` class serves as a universal interface to a MediaWiki API.
+The [`ApiSync`] class serves as a universal interface to a MediaWiki API.
 This sync version is kept for backwards compatibility.
 */
 
@@ -29,7 +29,7 @@ const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
-/// `ApiSync` is the main class to interact with a MediaWiki API
+/// [`ApiSync`] is the main class to interact with a MediaWiki API
 #[derive(Debug, Clone)]
 pub struct ApiSync {
     api_url: String,
@@ -44,7 +44,7 @@ pub struct ApiSync {
 }
 
 impl ApiSync {
-    /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Returns a new [`ApiSync`] element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     ///
     /// # Examples
@@ -56,7 +56,7 @@ impl ApiSync {
         ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
     }
 
-    /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Returns a new [`ApiSync`] element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     /// Uses a bespoke reqwest::ClientBuilder.
     pub fn new_from_builder(
@@ -167,7 +167,7 @@ impl ApiSync {
     }
 
     /// Loads the site info.
-    /// Should only ever be called from `new()`
+    /// Should only ever be called from [`new()`][`Self::new()`]
     fn load_site_info(&mut self) -> Result<&Value, MediaWikiError> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
         self.site_info = self.get_query_api_json(&params)?;
@@ -228,12 +228,12 @@ impl ApiSync {
         }
     }
 
-    /// Calls `get_token()` to return an edit token
+    /// Calls [`get_token`][`Self::get_token()`] to return an edit token
     pub fn get_edit_token(&mut self) -> Result<String, MediaWikiError> {
         self.get_token("csrf")
     }
 
-    /// Same as `get_query_api_json` but automatically loads all results via the `continue` parameter
+    /// Same as [`get_query_api_json`][`Self::get_query_api_json`] but automatically loads all results via the `continue` parameter
     pub fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
@@ -253,7 +253,7 @@ impl ApiSync {
         }
     }
 
-    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
+    /// Same as [`get_query_api_json`][`Self::get_query_api_json`] but automatically loads more results via the `continue` parameter
     pub fn get_query_api_json_limit(
         &self,
         params: &HashMap<String, String>,
@@ -266,7 +266,7 @@ impl ApiSync {
             })
     }
 
-    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
+    /// Same as [`get_query_api_json`][`Self::get_query_api_json`] but automatically loads more results via the `continue` parameter.
     /// Returns an iterator; each item is a "page" of results.
     pub fn get_query_api_json_limit_iter<'a>(
         &'a self,
@@ -396,7 +396,7 @@ impl ApiSync {
         &self.edit_delay_ms
     }
 
-    /// Sets the delay time after edits in milliseconds (or `None`).
+    /// Sets the delay time after edits in milliseconds (or [`None`]).
     /// This is independent of, and additional to, MAXLAG
     pub fn set_edit_delay(&mut self, edit_delay_ms: Option<u64>) {
         self.edit_delay_ms = edit_delay_ms;
@@ -407,7 +407,7 @@ impl ApiSync {
         &self.maxlag_seconds
     }
 
-    /// Sets the maxlag in seconds (or `None`)
+    /// Sets the maxlag in seconds (or [`None`])
     pub fn set_maxlag(&mut self, maxlag_seconds: Option<u64>) {
         self.maxlag_seconds = maxlag_seconds;
     }
@@ -459,7 +459,7 @@ impl ApiSync {
         }
     }
 
-    /// GET wrapper for `query_api_json`
+    /// GET wrapper for [`query_api_json`][`Self::query_api_json`]
     pub fn get_query_api_json(
         &self,
         params: &HashMap<String, String>,
@@ -467,7 +467,7 @@ impl ApiSync {
         self.query_api_json(params, "GET")
     }
 
-    /// POST wrapper for `query_api_json`
+    /// POST wrapper for [`query_api_json`][`Self::query_api_json`]
     pub fn post_query_api_json(
         &self,
         params: &HashMap<String, String>,
@@ -475,7 +475,7 @@ impl ApiSync {
         self.query_api_json(params, "POST")
     }
 
-    /// POST wrapper for `query_api_json`.
+    /// POST wrapper for [`query_api_json`][`Self::query_api_json`].
     /// Requires `&mut self`, for session cookie storage
     pub fn post_query_api_json_mut(
         &mut self,
@@ -485,7 +485,7 @@ impl ApiSync {
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
-    /// Uses `query_raw`
+    /// Uses [`query_raw`][`Self::query_raw`]
     pub fn query_api_raw(
         &self,
         params: &HashMap<String, String>,
@@ -495,7 +495,7 @@ impl ApiSync {
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
-    /// Uses `query_raw_mut`
+    /// Uses [`query_raw_mut`][`Self::query_raw_mut`]
     fn query_api_raw_mut(
         &mut self,
         params: &HashMap<String, String>,
@@ -504,7 +504,7 @@ impl ApiSync {
         self.query_raw_mut(&self.api_url.clone(), params, method)
     }
 
-    /// Generates a `RequestBuilder` for the API URL
+    /// Generates a [`RequestBuilder`][`reqwest::RequestBuilder`] for the API URL
     pub fn get_api_request_builder(
         &self,
         params: &HashMap<String, String>,
@@ -592,7 +592,7 @@ impl ApiSync {
         Ok(ret)
     }
 
-    /// Returns a signed OAuth POST `RequestBuilder`
+    /// Returns a signed OAuth POST [`RequestBuilder`][`reqwest::RequestBuilder`]
     fn oauth_request_builder(
         &self,
         method: &str,
@@ -670,7 +670,7 @@ impl ApiSync {
         }
     }
 
-    /// Returns a `RequestBuilder` for a generic URL
+    /// Returns a [`RequestBuilder`][`reqwest::RequestBuilder`] for a generic URL
     fn request_builder(
         &self,
         api_url: &str,
@@ -746,7 +746,7 @@ impl ApiSync {
     }
 
     /// Performs a login against the MediaWiki API.
-    /// If successful, user information is stored in `User`, and in the cookie jar
+    /// If successful, user information is stored in [`User`], and in the cookie jar
     pub fn login<S: Into<String>>(
         &mut self,
         lgname: S,
@@ -765,7 +765,7 @@ impl ApiSync {
         }
     }
 
-    /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
+    /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of [`Title`] objects.
     pub fn result_array_to_titles(data: &Value) -> Vec<Title> {
         // See if it's the "root" of the result, then try each sub-object separately
         if data.is_object() {
