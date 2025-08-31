@@ -1,5 +1,5 @@
 /*!
-The `Api` class serves as a universal interface to a MediaWiki API.
+The [`Api`] class serves as a universal interface to a MediaWiki API.
 */
 
 #![deny(missing_docs)]
@@ -30,7 +30,7 @@ const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
-/// `OAuthParams` contains parameters for OAuth requests
+/// [`OAuthParams`] contains parameters for OAuth requests
 #[derive(Debug, Clone)]
 pub struct OAuthParams {
     /// Consumer Key
@@ -71,7 +71,7 @@ impl OAuthParams {
     }
 }
 
-/// `Api` is the main class to interact with a MediaWiki API
+/// [`Api`] is the main class to interact with a MediaWiki API
 #[derive(Debug, Clone)]
 pub struct Api {
     api_url: String,
@@ -87,7 +87,7 @@ pub struct Api {
 }
 
 impl Api {
-    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Returns a new [`Api`] element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     ///
     /// # Examples
@@ -101,7 +101,7 @@ impl Api {
         Api::new_from_builder(api_url, reqwest::Client::builder().timeout(DEFAULT_TIMEOUT)).await
     }
 
-    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Returns a new [`Api`] element, and loads the MediaWiki site info from the `api_url` site.
     /// This is done both to get basic information about the site, and to test the API.
     /// Uses a bespoke reqwest::ClientBuilder.
     pub async fn new_from_builder(
@@ -225,7 +225,7 @@ impl Api {
     }
 
     /// Loads the site info.
-    /// Should only ever be called from `new()`
+    /// Should only ever be called from [`new`][Self::new]
     async fn load_site_info(&mut self) -> Result<&Value, MediaWikiError> {
         let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
         self.site_info = self.get_query_api_json(&params).await?;
@@ -286,12 +286,12 @@ impl Api {
         }
     }
 
-    /// Calls `get_token()` to return an edit token
+    /// Calls [`get_token`][`Api::get_token`] to return an edit token
     pub async fn get_edit_token(&mut self) -> Result<String, MediaWikiError> {
         self.get_token("csrf").await
     }
 
-    /// Same as `get_query_api_json` but automatically loads all results via the `continue` parameter
+    /// Same as [`get_query_api_json`][`Api::get_query_api_json`] but automatically loads all results via the `continue` parameter
     pub async fn get_query_api_json_all(
         &self,
         params: &HashMap<String, String>,
@@ -299,7 +299,7 @@ impl Api {
         self.get_query_api_json_limit(params, None).await
     }
 
-    /// Tries to return the len() of an API query result. Returns 0 if unknown
+    /// Tries to return the `len()` of an API query result. Returns 0 if unknown
     fn query_result_count(&self, result: &Value) -> usize {
         match result["query"].as_object() {
             Some(query) => query
@@ -311,7 +311,7 @@ impl Api {
         }
     }
 
-    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter
+    /// Same as [`get_query_api_json`][`Api::get_query_api_json`] but automatically loads more results via the `continue` parameter
     pub async fn get_query_api_json_limit(
         &self,
         params: &HashMap<String, String>,
@@ -332,7 +332,7 @@ impl Api {
             .await
     }
 
-    /// Same as `get_query_api_json` but automatically loads more results via the `continue` parameter.
+    /// Same as [`get_query_api_json`][`Api::get_query_api_json`] but automatically loads more results via the `continue` parameter.
     /// Returns a stream; each item is a "page" of results.
     pub async fn get_query_api_json_limit_iter<'a>(
         &'a self,
@@ -461,7 +461,7 @@ impl Api {
         &self.edit_delay_ms
     }
 
-    /// Sets the delay time after edits in milliseconds (or `None`).
+    /// Sets the delay time after edits in milliseconds (or [`None`]).
     /// This is independent of, and additional to, MAXLAG
     pub fn set_edit_delay(&mut self, edit_delay_ms: Option<u64>) {
         self.edit_delay_ms = edit_delay_ms;
@@ -472,7 +472,7 @@ impl Api {
         &self.maxlag_seconds
     }
 
-    /// Sets the maxlag in seconds (or `None`)
+    /// Sets the maxlag in seconds (or [`None`])
     pub fn set_maxlag(&mut self, maxlag_seconds: Option<u64>) {
         self.maxlag_seconds = maxlag_seconds;
     }
@@ -524,7 +524,7 @@ impl Api {
         }
     }
 
-    /// GET wrapper for `query_api_json`
+    /// GET wrapper for [`query_api_json`][`Api::query_api_json`]
     pub async fn get_query_api_json(
         &self,
         params: &HashMap<String, String>,
@@ -532,7 +532,7 @@ impl Api {
         self.query_api_json(params, "GET").await
     }
 
-    /// POST wrapper for `query_api_json`
+    /// POST wrapper for [`query_api_json`][`Api::query_api_json`]
     pub async fn post_query_api_json(
         &self,
         params: &HashMap<String, String>,
@@ -540,7 +540,7 @@ impl Api {
         self.query_api_json(params, "POST").await
     }
 
-    /// POST wrapper for `query_api_json`.
+    /// POST wrapper for [`query_api_json`][`Api::query_api_json`].
     /// Requires `&mut self`, for session cookie storage
     pub async fn post_query_api_json_mut(
         &mut self,
@@ -550,7 +550,7 @@ impl Api {
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
-    /// Uses `query_raw`
+    /// Uses [`query_raw`][`Api::query_raw`]
     pub async fn query_api_raw(
         &self,
         params: &HashMap<String, String>,
@@ -560,7 +560,7 @@ impl Api {
     }
 
     /// Runs a query against the MediaWiki API, and returns a text.
-    /// Uses `query_raw_mut`
+    /// Uses [`query_raw_mut`][`Api::query_raw_mut`]
     async fn query_api_raw_mut(
         &mut self,
         params: &HashMap<String, String>,
@@ -570,7 +570,7 @@ impl Api {
             .await
     }
 
-    /// Generates a `RequestBuilder` for the API URL
+    /// Generates a [`RequestBuilder`][`reqwest::RequestBuilder`] for the API URL
     pub fn get_api_request_builder(
         &self,
         params: &HashMap<String, String>,
@@ -658,7 +658,7 @@ impl Api {
         Ok(ret)
     }
 
-    /// Returns a signed OAuth POST `RequestBuilder`
+    /// Returns a signed OAuth POST [`RequestBuilder`][`reqwest::RequestBuilder`]
     fn oauth_request_builder(
         &self,
         method: &str,
@@ -746,7 +746,7 @@ impl Api {
         }
     }
 
-    /// Returns a `RequestBuilder` for a generic URL
+    /// Returns a [`RequestBuilder`][`reqwest::RequestBuilder`] for a generic URL
     fn request_builder(
         &self,
         api_url: &str,
@@ -844,7 +844,7 @@ impl Api {
     }
 
     /// Performs a login against the MediaWiki API.
-    /// If successful, user information is stored in `User`, and in the cookie jar
+    /// If successful, user information is stored in [`User`], and in the cookie jar
     pub async fn login<S: Into<String>>(
         &mut self,
         lgname: S,
@@ -863,7 +863,7 @@ impl Api {
         }
     }
 
-    /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
+    /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of [`Title`] objects.
     pub fn result_array_to_titles(data: &Value) -> Vec<Title> {
         // See if it's the "root" of the result, then try each sub-object separately
         if let Some(obj) = data.as_object() {

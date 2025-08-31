@@ -1,5 +1,5 @@
 /*!
-The `Title` class deals with page titles and namespaces
+The [`Title`] class deals with page titles and namespaces
 */
 
 #![deny(missing_docs)]
@@ -96,7 +96,7 @@ impl Title {
         Self::new(full_title, 0)
     }
 
-    /// Constructor, used internally by `new_from_full`
+    /// Constructor, used internally by [`new_from_full`][`Self::new_from_full`]
     fn new_from_namespace_object(title: String, ns: &serde_json::Value) -> Self {
         let namespace_id = ns["id"].as_i64().unwrap_or_default();
         let title = match ns["case"].as_str() {
@@ -106,7 +106,7 @@ impl Title {
         Self::new(&title, namespace_id)
     }
 
-    /// Constructor, used by ``Api::result_array_to_titles``
+    /// Constructor, used by [`Api::result_array_to_titles`][`crate::Api::result_array_to_titles`]
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
         let namespace_id = data["ns"].as_i64().unwrap_or(0);
         let mut title = data["title"].as_str().unwrap_or("").to_string();

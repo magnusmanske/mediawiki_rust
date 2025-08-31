@@ -1,5 +1,5 @@
 /*!
-The `User` class deals with the (current) ApiSync user.
+The [`User`] class deals with the (current) ApiSync user.
 */
 
 #![deny(missing_docs)]
@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::media_wiki_error::MediaWikiError;
 
-/// `User` contains the login data for the `ApiSync`
+/// [`User`] contains the login data for the [`ApiSync`][crate::ApiSync]
 #[derive(Debug, Default, Clone)]
 pub struct User {
     lgusername: String,
@@ -104,7 +104,7 @@ impl User {
         self.lguserid
     }
 
-    /// Tries to set user information from the `ApiSync` call
+    /// Tries to set user information from the [`ApiSync`][crate::ApiSync] call
     pub fn set_from_login(&mut self, login: &Value) -> Result<(), MediaWikiError> {
         if login["result"] == "Success" {
             match login["lgusername"].as_str() {
