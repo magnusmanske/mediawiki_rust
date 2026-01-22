@@ -1,9 +1,7 @@
+use crate::title::Title;
+use serde_json::Value;
 use std::error::Error;
 use std::fmt;
-
-use serde_json::Value;
-
-use crate::title::Title;
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -13,7 +11,7 @@ pub enum MediaWikiError {
     ReqwestHeader(reqwest::header::InvalidHeaderValue),
     String(String),
     Url(url::ParseError),
-    Fmt(std::fmt::Error),
+    Fmt(fmt::Error),
     Time(std::time::SystemTimeError),
 
     /// Error while logging in.
@@ -105,8 +103,8 @@ impl From<url::ParseError> for MediaWikiError {
     }
 }
 
-impl From<std::fmt::Error> for MediaWikiError {
-    fn from(e: std::fmt::Error) -> Self {
+impl From<fmt::Error> for MediaWikiError {
+    fn from(e: fmt::Error) -> Self {
         Self::Fmt(e)
     }
 }

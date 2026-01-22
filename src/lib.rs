@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 #![deny(
     // missing_docs,
     missing_debug_implementations,

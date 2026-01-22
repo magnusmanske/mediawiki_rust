@@ -11,8 +11,8 @@ use base64::prelude::*;
 use futures::{Stream, StreamExt};
 use hmac::{Hmac, Mac};
 use nanoid::nanoid;
-use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::StatusCode;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -275,7 +275,7 @@ impl Api {
             params.insert("type".to_string(), token_type.to_string());
         }
         let mut key = token_type.to_string();
-        key += &"token";
+        key += "token";
         if token_type.is_empty() {
             key = "csrftoken".into()
         }
@@ -612,7 +612,7 @@ impl Api {
         to_sign: &HashMap<String, String>,
         oauth: &OAuthParams,
     ) -> Result<String, MediaWikiError> {
-        let mut keys: Vec<String> = to_sign.iter().map(|(k, _)| self.rawurlencode(k)).collect();
+        let mut keys: Vec<String> = to_sign.keys().map(|k| self.rawurlencode(k)).collect();
         keys.sort();
 
         let ret: Vec<String> = keys
@@ -670,7 +670,7 @@ impl Api {
             None => {
                 return Err(From::from(
                     "oauth_request_builder called but self.oauth is None",
-                ))
+                ));
             }
         };
 
@@ -1055,19 +1055,20 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/Q123")
+            api.extract_entity_from_uri("http://www.wikidata.org/entity/Q123")
                 .unwrap(),
             "Q123"
         );
         assert_eq!(
-            api.extract_entity_from_uri(&"http://www.wikidata.org/entity/P456")
+            api.extract_entity_from_uri("http://www.wikidata.org/entity/P456")
                 .unwrap(),
             "P456"
         );
         // Expect error ('/' missing):
-        assert!(api
-            .extract_entity_from_uri(&"http:/www.wikidata.org/entity/Q123")
-            .is_err());
+        assert!(
+            api.extract_entity_from_uri("http:/www.wikidata.org/entity/Q123")
+                .is_err()
+        );
     }
 
     #[tokio::test]

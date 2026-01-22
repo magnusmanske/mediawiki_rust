@@ -4,10 +4,10 @@ The `Page` class deals with operations done on pages, like editing.
 
 #![deny(missing_docs)]
 
+use crate::Revision;
 use crate::api::Api;
 use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
-use crate::Revision;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -418,7 +418,7 @@ mod tests {
     async fn page_external_links() {
         let page = Page::new(Title::new("Q64", 0));
         let result = page.external_links(&wd_api().await).await.unwrap();
-        assert!(result.contains(&"https://www.berlin.de/politik-verwaltung-buerger/".to_string()));
+        assert!(result.contains(&"https://www.berlin.de/stadtplan/".to_string()));
     }
 
     #[tokio::test]

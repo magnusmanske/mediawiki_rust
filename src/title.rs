@@ -269,7 +269,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_main_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Main namespace", &wd_api().await),
+            Title::new_from_full("Main namespace", &wd_api().await),
             Title::new("Main namespace", 0)
         );
     }
@@ -277,7 +277,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_canonical_namespace() {
         assert_eq!(
-            Title::new_from_full(&"File:Some file.jpg", &wd_api().await),
+            Title::new_from_full("File:Some file.jpg", &wd_api().await),
             Title::new("Some file.jpg", 6)
         );
     }
@@ -285,7 +285,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_canonical_namespace_with_colon() {
         assert_eq!(
-            Title::new_from_full(&"Project talk:A project:yes, really", &wd_api().await),
+            Title::new_from_full("Project talk:A project:yes, really", &wd_api().await),
             Title::new("A project:yes, really", 5)
         );
     }
@@ -293,7 +293,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_namespace_alias() {
         assert_eq!(
-            Title::new_from_full(&"Item:Q12345", &wd_api().await),
+            Title::new_from_full("Item:Q12345", &wd_api().await),
             Title::new("Q12345", 0)
         );
     }
@@ -301,7 +301,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_special_namespace() {
         assert_eq!(
-            Title::new_from_full(&"Special:A title", &wd_api().await),
+            Title::new_from_full("Special:A title", &wd_api().await),
             Title::new("A title", -1)
         );
     }
@@ -309,7 +309,7 @@ mod tests {
     #[tokio::test]
     async fn new_from_full_invalid_namespace() {
         assert_eq!(
-            Title::new_from_full(&"This is not a namespace:A title", &wd_api().await),
+            Title::new_from_full("This is not a namespace:A title", &wd_api().await),
             Title::new("This is not a namespace:A title", 0)
         );
     }
@@ -317,7 +317,7 @@ mod tests {
     #[tokio::test]
     async fn spaces_to_underscores() {
         assert_eq!(
-            Title::spaces_to_underscores(&" A little  test "),
+            Title::spaces_to_underscores(" A little  test "),
             "A_little__test"
         );
     }
@@ -325,24 +325,24 @@ mod tests {
     #[tokio::test]
     async fn underscores_to_spaces() {
         assert_eq!(
-            Title::underscores_to_spaces(&"_A_little__test_"),
+            Title::underscores_to_spaces("_A_little__test_"),
             "A little  test"
         );
     }
 
     #[tokio::test]
     async fn first_letter_uppercase() {
-        assert_eq!(Title::first_letter_uppercase(&""), "");
-        assert_eq!(Title::first_letter_uppercase(&"FooBar"), "FooBar");
-        assert_eq!(Title::first_letter_uppercase(&"fooBar"), "FooBar");
-        assert_eq!(Title::first_letter_uppercase(&"über"), "Über");
-        assert_eq!(Title::first_letter_uppercase(&"ვიკიპედია"), "ვიკიპედია");
+        assert_eq!(Title::first_letter_uppercase(""), "");
+        assert_eq!(Title::first_letter_uppercase("FooBar"), "FooBar");
+        assert_eq!(Title::first_letter_uppercase("fooBar"), "FooBar");
+        assert_eq!(Title::first_letter_uppercase("über"), "Über");
+        assert_eq!(Title::first_letter_uppercase("ვიკიპედია"), "ვიკიპედია");
     }
 
     #[tokio::test]
     async fn full() {
         let api = &wd_api().await;
-        let title = Title::new_from_full(&"User talk:Magnus_Manske", api);
+        let title = Title::new_from_full("User talk:Magnus_Manske", api);
         assert_eq!(
             title.full_pretty(api),
             Some("User talk:Magnus Manske".to_string())
