@@ -52,47 +52,45 @@ impl Title {
     /// Constructor, where full namespace-prefixed title is known.
     /// Uses Api to parse valid namespaces
     pub fn new_from_full(full_title: &str, api: &crate::api::Api) -> Self {
-        let mut v: Vec<&str> = full_title.split(':').collect();
-        if v.len() == 1 {
+        // Check if there's a colon - if not, it's in the main namespace
+        let Some(colon_pos) = full_title.find(':') else {
             return Self::new(full_title, 0);
-        }
-        let namespace_name = Title::first_letter_uppercase(v.remove(0));
-        let title = Title::underscores_to_spaces(&v.join(":"));
+        };
+
+        let namespace_name = Title::first_letter_uppercase(&full_title[..colon_pos]);
+        let title = Title::underscores_to_spaces(&full_title[colon_pos + 1..]);
         let site_info = api.get_site_info();
+
+        // Helper closure to check if a namespace name matches
+        let matches_namespace =
+            |ns_name: &str| -> bool { Title::underscores_to_spaces(ns_name) == namespace_name };
 
         // Canonical namespaces
         if let Some(namespaces) = site_info["query"]["namespaces"].as_object() {
-            for (_, ns) in namespaces {
-                if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(namespace) == namespace_name {
-                        return Self::new_from_namespace_object(title, ns);
-                    }
-                }
-                if let Some(namespace) = ns["canonical"].as_str() {
-                    if Title::underscores_to_spaces(namespace) == namespace_name {
-                        return Self::new_from_namespace_object(title, ns);
-                    }
+            for ns in namespaces.values() {
+                if ns["*"].as_str().is_some_and(matches_namespace)
+                    || ns["canonical"].as_str().is_some_and(matches_namespace)
+                {
+                    return Self::new_from_namespace_object(title, ns);
                 }
             }
         }
 
         // Aliases
-        if let Some(namespaces) = site_info["query"]["namespacealiases"].as_array() {
-            for ns in namespaces {
-                if let Some(namespace) = ns["*"].as_str() {
-                    if Title::underscores_to_spaces(namespace) == namespace_name {
-                        let namespace_id = ns["id"].as_i64().unwrap_or(0);
-                        let title = match ns["case"].as_str() {
-                            Some("first-letter") => Title::first_letter_uppercase(&title),
-                            _ => title,
-                        };
-                        return Self::new(&title, namespace_id);
-                    }
+        if let Some(aliases) = site_info["query"]["namespacealiases"].as_array() {
+            for ns in aliases {
+                if ns["*"].as_str().is_some_and(matches_namespace) {
+                    let namespace_id = ns["id"].as_i64().unwrap_or(0);
+                    let title = match ns["case"].as_str() {
+                        Some("first-letter") => Title::first_letter_uppercase(&title),
+                        _ => title,
+                    };
+                    return Self::new(&title, namespace_id);
                 }
             }
         }
 
-        // Fallback
+        // Fallback - no matching namespace found, treat as main namespace
         Self::new(full_title, 0)
     }
 
@@ -107,21 +105,22 @@ impl Title {
     }
 
     /// Constructor, used by ``Api::result_array_to_titles``
+    ///
+    /// Note: This method removes the namespace prefix by splitting on ':'.
+    /// For more accurate namespace handling, consider using `new_from_full` with an Api reference.
     pub fn new_from_api_result(data: &serde_json::Value) -> Title {
         let namespace_id = data["ns"].as_i64().unwrap_or(0);
-        let mut title = data["title"].as_str().unwrap_or("").to_string();
+        let title = data["title"].as_str().unwrap_or("");
 
-        // If namespace!=0, remove namespace prefix. THIS IS NOT IDEAL AND SHOULD USE Api AS IN new_from_full!
-        if namespace_id > 0 {
-            let mut v: Vec<&str> = title.split(':').collect();
-            if v.len() > 1 {
-                v.remove(0);
-                title = v.join(":");
-            }
-        }
+        // If namespace != 0, remove namespace prefix by finding the first ':'
+        let title = if namespace_id != 0 {
+            title.find(':').map_or(title, |pos| &title[pos + 1..])
+        } else {
+            title
+        };
 
         Title {
-            title: Title::underscores_to_spaces(&title),
+            title: Title::underscores_to_spaces(title),
             namespace_id,
         }
     }

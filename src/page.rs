@@ -10,7 +10,6 @@ use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 
 /// Represents a page.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,7 +84,7 @@ impl Page {
     /// edit summary.
     ///
     /// # Errors
-    /// May return a `MediaWikiError` or any error from [`Api::post_query_api_json`].
+    /// May return a `MediaWikiError` if the edit fails or any error from [`Api::post_query_api_json`].
     ///
     /// [`Api::post_query_api_json`]: ../api/struct.Api.html#method.post_query_api_json
     pub async fn edit_text(
@@ -93,20 +92,23 @@ impl Page {
         api: &mut Api,
         text: impl Into<String>,
         summary: impl Into<String>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), MediaWikiError> {
         let title = self
             .title
             .full_pretty(api)
             .ok_or_else(|| MediaWikiError::BadTitle(self.title.clone()))?;
         let bot = if api.user().is_bot() { "true" } else { "false" };
+        let text = text.into();
+        let summary = summary.into();
+        let token = api.get_edit_token().await?;
         let mut params: HashMap<String, String> = [
             ("action", "edit"),
-            ("title", &title),
-            ("text", &text.into()),
-            ("summary", &summary.into()),
+            ("title", title.as_str()),
+            ("text", text.as_str()),
+            ("summary", summary.as_str()),
             ("bot", bot),
             ("formatversion", "2"),
-            ("token", &api.get_edit_token().await?),
+            ("token", token.as_str()),
         ]
         .iter()
         .map(|&(k, v)| (k.to_string(), v.to_string()))
@@ -124,7 +126,7 @@ impl Page {
         let result = api.post_query_api_json(&params).await?;
         match result["edit"]["result"].as_str() {
             Some("Success") => Ok(()),
-            _ => Err(Box::new(MediaWikiError::EditError(result))),
+            _ => Err(MediaWikiError::EditError(result)),
         }
     }
 
@@ -150,23 +152,26 @@ impl Page {
         &self,
         result: Value,
         subkey: &str,
-    ) -> Result<Vec<Value>, Box<dyn Error>> {
-        match result["query"]["pages"].is_null() {
-            true => Err(Box::new(MediaWikiError::Missing(self.title.clone()))),
-            false => match result["query"]["pages"].as_object() {
-                Some(obj) => Ok(obj
-                    .iter()
-                    .flat_map(|(_pageid, v_page)| match v_page[subkey].as_array() {
-                        Some(arr) => arr.to_owned(),
-                        None => vec![],
-                    })
-                    .collect()),
-                None => Err(Box::new(MediaWikiError::UnexpectedResultFormat(format!(
-                    "{:?}",
-                    &result["query"]["pages"]
-                )))),
-            },
+    ) -> Result<Vec<Value>, MediaWikiError> {
+        if result["query"]["pages"].is_null() {
+            return Err(MediaWikiError::Missing(self.title.clone()));
         }
+
+        result["query"]["pages"]
+            .as_object()
+            .map(|obj| {
+                obj.iter()
+                    .flat_map(|(_pageid, v_page)| {
+                        v_page[subkey]
+                            .as_array()
+                            .map(|arr| arr.to_owned())
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .ok_or_else(|| {
+                MediaWikiError::UnexpectedResultFormat(format!("{:?}", &result["query"]["pages"]))
+            })
     }
 
     fn json_result_into_titles(&self, arr: Vec<Value>, api: &Api) -> Vec<Title> {
@@ -180,7 +185,7 @@ impl Page {
     }
 
     /// Returns the categories of a page, as a JSON Value Vec
-    pub async fn categories(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+    pub async fn categories(&self, api: &Api) -> Result<Vec<Value>, MediaWikiError> {
         let result = self
             .action_query(
                 api,
@@ -194,8 +199,8 @@ impl Page {
         self.extract_page_properties_from_api_results(result, "categories")
     }
 
-    /// Returns the categories of a page, as a JSON Value Vec
-    pub async fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
+    /// Returns the interwiki links of a page, as a JSON Value Vec
+    pub async fn interwiki_links(&self, api: &Api) -> Result<Vec<Value>, MediaWikiError> {
         let result = self
             .action_query(api, &[("prop", "iwlinks"), ("iwlimit", "max")])
             .await?;
@@ -203,7 +208,7 @@ impl Page {
     }
 
     /// Returns the templates of a page, as a Title Vec
-    pub async fn templates(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+    pub async fn templates(&self, api: &Api) -> Result<Vec<Title>, MediaWikiError> {
         let result = self
             .action_query(
                 api,
@@ -219,7 +224,7 @@ impl Page {
     }
 
     /// Returns the wiki-internal links on a page, as a Title Vec
-    pub async fn links(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+    pub async fn links(&self, api: &Api) -> Result<Vec<Title>, MediaWikiError> {
         let result = self
             .action_query(
                 api,
@@ -236,7 +241,7 @@ impl Page {
         api: &Api,
         direct_links: bool,
         redirects: bool,
-    ) -> Result<Vec<Title>, Box<dyn Error>> {
+    ) -> Result<Vec<Title>, MediaWikiError> {
         let lhshow = match (direct_links, redirects) {
             (true, true) => "!redirect|redirect",
             (true, false) => "!redirect",
@@ -259,7 +264,7 @@ impl Page {
     }
 
     /// Returns the images used on a page, as a Title Vec
-    pub async fn images(&self, api: &Api) -> Result<Vec<Title>, Box<dyn Error>> {
+    pub async fn images(&self, api: &Api) -> Result<Vec<Title>, MediaWikiError> {
         let result = self
             .action_query(api, &[("prop", "images"), ("imlimit", "max")])
             .await?;
@@ -268,9 +273,9 @@ impl Page {
     }
 
     /// Returns the coordinates of a page, as a JSON Value Vec
-    pub async fn coordinates(&self, api: &Api) -> Result<Vec<Value>, Box<dyn Error>> {
-        self.extract_page_properties_from_api_results(
-            self.action_query(
+    pub async fn coordinates(&self, api: &Api) -> Result<Vec<Value>, MediaWikiError> {
+        let result = self
+            .action_query(
                 api,
                 &[
                     ("prop", "coordinates"),
@@ -279,9 +284,8 @@ impl Page {
                     ("coprimary", "all"),
                 ],
             )
-            .await?,
-            "coordinates",
-        )
+            .await?;
+        self.extract_page_properties_from_api_results(result, "coordinates")
     }
 
     /// Returns the coordinates of a page, including distance from a point, as a JSON Value Vec
@@ -290,25 +294,25 @@ impl Page {
         api: &Api,
         lat: f64,
         lon: f64,
-    ) -> Result<Vec<Value>, Box<dyn Error>> {
-        self.extract_page_properties_from_api_results(
-            self.action_query(
+    ) -> Result<Vec<Value>, MediaWikiError> {
+        let distance_from_point = format!("{}|{}", lat, lon);
+        let result = self
+            .action_query(
                 api,
                 &[
                     ("prop", "coordinates"),
                     ("cllimit", "max"),
                     ("coprop", "country|dim|globe|name|region|type"),
                     ("coprimary", "all"),
-                    ("codistancefrompoint", format!("{}|{}", lat, lon).as_str()),
+                    ("codistancefrompoint", &distance_from_point),
                 ],
             )
-            .await?,
-            "coordinates",
-        )
+            .await?;
+        self.extract_page_properties_from_api_results(result, "coordinates")
     }
 
     /// Returns the external links of a page, as a String Vec
-    pub async fn external_links(&self, api: &Api) -> Result<Vec<String>, Box<dyn Error>> {
+    pub async fn external_links(&self, api: &Api) -> Result<Vec<String>, MediaWikiError> {
         let result = self
             .action_query(api, &[("prop", "extlinks"), ("ellimit", "max")])
             .await?;

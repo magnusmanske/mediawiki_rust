@@ -30,8 +30,12 @@ const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
-/// `OAuthParams` contains parameters for OAuth requests
-#[derive(Debug, Clone)]
+/// `OAuthParams` contains parameters for OAuth requests.
+///
+/// Some fields are stored for completeness when deserializing from JSON
+/// but are not actively used by this library.
+#[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct OAuthParams {
     /// Consumer Key
     pub g_consumer_key: Option<String>,
@@ -41,32 +45,39 @@ pub struct OAuthParams {
     pub g_token_key: Option<String>,
     /// Token secret
     pub g_token_secret: Option<String>,
-    _g_user_agent: Option<String>,
-    _agent: Option<String>,
-    _consumer_key: Option<String>,
-    _consumer_secret: Option<String>,
-    _api_url: Option<String>,
-    _public_mw_oauth_url: Option<String>,
-    _tool: Option<String>,
+    /// User agent (stored for completeness)
+    g_user_agent: Option<String>,
+    /// Agent identifier (stored for completeness)
+    agent: Option<String>,
+    /// Alternative consumer key field (stored for completeness)
+    consumer_key: Option<String>,
+    /// Alternative consumer secret field (stored for completeness)
+    consumer_secret: Option<String>,
+    /// API URL (stored for completeness)
+    api_url: Option<String>,
+    /// Public MW OAuth URL (stored for completeness)
+    public_mw_oauth_url: Option<String>,
+    /// Tool identifier (stored for completeness)
+    tool: Option<String>,
 }
 
 impl OAuthParams {
     /// Imports data from JSON stored in the QuickStatements DB batch_oauth.serialized_json field
     pub fn new_from_json(j: &Value) -> Self {
         Self {
-            g_consumer_key: j["gConsumerKey"].as_str().map(|s| s.to_string()),
-            g_consumer_secret: j["gConsumerSecret"].as_str().map(|s| s.to_string()),
-            g_token_key: j["gTokenKey"].as_str().map(|s| s.to_string()),
-            g_token_secret: j["gTokenSecret"].as_str().map(|s| s.to_string()),
-            _g_user_agent: j["gUserAgent"].as_str().map(|s| s.to_string()),
-            _agent: j["params"]["agent"].as_str().map(|s| s.to_string()),
-            _consumer_key: j["params"]["consumerKey"].as_str().map(|s| s.to_string()),
-            _consumer_secret: j["params"]["consumerSecret"]
+            g_consumer_key: j["gConsumerKey"].as_str().map(ToString::to_string),
+            g_consumer_secret: j["gConsumerSecret"].as_str().map(ToString::to_string),
+            g_token_key: j["gTokenKey"].as_str().map(ToString::to_string),
+            g_token_secret: j["gTokenSecret"].as_str().map(ToString::to_string),
+            g_user_agent: j["gUserAgent"].as_str().map(ToString::to_string),
+            agent: j["params"]["agent"].as_str().map(ToString::to_string),
+            consumer_key: j["params"]["consumerKey"].as_str().map(ToString::to_string),
+            consumer_secret: j["params"]["consumerSecret"]
                 .as_str()
-                .map(|s| s.to_string()),
-            _api_url: j["apiUrl"].as_str().map(|s| s.to_string()),
-            _public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(|s| s.to_string()),
-            _tool: j["tool"].as_str().map(|s| s.to_string()),
+                .map(ToString::to_string),
+            api_url: j["apiUrl"].as_str().map(ToString::to_string),
+            public_mw_oauth_url: j["publicMwOAuthUrl"].as_str().map(ToString::to_string),
+            tool: j["tool"].as_str().map(ToString::to_string),
         }
     }
 }
@@ -491,16 +502,6 @@ impl Api {
     }
 
     /// Sets the maxlag parameter for a query, if necessary
-    fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
-        if !self.is_edit_query(params, method) {
-            return;
-        }
-        if let Some(maxlag_seconds) = self.maxlag_seconds {
-            params.insert("maxlag".to_string(), maxlag_seconds.to_string());
-        }
-    }
-
-    /// Sets the maxlag parameter for a query, if necessary
     fn set_cumulative_maxlag_params(
         &self,
         params: &mut HashMap<String, String>,
@@ -742,7 +743,10 @@ impl Api {
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
             "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
-            other => panic!("Unsupported method '{}'", other),
+            other => Err(MediaWikiError::String(format!(
+                "Unsupported method '{}' for OAuth requests",
+                other
+            ))),
         }
     }
 

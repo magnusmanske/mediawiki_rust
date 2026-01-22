@@ -38,20 +38,13 @@ impl User {
         self.user_info.is_some()
     }
 
-    /// Checks is the user has a specific right (e.g. "bot", "autoconfirmed")
+    /// Checks if the user has a specific right (e.g. "bot", "autoconfirmed")
     pub fn has_right(&self, right: &str) -> bool {
-        match &self.user_info {
-            Some(ui) => {
-                ui["query"]["userinfo"]["rights"]
-                    .as_array()
-                    .unwrap_or(&vec![])
-                    .iter()
-                    .filter(|x| x.as_str().unwrap_or("") == right)
-                    .count()
-                    > 0
-            }
-            None => false,
-        }
+        self.user_info
+            .as_ref()
+            .and_then(|ui| ui["query"]["userinfo"]["rights"].as_array())
+            .map(|rights| rights.iter().any(|r| r.as_str() == Some(right)))
+            .unwrap_or(false)
     }
 
     /// Checks if the user has a bot flag
@@ -112,7 +105,7 @@ impl User {
                 None => {
                     return Err(MediaWikiError::Login(
                         "No lgusername in login result".to_string(),
-                    ))
+                    ));
                 }
             }
             match login["lguserid"].as_u64() {
@@ -120,7 +113,7 @@ impl User {
                 None => {
                     return Err(MediaWikiError::Login(
                         "No lguserid in login result".to_string(),
-                    ))
+                    ));
                 }
             }
 

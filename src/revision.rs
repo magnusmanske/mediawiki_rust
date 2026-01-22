@@ -75,4 +75,29 @@ impl Revision {
     pub fn wikitext(&self) -> Option<&str> {
         self.wikitext.as_deref()
     }
+
+    /// Returns the size of the revision in bytes.
+    pub fn size(&self) -> Option<usize> {
+        self.size
+    }
+
+    /// Returns the SHA-1 hash of the revision content.
+    pub fn sha1(&self) -> Option<&str> {
+        self.sha1.as_deref()
+    }
+
+    /// Returns the username of the user who made the revision.
+    pub fn user(&self) -> Option<&str> {
+        self.user.as_deref()
+    }
+
+    /// Returns the user ID of the user who made the revision.
+    pub fn userid(&self) -> Option<u64> {
+        self.userid
+    }
+
+    /// Returns the tags associated with this revision.
+    pub fn tags(&self) -> &[String] {
+        &self.tags
+    }
 }
