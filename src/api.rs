@@ -11,8 +11,8 @@ use base64::prelude::*;
 use futures::{Stream, StreamExt};
 use hmac::{Hmac, Mac};
 use nanoid::nanoid;
-use reqwest::StatusCode;
 use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::{RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -576,7 +576,7 @@ impl Api {
         &self,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, MediaWikiError> {
+    ) -> Result<RequestBuilder, MediaWikiError> {
         self.request_builder(&self.api_url, params, method)
     }
 
@@ -665,7 +665,7 @@ impl Api {
         method: &str,
         api_url: &str,
         params: &HashMap<String, String>,
-    ) -> Result<reqwest::RequestBuilder, MediaWikiError> {
+    ) -> Result<RequestBuilder, MediaWikiError> {
         let oauth = match &self.oauth {
             Some(oauth) => oauth,
             None => {
@@ -742,7 +742,7 @@ impl Api {
 
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
-            "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
+            "POST" => Ok(self.client.get(api_url).headers(headers).form(&params)),
             other => Err(MediaWikiError::String(format!(
                 "Unsupported method '{}' for OAuth requests",
                 other
@@ -756,7 +756,7 @@ impl Api {
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
-    ) -> Result<reqwest::RequestBuilder, MediaWikiError> {
+    ) -> Result<RequestBuilder, MediaWikiError> {
         // Use OAuth if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
