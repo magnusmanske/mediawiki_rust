@@ -32,6 +32,7 @@ macro_rules! hashmap {
 
 pub use reqwest;
 
+pub mod action_api;
 pub mod api;
 pub mod api_sync;
 pub mod media_wiki_error;
