@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoFilename = NoTitlesOrGenerator;
 
+/// Internal data container for `action=upload` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiUploadData {
     filename: Option<String>,
@@ -51,6 +52,7 @@ impl ActionApiUploadData {
     }
 }
 
+/// Builder for the `action=upload` API call, using a typestate pattern to enforce required fields before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiUploadBuilder<T> {
     _phantom: PhantomData<T>,
@@ -58,66 +60,79 @@ pub struct ActionApiUploadBuilder<T> {
 }
 
 impl<T> ActionApiUploadBuilder<T> {
+    /// Sets the upload comment and initial page text description (`comment`).
     pub fn comment<S: AsRef<str>>(mut self, comment: S) -> Self {
         self.data.comment = Some(comment.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the upload log entry (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the initial wikitext for the file description page (`text`).
     pub fn text<S: AsRef<str>>(mut self, text: S) -> Self {
         self.data.text = Some(text.as_ref().to_string());
         self
     }
 
+    /// Sets the watchlist update mode for the uploaded file (`watchlist`).
     pub fn watchlist<S: AsRef<str>>(mut self, watchlist: S) -> Self {
         self.data.watchlist = Some(watchlist.as_ref().to_string());
         self
     }
 
+    /// Sets the expiry timestamp for the watchlist entry (`watchlistexpiry`).
     pub fn watchlistexpiry<S: AsRef<str>>(mut self, watchlistexpiry: S) -> Self {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
 
+    /// Sets whether to ignore any upload warnings (`ignorewarnings`).
     pub fn ignorewarnings(mut self, ignorewarnings: bool) -> Self {
         self.data.ignorewarnings = ignorewarnings;
         self
     }
 
+    /// Sets the URL to fetch the file from for URL-based uploads (`url`).
     pub fn url<S: AsRef<str>>(mut self, url: S) -> Self {
         self.data.url = Some(url.as_ref().to_string());
         self
     }
 
+    /// Sets the key identifying a previous stashed upload to complete or check (`filekey`).
     pub fn filekey<S: AsRef<str>>(mut self, filekey: S) -> Self {
         self.data.filekey = Some(filekey.as_ref().to_string());
         self
     }
 
+    /// Sets whether to stash the file temporarily instead of committing it (`stash`).
     pub fn stash(mut self, stash: bool) -> Self {
         self.data.stash = stash;
         self
     }
 
+    /// Sets the total size of the file for chunked uploads (`filesize`).
     pub fn filesize(mut self, filesize: u64) -> Self {
         self.data.filesize = Some(filesize);
         self
     }
 
+    /// Sets the byte offset of this chunk within the file for chunked uploads (`offset`).
     pub fn offset(mut self, offset: u64) -> Self {
         self.data.offset = Some(offset);
         self
     }
 
+    /// Sets whether to process the upload asynchronously when possible (`async`).
     pub fn async_upload(mut self, async_upload: bool) -> Self {
         self.data.async_upload = async_upload;
         self
     }
 
+    /// Sets whether to only fetch the upload status for an asynchronous upload (`checkstatus`).
     pub fn checkstatus(mut self, checkstatus: bool) -> Self {
         self.data.checkstatus = checkstatus;
         self
@@ -126,6 +141,7 @@ impl<T> ActionApiUploadBuilder<T> {
 }
 
 impl ActionApiUploadBuilder<NoFilename> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -133,6 +149,7 @@ impl ActionApiUploadBuilder<NoFilename> {
         }
     }
 
+    /// Sets the target filename on the wiki (`filename`).
     pub fn filename<S: AsRef<str>>(mut self, filename: S) -> ActionApiUploadBuilder<NoToken> {
         self.data.filename = Some(filename.as_ref().to_string());
         ActionApiUploadBuilder {
@@ -143,6 +160,7 @@ impl ActionApiUploadBuilder<NoFilename> {
 }
 
 impl ActionApiUploadBuilder<NoToken> {
+    /// Sets the CSRF token (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiUploadBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiUploadBuilder {

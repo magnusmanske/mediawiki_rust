@@ -154,22 +154,32 @@ mod action_wbsetqualifier;
 mod action_wbsetreference;
 mod action_wbsetsitelink;
 
+/// Typestate marker: no page target (title or generator) has been set yet.
 #[derive(Debug, Copy, Clone)]
 pub struct NoTitlesOrGenerator;
 
+/// Typestate marker: the builder has all required fields and can be executed via [`ActionApiRunnable::run`].
 #[derive(Debug, Copy, Clone)]
 pub struct Runnable;
 
+/// Typestate marker: a page target has been set but a CSRF token is still required before the
+/// request can be executed. Call `.token(token)` to advance to [`Runnable`].
 #[derive(Debug, Copy, Clone)]
 pub struct NoToken;
 
+/// Specifies how a query-property request identifies the pages it operates on.
 #[derive(Debug, Clone, Default)]
 pub enum ActionApiQueryCommonData {
+    /// No target set; the builder is not yet runnable.
     #[default]
     None,
+    /// Query pages by title.
     Titles(Vec<String>),
+    /// Query pages by page ID.
     PageIds(Vec<u64>),
+    /// Query pages by revision ID.
     RevIds(Vec<u64>),
+    /// Use a generator to supply the page list.
     Generator(HashMap<String, String>),
 }
 
@@ -195,14 +205,6 @@ impl ActionApiQueryCommonData {
     }
 }
 
-/// Returns `true` if the API response contains `batchcomplete`, signalling
-/// that all prop data for the current generator page batch is complete.
-/// Only relevant when using a generator; the next continuation will advance
-/// the generator to the next batch of pages.
-pub fn batch_complete(result: &Value) -> bool {
-    result.get("batchcomplete").is_some()
-}
-
 /// Implemented by `Runnable` builders that support result pagination.
 /// Call `continue_from(&result)` with the previous API response to build a
 /// request that fetches the next page of results.
@@ -213,6 +215,14 @@ pub trait ActionApiContinuable: Sized {
     /// more results are available and `continue_from()` can be called.
     fn has_more(&self, result: &Value) -> bool {
         result.get("continue").is_some()
+    }
+
+    /// Returns `true` if the API response contains `batchcomplete`, signalling
+    /// that all prop data for the current generator page batch is complete.
+    /// Only relevant when using a generator; the next continuation will advance
+    /// the generator to the next batch of pages.
+    fn batch_complete(&self, result: &Value) -> bool {
+        result.get("batchcomplete").is_some()
     }
 
     /// Replace the current continuation state with the `continue` object from
@@ -232,9 +242,15 @@ pub trait ActionApiContinuable: Sized {
     }
 }
 
+/// Implemented by builders whose results can be used as a generator for query-property requests.
+///
+/// Pass a reference to a generator builder to [`ActionApiQueryCommonBuilder::generator`] to make
+/// the generator supply the page list for the query.
 pub trait ActionApiGenerator {
+    /// Returns the generator parameters to be merged into a query request.
     fn generator_params(&self) -> HashMap<String, String>;
 
+    /// Prefixes every key in `params` with `letter`, e.g. `"g"` for generator parameters.
     fn prefix_params(letter: char, params: HashMap<String, String>) -> HashMap<String, String> {
         params
             .into_iter()
@@ -243,28 +259,53 @@ pub trait ActionApiGenerator {
     }
 }
 
+/// Builder interface shared by all query-property requests.
+///
+/// Consuming one of these methods transitions the builder to the `Runnable` typestate so that
+/// [`ActionApiRunnable::run`] becomes available.
+///
+/// # Example
+///
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use mediawiki::prelude::*;
+/// let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+/// let result = ActionApiQuery::categories()
+///     .titles(&["Rust (programming language)"])
+///     .run(&api)
+///     .await
+///     .unwrap();
+/// # });
+/// ```
 pub trait ActionApiQueryCommonBuilder: Sized {
+    /// The `Runnable` builder type produced after a target is set.
     type Runnable;
 
+    /// Returns a mutable reference to the shared page-target data.
     fn common_mut(&mut self) -> &mut ActionApiQueryCommonData;
+    /// Converts `self` into the `Runnable` builder type.
     fn into_runnable(self) -> Self::Runnable;
 
+    /// Sets the pages to query by title.
     fn titles<S: Into<String> + Clone>(mut self, titles: &[S]) -> Self::Runnable {
         *self.common_mut() =
             ActionApiQueryCommonData::Titles(titles.iter().map(|s| s.clone().into()).collect());
         self.into_runnable()
     }
 
+    /// Sets the pages to query by page ID.
     fn pageids(mut self, pageids: &[u64]) -> Self::Runnable {
         *self.common_mut() = ActionApiQueryCommonData::PageIds(pageids.to_vec());
         self.into_runnable()
     }
 
+    /// Sets the pages to query by revision ID.
     fn revids(mut self, revids: &[u64]) -> Self::Runnable {
         *self.common_mut() = ActionApiQueryCommonData::RevIds(revids.to_vec());
         self.into_runnable()
     }
 
+    /// Uses a generator to supply the page list.
     fn generator<G: ActionApiGenerator>(mut self, generator: &G) -> Self::Runnable {
         *self.common_mut() = ActionApiQueryCommonData::Generator(generator.generator_params());
         self.into_runnable()
@@ -291,14 +332,21 @@ pub(crate) trait ActionApiData {
     }
 }
 
+/// Implemented by all fully-configured ("Runnable") request builders.
+///
+/// Use [`run`](ActionApiRunnable::run) for async execution or
+/// [`run_sync`](ActionApiRunnable::run_sync) for synchronous execution.
 #[async_trait]
 pub trait ActionApiRunnable {
+    /// Returns the complete set of API parameters for this request.
     fn params(&self) -> HashMap<String, String>;
 
+    /// HTTP method to use; defaults to `"GET"`. Write actions return `"POST"`.
     fn http_method(&self) -> &'static str {
         "GET"
     }
 
+    /// Executes the request asynchronously and returns the raw API JSON response.
     async fn run(&self, api: &Api) -> Result<Value, MediaWikiError> {
         let params = self.params();
         println!("{:#?}", params);
@@ -311,6 +359,7 @@ pub trait ActionApiRunnable {
         Ok(ret)
     }
 
+    /// Executes the request synchronously and returns the raw API JSON response.
     fn run_sync(&self, api: &ApiSync) -> Result<Value, MediaWikiError> {
         let params = self.params();
         println!("{:#?}", params);
@@ -318,308 +367,407 @@ pub trait ActionApiRunnable {
     }
 }
 
+/// Entry point for MediaWiki write actions and miscellaneous API actions.
+///
+/// Each method returns a builder in the [`NoTitlesOrGenerator`] (or similar initial) typestate.
+/// Set the required fields to advance the builder to [`Runnable`], then call
+/// [`ActionApiRunnable::run`].
+///
+/// # Example
+///
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use mediawiki::prelude::*;
+/// let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+/// let result = ActionApi::wbgetentities()
+///     .ids(&["Q42"])
+///     .run(&api)
+///     .await
+///     .unwrap();
+/// # });
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct ActionApi;
 
 impl ActionApi {
+    /// Fetches Wikibase entities (`action=wbgetentities`).
     pub fn wbgetentities() -> ActionApiWbGetEntitiesBuilder<NoTitles> {
         ActionApiWbGetEntitiesBuilder::new()
     }
 
+    /// Edits a page (`action=edit`).
     pub fn edit() -> ActionApiEditBuilder<NoTitlesOrGenerator> {
         ActionApiEditBuilder::new()
     }
 
+    /// Deletes a page (`action=delete`).
     pub fn delete() -> ActionApiDeleteBuilder<NoTitlesOrGenerator> {
         ActionApiDeleteBuilder::new()
     }
 
+    /// Moves (renames) a page (`action=move`).
     pub fn move_page() -> ActionApiMoveBuilder<NoTitlesOrGenerator> {
         ActionApiMoveBuilder::new()
     }
 
+    /// Patrols a page or revision (`action=patrol`).
     pub fn patrol() -> ActionApiPatrolBuilder<NoTitlesOrGenerator> {
         ActionApiPatrolBuilder::new()
     }
 
+    /// Sets page protection levels (`action=protect`).
     pub fn protect() -> ActionApiProtectBuilder<NoTitlesOrGenerator> {
         ActionApiProtectBuilder::new()
     }
 
+    /// Purges the server-side cache for pages (`action=purge`).
     pub fn purge() -> ActionApiPurgeBuilder<NoTitlesOrGenerator> {
         ActionApiPurgeBuilder::new()
     }
 
+    /// Rolls back a series of edits (`action=rollback`).
     pub fn rollback() -> ActionApiRollbackBuilder<NoTitlesOrGenerator> {
         ActionApiRollbackBuilder::new()
     }
 
+    /// Adds or removes pages from the watchlist (`action=watch`).
     pub fn watch() -> ActionApiWatchBuilder<NoTitlesOrGenerator> {
         ActionApiWatchBuilder::new()
     }
 
+    /// Blocks a user (`action=block`).
     pub fn block() -> ActionApiBlockBuilder<NoTitlesOrGenerator> {
         ActionApiBlockBuilder::new()
     }
 
+    /// Unblocks a user (`action=unblock`).
     pub fn unblock() -> ActionApiUnblockBuilder<NoTitlesOrGenerator> {
         ActionApiUnblockBuilder::new()
     }
 
+    /// Thanks a user for an edit (`action=thank`).
     pub fn thank() -> ActionApiThankBuilder<NoTitlesOrGenerator> {
         ActionApiThankBuilder::new()
     }
 
+    /// Sends an email to a user (`action=emailuser`).
     pub fn emailuser() -> ActionApiEmailuserBuilder<NoTitlesOrGenerator> {
         ActionApiEmailuserBuilder::new()
     }
 
+    /// Changes group memberships for a user (`action=userrights`).
     pub fn userrights() -> ActionApiUserrightsBuilder<NoTitlesOrGenerator> {
         ActionApiUserrightsBuilder::new()
     }
 
+    /// Uploads a file (`action=upload`).
     pub fn upload() -> ActionApiUploadBuilder<NoTitlesOrGenerator> {
         ActionApiUploadBuilder::new()
     }
 
+    /// Changes preferences for the current user (`action=options`).
     pub fn options() -> ActionApiOptionsBuilder<NoTitlesOrGenerator> {
         ActionApiOptionsBuilder::new()
     }
 
+    /// Merges the edit history of two pages (`action=mergehistory`).
     pub fn mergehistory() -> ActionApiMergehistoryBuilder<NoTitlesOrGenerator> {
         ActionApiMergehistoryBuilder::new()
     }
 
+    /// Fetches Wikibase claims/statements (`action=wbgetclaims`).
     pub fn wbgetclaims() -> ActionApiWbgetclaimsBuilder<NoTitlesOrGenerator> {
         ActionApiWbgetclaimsBuilder::new()
     }
 
+    /// Searches for Wikibase entities (`action=wbsearchentities`).
     pub fn wbsearchentities() -> ActionApiWbsearchentitiesBuilder<NoSearch> {
         ActionApiWbsearchentitiesBuilder::new()
     }
 
+    /// Formats a Wikibase data value (`action=wbformatvalue`).
     pub fn wbformatvalue() -> ActionApiWbformatvalueBuilder<NoValue> {
         ActionApiWbformatvalueBuilder::new()
     }
 
+    /// Parses a Wikibase data value (`action=wbparsevalue`).
     pub fn wbparsevalue() -> ActionApiWbparsevalueBuilder<NoValues> {
         ActionApiWbparsevalueBuilder::new()
     }
 
+    /// Creates or edits a Wikibase entity (`action=wbeditentity`).
     pub fn wbeditentity() -> ActionApiWbeditentityBuilder<NoTitlesOrGenerator> {
         ActionApiWbeditentityBuilder::new()
     }
 
+    /// Sets a label on a Wikibase entity (`action=wbsetlabel`).
     pub fn wbsetlabel() -> ActionApiWbsetlabelBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetlabelBuilder::new()
     }
 
+    /// Sets a description on a Wikibase entity (`action=wbsetdescription`).
     pub fn wbsetdescription() -> ActionApiWbsetdescriptionBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetdescriptionBuilder::new()
     }
 
+    /// Sets aliases on a Wikibase entity (`action=wbsetaliases`).
     pub fn wbsetaliases() -> ActionApiWbsetaliasesBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetaliasesBuilder::new()
     }
 
+    /// Merges two Wikibase items (`action=wbmergeitems`).
     pub fn wbmergeitems() -> ActionApiWbmergeitemsBuilder<NoTitlesOrGenerator> {
         ActionApiWbmergeitemsBuilder::new()
     }
 
+    /// Creates a redirect between Wikibase entities (`action=wbcreateredirect`).
     pub fn wbcreateredirect() -> ActionApiWbcreateredirectBuilder<NoTitlesOrGenerator> {
         ActionApiWbcreateredirectBuilder::new()
     }
 
+    /// Links titles from different sites on a Wikibase entity (`action=wblinktitles`).
     pub fn wblinktitles() -> ActionApiWblinktitlesBuilder<NoTitlesOrGenerator> {
         ActionApiWblinktitlesBuilder::new()
     }
 
+    /// Sets a sitelink on a Wikibase entity (`action=wbsetsitelink`).
     pub fn wbsetsitelink() -> ActionApiWbsetsitelinkBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetsitelinkBuilder::new()
     }
 
+    /// Creates a claim on a Wikibase entity (`action=wbcreateclaim`).
     pub fn wbcreateclaim() -> ActionApiWbcreateclaimBuilder<NoTitlesOrGenerator> {
         ActionApiWbcreateclaimBuilder::new()
     }
 
+    /// Removes claims from a Wikibase entity (`action=wbremoveclaims`).
     pub fn wbremoveclaims() -> ActionApiWbremoveclaimsBuilder<NoTitlesOrGenerator> {
         ActionApiWbremoveclaimsBuilder::new()
     }
 
+    /// Sets or updates a claim on a Wikibase entity (`action=wbsetclaim`).
     pub fn wbsetclaim() -> ActionApiWbsetclaimBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetclaimBuilder::new()
     }
 
+    /// Sets the value of a claim on a Wikibase entity (`action=wbsetclaimvalue`).
     pub fn wbsetclaimvalue() -> ActionApiWbsetclaimvalueBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetclaimvalueBuilder::new()
     }
 
+    /// Sets a qualifier on a Wikibase claim (`action=wbsetqualifier`).
     pub fn wbsetqualifier() -> ActionApiWbsetqualifierBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetqualifierBuilder::new()
     }
 
+    /// Removes qualifiers from a Wikibase claim (`action=wbremovequalifiers`).
     pub fn wbremovequalifiers() -> ActionApiWbremovequalifiersBuilder<NoTitlesOrGenerator> {
         ActionApiWbremovequalifiersBuilder::new()
     }
 
+    /// Sets a reference on a Wikibase claim (`action=wbsetreference`).
     pub fn wbsetreference() -> ActionApiWbsetreferenceBuilder<NoTitlesOrGenerator> {
         ActionApiWbsetreferenceBuilder::new()
     }
 
+    /// Removes references from a Wikibase claim (`action=wbremovereferences`).
     pub fn wbremovereferences() -> ActionApiWbremovereferencesBuilder<NoTitlesOrGenerator> {
         ActionApiWbremovereferencesBuilder::new()
     }
 
+    /// Logs in to the MediaWiki API (`action=login`).
     pub fn login() -> ActionApiLoginBuilder<NoTitlesOrGenerator> {
         ActionApiLoginBuilder::new()
     }
 
+    /// Logs out of the MediaWiki API (`action=logout`).
     pub fn logout() -> ActionApiLogoutBuilder<NoTitlesOrGenerator> {
         ActionApiLogoutBuilder::new()
     }
 
+    /// Performs an OpenSearch (search-suggest) query (`action=opensearch`).
     pub fn opensearch() -> ActionApiOpensearchBuilder<NoTitlesOrGenerator> {
         ActionApiOpensearchBuilder::new()
     }
 
+    /// Checks the validity of a token (`action=checktoken`).
     pub fn checktoken() -> ActionApiChecktokenBuilder<NoTitlesOrGenerator> {
         ActionApiChecktokenBuilder::new()
     }
 
+    /// Expands templates in wikitext (`action=expandtemplates`).
     pub fn expandtemplates() -> ActionApiExpandtemplatesBuilder<NoTitlesOrGenerator> {
         ActionApiExpandtemplatesBuilder::new()
     }
 
+    /// Compares two pages or revisions (`action=compare`).
     pub fn compare() -> ActionApiCompareBuilder {
         ActionApiCompareBuilder::new()
     }
 
+    /// Parses wikitext and returns HTML or other structured output (`action=parse`).
     pub fn parse() -> ActionApiParseBuilder {
         ActionApiParseBuilder::new()
     }
 }
 
+/// Entry point for `action=query` property modules (prop=…).
+///
+/// Each method returns a builder in the [`NoTitlesOrGenerator`] typestate. Set the target pages
+/// via [`ActionApiQueryCommonBuilder`] methods to advance to [`Runnable`].
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ActionApiQuery {
     _phantom: PhantomData<bool>,
 }
 
 impl ActionApiQuery {
+    /// Returns the categories a page belongs to (`prop=categories`).
     pub fn categories() -> ActionApiQueryCategoriesBuilder<NoTitlesOrGenerator> {
         ActionApiQueryCategoriesBuilder::new()
     }
 
+    /// Returns category information for category pages (`prop=categoryinfo`).
     pub fn categoryinfo() -> ActionApiQueryCategoryinfoBuilder<NoTitlesOrGenerator> {
         ActionApiQueryCategoryinfoBuilder::new()
     }
 
+    /// Returns the list of contributors to a page (`prop=contributors`).
     pub fn contributors() -> ActionApiQueryContributorsBuilder<NoTitlesOrGenerator> {
         ActionApiQueryContributorsBuilder::new()
     }
 
+    /// Returns the external links on a page (`prop=extlinks`).
     pub fn extlinks() -> ActionApiQueryExtlinksBuilder<NoTitlesOrGenerator> {
         ActionApiQueryExtlinksBuilder::new()
     }
 
+    /// Returns pages that use a given file (`prop=fileusage`).
     pub fn fileusage() -> ActionApiQueryFileusageBuilder<NoTitlesOrGenerator> {
         ActionApiQueryFileusageBuilder::new()
     }
 
+    /// Returns the images embedded on a page (`prop=images`).
     pub fn images() -> ActionApiQueryImagesBuilder<NoTitlesOrGenerator> {
         ActionApiQueryImagesBuilder::new()
     }
 
+    /// Returns basic page information (`prop=info`).
     pub fn info() -> ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
         ActionApiQueryInfoBuilder::new()
     }
 
+    /// Returns interwiki links on a page (`prop=iwlinks`).
     pub fn iwlinks() -> ActionApiQueryIwlinksBuilder<NoTitlesOrGenerator> {
         ActionApiQueryIwlinksBuilder::new()
     }
 
+    /// Returns language links (interlanguage links) on a page (`prop=langlinks`).
     pub fn langlinks() -> ActionApiQueryLanglinksBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLanglinksBuilder::new()
     }
 
+    /// Returns pages that link to a given page (`prop=linkshere`).
     pub fn linkshere() -> ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLinkshereBuilder::new()
     }
 
+    /// Returns the internal links on a page (`prop=links`).
     pub fn links() -> ActionApiQueryLinksBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLinksBuilder::new()
     }
 
+    /// Returns page properties set by parser functions or extensions (`prop=pageprops`).
     pub fn pageprops() -> ActionApiQueryPagepropsBuilder<NoTitlesOrGenerator> {
         ActionApiQueryPagepropsBuilder::new()
     }
 
+    /// Returns pages that redirect to a given page (`prop=redirects`).
     pub fn redirects() -> ActionApiQueryRedirectsBuilder<NoTitlesOrGenerator> {
         ActionApiQueryRedirectsBuilder::new()
     }
 
+    /// Returns revision information for pages (`prop=revisions`).
     pub fn revisions() -> ActionApiQueryRevisionsBuilder<NoTitlesOrGenerator> {
         ActionApiQueryRevisionsBuilder::new()
     }
 
+    /// Returns the templates transcluded on a page (`prop=templates`).
     pub fn templates() -> ActionApiQueryTemplatesBuilder<NoTitlesOrGenerator> {
         ActionApiQueryTemplatesBuilder::new()
     }
 
+    /// Returns pages that transclude a given page (`prop=transcludedin`).
     pub fn transcludedin() -> ActionApiQueryTranscludedinBuilder<NoTitlesOrGenerator> {
         ActionApiQueryTranscludedinBuilder::new()
     }
 }
 
+/// Entry point for `action=query` list modules (list=…).
+///
+/// Each method returns a fully-configured builder that implements [`ActionApiRunnable`] and
+/// optionally [`ActionApiContinuable`] for pagination.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ActionApiList {
     _phantom: PhantomData<bool>,
 }
 
 impl ActionApiList {
+    /// Lists all categories (`list=allcategories`).
     pub fn allcategories() -> ActionApiListAllcategoriesBuilder {
         ActionApiListAllcategoriesBuilder::new()
     }
 
+    /// Lists all pages in a namespace (`list=allpages`).
     pub fn allpages() -> ActionApiListAllpagesBuilder {
         ActionApiListAllpagesBuilder::new()
     }
 
+    /// Returns pages that link to a given page (`list=backlinks`).
     pub fn backlinks() -> ActionApiListBacklinksBuilder<NoTitlesOrGenerator> {
         ActionApiListBacklinksBuilder::new()
     }
 
+    /// Lists pages in a category (`list=categorymembers`).
     pub fn categorymembers() -> ActionApiListCategorymembersBuilder<NoTitlesOrGenerator> {
         ActionApiListCategorymembersBuilder::new()
     }
 
+    /// Returns pages that embed (transclude) a given page (`list=embeddedin`).
     pub fn embeddedin() -> ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         ActionApiListEmbeddedinBuilder::new()
     }
 
+    /// Returns pages that use a given image file (`list=imageusage`).
     pub fn imageusage() -> ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         ActionApiListImageusageBuilder::new()
     }
 
+    /// Lists log events (`list=logevents`).
     pub fn logevents() -> ActionApiListLogeventsBuilder {
         ActionApiListLogeventsBuilder::new()
     }
 
+    /// Performs a prefix search across page titles (`list=prefixsearch`).
     pub fn prefixsearch() -> ActionApiListPrefixsearchBuilder<NoTitlesOrGenerator> {
         ActionApiListPrefixsearchBuilder::new()
     }
 
+    /// Lists recent changes (`list=recentchanges`).
     pub fn recentchanges() -> ActionApiListRecentchangesBuilder {
         ActionApiListRecentchangesBuilder::new()
     }
 
+    /// Performs a full-text search (`list=search`).
     pub fn search() -> ActionApiListSearchBuilder<NoTitlesOrGenerator> {
         ActionApiListSearchBuilder::new()
     }
 
+    /// Lists contributions made by a user (`list=usercontribs`).
     pub fn usercontribs() -> ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         ActionApiListUsercontribsBuilder::new()
     }
 
+    /// Retrieves information about a list of users (`list=users`).
     pub fn users() -> ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         ActionApiListUsersBuilder::new()
     }

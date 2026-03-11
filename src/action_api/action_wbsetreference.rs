@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoStatement = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsetreference` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbsetreferenceData {
     statement: Option<String>,
@@ -43,6 +44,7 @@ impl ActionApiWbsetreferenceData {
     }
 }
 
+/// Builder for the `action=wbsetreference` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsetreferenceBuilder<T> {
     _phantom: PhantomData<T>,
@@ -50,41 +52,49 @@ pub struct ActionApiWbsetreferenceBuilder<T> {
 }
 
 impl<T> ActionApiWbsetreferenceBuilder<T> {
+    /// Sets the serialized snaks JSON for the reference. `snaks`
     pub fn snaks<S: AsRef<str>>(mut self, snaks: S) -> Self {
         self.data.snaks = Some(snaks.as_ref().to_string());
         self
     }
 
+    /// Sets the JSON-encoded ordering of property IDs within the reference. `snaks-order`
     pub fn snaks_order<S: AsRef<str>>(mut self, snaks_order: S) -> Self {
         self.data.snaks_order = Some(snaks_order.as_ref().to_string());
         self
     }
 
+    /// Sets the hash of an existing reference to update. `reference`
     pub fn reference<S: AsRef<str>>(mut self, reference: S) -> Self {
         self.data.reference = Some(reference.as_ref().to_string());
         self
     }
 
+    /// Sets the zero-based position of the reference within the reference list. `index`
     pub fn index(mut self, index: i64) -> Self {
         self.data.index = Some(index);
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -92,6 +102,7 @@ impl<T> ActionApiWbsetreferenceBuilder<T> {
 }
 
 impl ActionApiWbsetreferenceBuilder<NoStatement> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -99,6 +110,7 @@ impl ActionApiWbsetreferenceBuilder<NoStatement> {
         }
     }
 
+    /// Sets the GUID of the statement to which the reference belongs. `statement`
     pub fn statement<S: AsRef<str>>(
         mut self,
         statement: S,
@@ -112,6 +124,7 @@ impl ActionApiWbsetreferenceBuilder<NoStatement> {
 }
 
 impl ActionApiWbsetreferenceBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetreferenceBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetreferenceBuilder {

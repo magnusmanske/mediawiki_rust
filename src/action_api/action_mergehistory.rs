@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoSource = NoTitlesOrGenerator;
 
+/// Internal data container for `action=mergehistory` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiMergehistoryData {
     from: Option<String>,
@@ -37,6 +38,7 @@ impl ActionApiMergehistoryData {
     }
 }
 
+/// Builder for `action=mergehistory`. Call `.from()` or `.fromid()` to set the source page, then `.token()` to make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiMergehistoryBuilder<T> {
     _phantom: PhantomData<T>,
@@ -44,26 +46,31 @@ pub struct ActionApiMergehistoryBuilder<T> {
 }
 
 impl<T> ActionApiMergehistoryBuilder<T> {
+    /// Title of the destination page (`to`).
     pub fn to<S: AsRef<str>>(mut self, to: S) -> Self {
         self.data.to = Some(to.as_ref().to_string());
         self
     }
 
+    /// Page ID of the destination page (`toid`).
     pub fn toid(mut self, toid: u64) -> Self {
         self.data.toid = Some(toid);
         self
     }
 
+    /// Timestamp up to which history will be merged (`timestamp`).
     pub fn timestamp<S: AsRef<str>>(mut self, timestamp: S) -> Self {
         self.data.timestamp = Some(timestamp.as_ref().to_string());
         self
     }
 
+    /// Reason for the history merge (`reason`).
     pub fn reason<S: AsRef<str>>(mut self, reason: S) -> Self {
         self.data.reason = Some(reason.as_ref().to_string());
         self
     }
 
+    /// Timestamp used to check for edit conflicts (`starttimestamp`).
     pub fn starttimestamp<S: AsRef<str>>(mut self, starttimestamp: S) -> Self {
         self.data.starttimestamp = Some(starttimestamp.as_ref().to_string());
         self
@@ -72,6 +79,7 @@ impl<T> ActionApiMergehistoryBuilder<T> {
 }
 
 impl ActionApiMergehistoryBuilder<NoSource> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -79,6 +87,7 @@ impl ActionApiMergehistoryBuilder<NoSource> {
         }
     }
 
+    /// Title of the source page whose history will be merged (`from`).
     pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiMergehistoryBuilder<NoToken> {
         self.data.from = Some(from.as_ref().to_string());
         ActionApiMergehistoryBuilder {
@@ -87,6 +96,7 @@ impl ActionApiMergehistoryBuilder<NoSource> {
         }
     }
 
+    /// Page ID of the source page whose history will be merged (`fromid`).
     pub fn fromid(mut self, fromid: u64) -> ActionApiMergehistoryBuilder<NoToken> {
         self.data.fromid = Some(fromid);
         ActionApiMergehistoryBuilder {
@@ -97,6 +107,7 @@ impl ActionApiMergehistoryBuilder<NoSource> {
 }
 
 impl ActionApiMergehistoryBuilder<NoToken> {
+    /// CSRF token required to perform the merge (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiMergehistoryBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiMergehistoryBuilder {

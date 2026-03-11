@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=revisions` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryRevisionsData {
     common: ActionApiQueryCommonData,
@@ -51,6 +52,8 @@ impl ActionApiQueryRevisionsData {
     }
 }
 
+/// Builder for the `prop=revisions` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryRevisionsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -59,61 +62,73 @@ pub struct ActionApiQueryRevisionsBuilder<T> {
 }
 
 impl<T> ActionApiQueryRevisionsBuilder<T> {
+    /// Which properties to retrieve for each revision (`rvprop`).
     pub fn rvprop<S: Into<String> + Clone>(mut self, rvprop: &[S]) -> Self {
         self.data.rvprop = Some(rvprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Which revision slots to return data for (`rvslots`).
     pub fn rvslots<S: Into<String> + Clone>(mut self, rvslots: &[S]) -> Self {
         self.data.rvslots = Some(rvslots.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of revisions to return (`rvlimit`).
     pub fn rvlimit(mut self, rvlimit: usize) -> Self {
         self.data.rvlimit = Some(rvlimit);
         self
     }
 
+    /// Only retrieve content of the section with this identifier (`rvsection`).
     pub fn rvsection<S: AsRef<str>>(mut self, rvsection: S) -> Self {
         self.data.rvsection = Some(rvsection.as_ref().to_string());
         self
     }
 
+    /// Start enumeration from this revision ID (`rvstartid`).
     pub fn rvstartid(mut self, rvstartid: u64) -> Self {
         self.data.rvstartid = Some(rvstartid);
         self
     }
 
+    /// Stop enumeration at this revision ID (`rvendid`).
     pub fn rvendid(mut self, rvendid: u64) -> Self {
         self.data.rvendid = Some(rvendid);
         self
     }
 
+    /// Start enumeration from this timestamp (`rvstart`).
     pub fn rvstart<S: AsRef<str>>(mut self, rvstart: S) -> Self {
         self.data.rvstart = Some(rvstart.as_ref().to_string());
         self
     }
 
+    /// Stop enumeration at this timestamp (`rvend`).
     pub fn rvend<S: AsRef<str>>(mut self, rvend: S) -> Self {
         self.data.rvend = Some(rvend.as_ref().to_string());
         self
     }
 
+    /// Direction to enumerate revisions in, either `newer` or `older` (`rvdir`).
     pub fn rvdir<S: AsRef<str>>(mut self, rvdir: S) -> Self {
         self.data.rvdir = Some(rvdir.as_ref().to_string());
         self
     }
 
+    /// Only include revisions made by this user (`rvuser`).
     pub fn rvuser<S: AsRef<str>>(mut self, rvuser: S) -> Self {
         self.data.rvuser = Some(rvuser.as_ref().to_string());
         self
     }
 
+    /// Exclude revisions made by this user (`rvexcludeuser`).
     pub fn rvexcludeuser<S: AsRef<str>>(mut self, rvexcludeuser: S) -> Self {
         self.data.rvexcludeuser = Some(rvexcludeuser.as_ref().to_string());
         self
     }
 
+    /// Only include revisions tagged with this tag (`rvtag`).
     pub fn rvtag<S: AsRef<str>>(mut self, rvtag: S) -> Self {
         self.data.rvtag = Some(rvtag.as_ref().to_string());
         self

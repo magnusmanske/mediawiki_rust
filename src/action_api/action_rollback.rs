@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=rollback` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiRollbackData {
     title: Option<String>,
@@ -37,6 +38,7 @@ impl ActionApiRollbackData {
     }
 }
 
+/// Builder for the `action=rollback` API call, using a typestate pattern to enforce required fields before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiRollbackBuilder<T> {
     _phantom: PhantomData<T>,
@@ -44,31 +46,37 @@ pub struct ActionApiRollbackBuilder<T> {
 }
 
 impl<T> ActionApiRollbackBuilder<T> {
+    /// Sets the username whose edits are to be rolled back (`user`).
     pub fn user<S: AsRef<str>>(mut self, user: S) -> Self {
         self.data.user = Some(user.as_ref().to_string());
         self
     }
 
+    /// Sets the custom edit summary for the rollback (`summary`).
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets whether to mark the rollback and reverted edits as bot edits (`markbot`).
     pub fn markbot(mut self, markbot: bool) -> Self {
         self.data.markbot = markbot;
         self
     }
 
+    /// Sets the watchlist update mode for the rolled-back page (`watchlist`).
     pub fn watchlist<S: AsRef<str>>(mut self, watchlist: S) -> Self {
         self.data.watchlist = Some(watchlist.as_ref().to_string());
         self
     }
 
+    /// Sets the expiry timestamp for the watchlist entry (`watchlistexpiry`).
     pub fn watchlistexpiry<S: AsRef<str>>(mut self, watchlistexpiry: S) -> Self {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the rollback (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
@@ -77,6 +85,7 @@ impl<T> ActionApiRollbackBuilder<T> {
 }
 
 impl ActionApiRollbackBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -84,6 +93,7 @@ impl ActionApiRollbackBuilder<NoTarget> {
         }
     }
 
+    /// Sets the title of the page to roll back (`title`).
     pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiRollbackBuilder<NoToken> {
         self.data.title = Some(title.as_ref().to_string());
         ActionApiRollbackBuilder {
@@ -92,6 +102,7 @@ impl ActionApiRollbackBuilder<NoTarget> {
         }
     }
 
+    /// Sets the page ID of the page to roll back (`pageid`).
     pub fn pageid(mut self, pageid: u64) -> ActionApiRollbackBuilder<NoToken> {
         self.data.pageid = Some(pageid);
         ActionApiRollbackBuilder {
@@ -102,6 +113,7 @@ impl ActionApiRollbackBuilder<NoTarget> {
 }
 
 impl ActionApiRollbackBuilder<NoToken> {
+    /// Sets the rollback token (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiRollbackBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiRollbackBuilder {

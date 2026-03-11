@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=extlinks` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryExtlinksData {
     common: ActionApiQueryCommonData,
@@ -39,6 +40,10 @@ impl ActionApiQueryExtlinksData {
     }
 }
 
+/// Builder for the `prop=extlinks` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryExtlinksBuilder<T> {
     _phantom: PhantomData<T>,
@@ -47,16 +52,19 @@ pub struct ActionApiQueryExtlinksBuilder<T> {
 }
 
 impl<T> ActionApiQueryExtlinksBuilder<T> {
+    /// Maximum number of external links to return (`ellimit`).
     pub fn ellimit(mut self, ellimit: usize) -> Self {
         self.data.ellimit = ellimit;
         self
     }
 
+    /// Filter external links by URL protocol (e.g. `https`, `ftp`) (`elprotocol`).
     pub fn elprotocol<S: AsRef<str>>(mut self, elprotocol: S) -> Self {
         self.data.elprotocol = Some(elprotocol.as_ref().to_string());
         self
     }
 
+    /// Search string to filter external links by URL (`elquery`).
     pub fn elquery<S: AsRef<str>>(mut self, elquery: S) -> Self {
         self.data.elquery = Some(elquery.as_ref().to_string());
         self

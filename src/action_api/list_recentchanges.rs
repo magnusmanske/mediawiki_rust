@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use crate::api::NamespaceID;
 use std::collections::HashMap;
 
+/// Internal data container for `list=recentchanges` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListRecentchangesData {
     rcstart: Option<String>,
@@ -67,6 +68,7 @@ impl ActionApiListRecentchangesData {
     }
 }
 
+/// Builder for the `list=recentchanges` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListRecentchangesBuilder {
     pub(crate) data: ActionApiListRecentchangesData,
@@ -74,6 +76,7 @@ pub struct ActionApiListRecentchangesBuilder {
 }
 
 impl ActionApiListRecentchangesBuilder {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             data: ActionApiListRecentchangesData::default(),
@@ -81,66 +84,79 @@ impl ActionApiListRecentchangesBuilder {
         }
     }
 
+    /// Timestamp to start enumerating recent changes from (`rcstart`).
     pub fn rcstart<S: AsRef<str>>(mut self, rcstart: S) -> Self {
         self.data.rcstart = Some(rcstart.as_ref().to_string());
         self
     }
 
+    /// Timestamp to stop enumerating recent changes at (`rcend`).
     pub fn rcend<S: AsRef<str>>(mut self, rcend: S) -> Self {
         self.data.rcend = Some(rcend.as_ref().to_string());
         self
     }
 
+    /// Enumeration direction (`newer` or `older`) (`rcdir`).
     pub fn rcdir<S: AsRef<str>>(mut self, rcdir: S) -> Self {
         self.data.rcdir = Some(rcdir.as_ref().to_string());
         self
     }
 
+    /// Filter changes to these namespaces (`rcnamespace`).
     pub fn rcnamespace(mut self, rcnamespace: &[NamespaceID]) -> Self {
         self.data.rcnamespace = Some(rcnamespace.to_vec());
         self
     }
 
+    /// Filter changes to those made by this user (`rcuser`).
     pub fn rcuser<S: AsRef<str>>(mut self, rcuser: S) -> Self {
         self.data.rcuser = Some(rcuser.as_ref().to_string());
         self
     }
 
+    /// Exclude changes made by this user (`rcexcludeuser`).
     pub fn rcexcludeuser<S: AsRef<str>>(mut self, rcexcludeuser: S) -> Self {
         self.data.rcexcludeuser = Some(rcexcludeuser.as_ref().to_string());
         self
     }
 
+    /// Filter changes to those tagged with this tag (`rctag`).
     pub fn rctag<S: AsRef<str>>(mut self, rctag: S) -> Self {
         self.data.rctag = Some(rctag.as_ref().to_string());
         self
     }
 
+    /// Properties to retrieve for each recent change (`rcprop`).
     pub fn rcprop<S: Into<String> + Clone>(mut self, rcprop: &[S]) -> Self {
         self.data.rcprop = Some(rcprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Show only changes matching these criteria (e.g. `minor`, `bot`) (`rcshow`).
     pub fn rcshow<S: Into<String> + Clone>(mut self, rcshow: &[S]) -> Self {
         self.data.rcshow = Some(rcshow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of recent changes to return (`rclimit`).
     pub fn rclimit(mut self, rclimit: usize) -> Self {
         self.data.rclimit = rclimit;
         self
     }
 
+    /// Filter to these change types (e.g. `edit`, `new`, `log`) (`rctype`).
     pub fn rctype<S: Into<String> + Clone>(mut self, rctype: &[S]) -> Self {
         self.data.rctype = Some(rctype.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// When set, only list the most recent change for each page (`rctoponly`).
     pub fn rctoponly(mut self, rctoponly: bool) -> Self {
         self.data.rctoponly = rctoponly;
         self
     }
 
+    /// Filter changes to this specific page title (`rctitle`).
     pub fn rctitle<S: AsRef<str>>(mut self, rctitle: S) -> Self {
         self.data.rctitle = Some(rctitle.as_ref().to_string());
         self

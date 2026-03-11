@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoClaim = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsetqualifier` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbsetqualifierData {
     claim: Option<String>,
@@ -39,6 +40,7 @@ impl ActionApiWbsetqualifierData {
     }
 }
 
+/// Builder for the `action=wbsetqualifier` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsetqualifierBuilder<T> {
     _phantom: PhantomData<T>,
@@ -46,41 +48,49 @@ pub struct ActionApiWbsetqualifierBuilder<T> {
 }
 
 impl<T> ActionApiWbsetqualifierBuilder<T> {
+    /// Sets the property ID for the qualifier snak. `property`
     pub fn property<S: AsRef<str>>(mut self, property: S) -> Self {
         self.data.property = Some(property.as_ref().to_string());
         self
     }
 
+    /// Sets the type of the qualifier snak (e.g. `value`, `novalue`, `somevalue`). `snaktype`
     pub fn snaktype<S: AsRef<str>>(mut self, snaktype: S) -> Self {
         self.data.snaktype = Some(snaktype.as_ref().to_string());
         self
     }
 
+    /// Sets the serialized data value for the qualifier snak. `value`
     pub fn value<S: AsRef<str>>(mut self, value: S) -> Self {
         self.data.value = Some(value.as_ref().to_string());
         self
     }
 
+    /// Sets the hash of an existing qualifier snak to update. `snakhash`
     pub fn snakhash<S: AsRef<str>>(mut self, snakhash: S) -> Self {
         self.data.snakhash = Some(snakhash.as_ref().to_string());
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -88,6 +98,7 @@ impl<T> ActionApiWbsetqualifierBuilder<T> {
 }
 
 impl ActionApiWbsetqualifierBuilder<NoClaim> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -95,6 +106,7 @@ impl ActionApiWbsetqualifierBuilder<NoClaim> {
         }
     }
 
+    /// Sets the GUID of the claim to which the qualifier belongs. `claim`
     pub fn claim<S: AsRef<str>>(
         mut self,
         claim: S,
@@ -108,6 +120,7 @@ impl ActionApiWbsetqualifierBuilder<NoClaim> {
 }
 
 impl ActionApiWbsetqualifierBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetqualifierBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetqualifierBuilder {

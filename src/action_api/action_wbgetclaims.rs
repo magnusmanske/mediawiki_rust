@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbgetclaims` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbgetclaimsData {
     entity: Option<String>,
@@ -27,6 +28,7 @@ impl ActionApiWbgetclaimsData {
     }
 }
 
+/// Builder for the `action=wbgetclaims` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbgetclaimsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -35,16 +37,19 @@ pub struct ActionApiWbgetclaimsBuilder<T> {
 }
 
 impl<T> ActionApiWbgetclaimsBuilder<T> {
+    /// Filters the returned claims to those using this property ID. `property`
     pub fn property<S: AsRef<str>>(mut self, property: S) -> Self {
         self.data.property = Some(property.as_ref().to_string());
         self
     }
 
+    /// Filters the returned claims by rank (e.g., `normal`, `preferred`, `deprecated`). `rank`
     pub fn rank<S: AsRef<str>>(mut self, rank: S) -> Self {
         self.data.rank = Some(rank.as_ref().to_string());
         self
     }
 
+    /// Sets which additional properties to include in the response (e.g., `references`, `qualifiers`). `props`
     pub fn props<S: Into<String> + Clone>(mut self, props: &[S]) -> Self {
         self.data.props = Some(props.iter().map(|s| s.clone().into()).collect());
         self
@@ -52,6 +57,7 @@ impl<T> ActionApiWbgetclaimsBuilder<T> {
 }
 
 impl ActionApiWbgetclaimsBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -60,6 +66,7 @@ impl ActionApiWbgetclaimsBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity ID whose claims to retrieve, advancing the builder to the runnable state. `entity`
     pub fn entity<S: AsRef<str>>(mut self, entity: S) -> ActionApiWbgetclaimsBuilder<Runnable> {
         self.data.entity = Some(entity.as_ref().to_string());
         ActionApiWbgetclaimsBuilder {
@@ -69,6 +76,7 @@ impl ActionApiWbgetclaimsBuilder<NoTarget> {
         }
     }
 
+    /// Sets a specific claim GUID to retrieve, advancing the builder to the runnable state. `claim`
     pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbgetclaimsBuilder<Runnable> {
         self.data.claim = Some(claim.as_ref().to_string());
         ActionApiWbgetclaimsBuilder {

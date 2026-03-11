@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=pageprops` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryPagepropsData {
     common: ActionApiQueryCommonData,
@@ -23,6 +24,8 @@ impl ActionApiQueryPagepropsData {
     }
 }
 
+/// Builder for the `prop=pageprops` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryPagepropsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -31,6 +34,7 @@ pub struct ActionApiQueryPagepropsBuilder<T> {
 }
 
 impl<T> ActionApiQueryPagepropsBuilder<T> {
+    /// Only return these page properties; limits results to the named properties (`ppprop`).
     pub fn ppprop<S: Into<String> + Clone>(mut self, ppprop: &[S]) -> Self {
         self.data.ppprop = Some(ppprop.iter().map(|s| s.clone().into()).collect());
         self

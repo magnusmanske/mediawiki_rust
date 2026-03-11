@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=categoryinfo` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryCategoryinfoData {
     common: ActionApiQueryCommonData,
@@ -21,6 +22,10 @@ impl ActionApiQueryCategoryinfoData {
     }
 }
 
+/// Builder for the `prop=categoryinfo` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryCategoryinfoBuilder<T> {
     _phantom: PhantomData<T>,
@@ -29,6 +34,7 @@ pub struct ActionApiQueryCategoryinfoBuilder<T> {
 }
 
 impl<T> ActionApiQueryCategoryinfoBuilder<T> {
+    /// Continuation token for resuming a previous query (`cicontinue`).
     pub fn cicontinue<S: AsRef<str>>(mut self, cicontinue: S) -> Self {
         self.data.cicontinue = Some(cicontinue.as_ref().to_string());
         self

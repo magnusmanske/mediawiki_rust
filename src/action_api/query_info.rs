@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, Ac
 use std::{collections::HashMap, marker::PhantomData};
 use strum::{Display, EnumString};
 
+/// Level of detail to return for tested actions in `prop=info` (`intestactionsdetail`).
 #[derive(EnumString, Display, Debug, Clone, Copy)]
 pub enum IntestactionsDetail {
     #[strum(to_string = "boolean")]
@@ -12,6 +13,7 @@ pub enum IntestactionsDetail {
     Quick,
 }
 
+/// Style of the edit intro to display (`ineditintrostyle`).
 #[derive(EnumString, Display, Debug, Clone, Copy, Default, PartialEq)]
 pub enum IneditIntroStyle {
     #[strum(to_string = "lessframes")]
@@ -21,6 +23,7 @@ pub enum IneditIntroStyle {
     MoreFrames,
 }
 
+/// Internal data container for `prop=info` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryInfoData {
     common: ActionApiQueryCommonData,
@@ -82,6 +85,10 @@ impl ActionApiQueryInfoData {
     }
 }
 
+/// Builder for the `prop=info` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryInfoBuilder<T> {
     _phantom: PhantomData<T>,
@@ -90,21 +97,25 @@ pub struct ActionApiQueryInfoBuilder<T> {
 }
 
 impl<T> ActionApiQueryInfoBuilder<T> {
+    /// Which additional properties to retrieve for each page (`inprop`).
     pub fn inprop<S: Into<String> + Clone>(mut self, inprop: &[S]) -> Self {
         self.data.inprop = Some(inprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Title of the page used as the context when determining link CSS classes (`inlinkcontext`).
     pub fn inlinkcontext<S: AsRef<str>>(mut self, inlinkcontext: S) -> Self {
         self.data.inlinkcontext = Some(inlinkcontext.as_ref().to_string());
         self
     }
 
+    /// Test whether the current user can perform these actions on each page (`intestactions`).
     pub fn intestactions<S: Into<String> + Clone>(mut self, intestactions: &[S]) -> Self {
         self.data.intestactions = Some(intestactions.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Level of detail to return for each tested action (`intestactionsdetail`).
     pub fn intestactionsdetail(mut self, intestactionsdetail: IntestactionsDetail) -> Self {
         self.data.intestactionsdetail = Some(intestactionsdetail);
         self

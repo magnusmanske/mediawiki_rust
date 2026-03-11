@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use crate::api::NamespaceID;
 use std::collections::HashMap;
 
+/// Internal data container for `list=allpages` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllpagesData {
     apfrom: Option<String>,
@@ -71,6 +72,23 @@ impl ActionApiListAllpagesData {
     }
 }
 
+/// Builder for `list=allpages` — enumerates all pages in a namespace.
+///
+/// Implements [`ActionApiContinuable`] for pagination.
+///
+/// # Example
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use mediawiki::prelude::*;
+/// let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+/// let result = ActionApiList::allpages()
+///     .apprefix("Albert")
+///     .aplimit(5)
+///     .run(&api)
+///     .await
+///     .unwrap();
+/// # });
+/// ```
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllpagesBuilder {
     pub(crate) data: ActionApiListAllpagesData,
@@ -78,6 +96,7 @@ pub struct ActionApiListAllpagesBuilder {
 }
 
 impl ActionApiListAllpagesBuilder {
+    /// Creates a new builder with default values (namespace 0, limit 10).
     pub fn new() -> Self {
         Self {
             data: ActionApiListAllpagesData::default(),
@@ -85,71 +104,85 @@ impl ActionApiListAllpagesBuilder {
         }
     }
 
+    /// Start listing from this title (`apfrom`).
     pub fn apfrom<S: AsRef<str>>(mut self, apfrom: S) -> Self {
         self.data.apfrom = Some(apfrom.as_ref().to_string());
         self
     }
 
+    /// Stop listing at this title (`apto`).
     pub fn apto<S: AsRef<str>>(mut self, apto: S) -> Self {
         self.data.apto = Some(apto.as_ref().to_string());
         self
     }
 
+    /// List only pages whose titles start with this prefix (`apprefix`).
     pub fn apprefix<S: AsRef<str>>(mut self, apprefix: S) -> Self {
         self.data.apprefix = Some(apprefix.as_ref().to_string());
         self
     }
 
+    /// Namespace to enumerate (default `0`) (`apnamespace`).
     pub fn apnamespace(mut self, apnamespace: NamespaceID) -> Self {
         self.data.apnamespace = apnamespace;
         self
     }
 
+    /// Filter redirects: `"all"`, `"redirects"`, or `"nonredirects"` (`apfilterredir`).
     pub fn apfilterredir<S: AsRef<str>>(mut self, apfilterredir: S) -> Self {
         self.data.apfilterredir = Some(apfilterredir.as_ref().to_string());
         self
     }
 
+    /// Filter by language links: `"all"`, `"withlanglinks"`, or `"withoutlanglinks"` (`apfilterlanglinks`).
     pub fn apfilterlanglinks<S: AsRef<str>>(mut self, apfilterlanglinks: S) -> Self {
         self.data.apfilterlanglinks = Some(apfilterlanglinks.as_ref().to_string());
         self
     }
 
+    /// Only include pages with at least this many bytes (`apminsize`).
     pub fn apminsize(mut self, apminsize: u32) -> Self {
         self.data.apminsize = Some(apminsize);
         self
     }
 
+    /// Only include pages with at most this many bytes (`apmaxsize`).
     pub fn apmaxsize(mut self, apmaxsize: u32) -> Self {
         self.data.apmaxsize = Some(apmaxsize);
         self
     }
 
+    /// Filter by protection type (`apprtype`).
     pub fn apprtype<S: Into<String> + Clone>(mut self, apprtype: &[S]) -> Self {
         self.data.apprtype = Some(apprtype.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter by protection level (`apprlevel`).
     pub fn apprlevel<S: Into<String> + Clone>(mut self, apprlevel: &[S]) -> Self {
         self.data.apprlevel = Some(apprlevel.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter cascading protections: `"all"`, `"cascading"`, or `"noncascading"` (`apprfiltercascade`).
     pub fn apprfiltercascade<S: AsRef<str>>(mut self, apprfiltercascade: S) -> Self {
         self.data.apprfiltercascade = Some(apprfiltercascade.as_ref().to_string());
         self
     }
 
+    /// Filter by protection expiry: `"all"`, `"definite"`, `"indef"`, or `"indefinite"` (`apprexpiry`).
     pub fn apprexpiry<S: AsRef<str>>(mut self, apprexpiry: S) -> Self {
         self.data.apprexpiry = Some(apprexpiry.as_ref().to_string());
         self
     }
 
+    /// Maximum number of pages to return (default `10`) (`aplimit`).
     pub fn aplimit(mut self, aplimit: usize) -> Self {
         self.data.aplimit = aplimit;
         self
     }
 
+    /// Direction to list: `"ascending"` or `"descending"` (`apdir`).
     pub fn apdir<S: AsRef<str>>(mut self, apdir: S) -> Self {
         self.data.apdir = Some(apdir.as_ref().to_string());
         self

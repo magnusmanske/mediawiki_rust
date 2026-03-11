@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoToken = NoTitlesOrGenerator;
 
+/// Internal data container for `action=options` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiOptionsData {
     reset: bool,
@@ -31,6 +32,7 @@ impl ActionApiOptionsData {
     }
 }
 
+/// Builder for `action=options`. Call `.token()` to set the CSRF token and make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiOptionsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -38,31 +40,37 @@ pub struct ActionApiOptionsBuilder<T> {
 }
 
 impl<T> ActionApiOptionsBuilder<T> {
+    /// Whether to reset all preferences to their default values (`reset`).
     pub fn reset(mut self, reset: bool) -> Self {
         self.data.reset = reset;
         self
     }
 
+    /// List of types of options to reset when using `reset` (`resetkinds`).
     pub fn resetkinds<S: Into<String> + Clone>(mut self, resetkinds: &[S]) -> Self {
         self.data.resetkinds = Some(resetkinds.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// List of `name=value` pairs representing preference changes (`change`).
     pub fn change<S: Into<String> + Clone>(mut self, change: &[S]) -> Self {
         self.data.change = Some(change.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Name of the option to set (used together with `optionvalue`) (`optionname`).
     pub fn optionname<S: AsRef<str>>(mut self, optionname: S) -> Self {
         self.data.optionname = Some(optionname.as_ref().to_string());
         self
     }
 
+    /// Value of the option named by `optionname` (`optionvalue`).
     pub fn optionvalue<S: AsRef<str>>(mut self, optionvalue: S) -> Self {
         self.data.optionvalue = Some(optionvalue.as_ref().to_string());
         self
     }
 
+    /// Whether to apply option changes globally across all wikis (`global`).
     pub fn global<S: AsRef<str>>(mut self, global: S) -> Self {
         self.data.global = Some(global.as_ref().to_string());
         self
@@ -70,6 +78,7 @@ impl<T> ActionApiOptionsBuilder<T> {
 }
 
 impl ActionApiOptionsBuilder<NoToken> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -77,6 +86,7 @@ impl ActionApiOptionsBuilder<NoToken> {
         }
     }
 
+    /// CSRF token required to change preferences (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiOptionsBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiOptionsBuilder {

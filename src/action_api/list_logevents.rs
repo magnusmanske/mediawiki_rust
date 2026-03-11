@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use crate::api::NamespaceID;
 use std::collections::HashMap;
 
+/// Internal data container for `list=logevents` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListLogeventsData {
     leprop: Option<Vec<String>>,
@@ -60,6 +61,7 @@ impl ActionApiListLogeventsData {
     }
 }
 
+/// Builder for the `list=logevents` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListLogeventsBuilder {
     pub(crate) data: ActionApiListLogeventsData,
@@ -67,6 +69,7 @@ pub struct ActionApiListLogeventsBuilder {
 }
 
 impl ActionApiListLogeventsBuilder {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             data: ActionApiListLogeventsData::default(),
@@ -74,56 +77,67 @@ impl ActionApiListLogeventsBuilder {
         }
     }
 
+    /// Properties to retrieve for each log event (`leprop`).
     pub fn leprop<S: Into<String> + Clone>(mut self, leprop: &[S]) -> Self {
         self.data.leprop = Some(leprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter log events to this log type (`letype`).
     pub fn letype<S: AsRef<str>>(mut self, letype: S) -> Self {
         self.data.letype = Some(letype.as_ref().to_string());
         self
     }
 
+    /// Filter log events to this specific action (`leaction`).
     pub fn leaction<S: AsRef<str>>(mut self, leaction: S) -> Self {
         self.data.leaction = Some(leaction.as_ref().to_string());
         self
     }
 
+    /// Timestamp to start enumerating log events from (`lestart`).
     pub fn lestart<S: AsRef<str>>(mut self, lestart: S) -> Self {
         self.data.lestart = Some(lestart.as_ref().to_string());
         self
     }
 
+    /// Timestamp to stop enumerating log events at (`leend`).
     pub fn leend<S: AsRef<str>>(mut self, leend: S) -> Self {
         self.data.leend = Some(leend.as_ref().to_string());
         self
     }
 
+    /// Enumeration direction (`newer` or `older`) (`ledir`).
     pub fn ledir<S: AsRef<str>>(mut self, ledir: S) -> Self {
         self.data.ledir = Some(ledir.as_ref().to_string());
         self
     }
 
+    /// Filter log events to those performed by this user (`leuser`).
     pub fn leuser<S: AsRef<str>>(mut self, leuser: S) -> Self {
         self.data.leuser = Some(leuser.as_ref().to_string());
         self
     }
 
+    /// Filter log events to those affecting this page title (`letitle`).
     pub fn letitle<S: AsRef<str>>(mut self, letitle: S) -> Self {
         self.data.letitle = Some(letitle.as_ref().to_string());
         self
     }
 
+    /// Filter log events to those affecting pages in this namespace (`lenamespace`).
     pub fn lenamespace(mut self, lenamespace: NamespaceID) -> Self {
         self.data.lenamespace = Some(lenamespace);
         self
     }
 
+    /// Filter log events to those tagged with this tag (`letag`).
     pub fn letag<S: AsRef<str>>(mut self, letag: S) -> Self {
         self.data.letag = Some(letag.as_ref().to_string());
         self
     }
 
+    /// Maximum number of log events to return (`lelimit`).
     pub fn lelimit(mut self, lelimit: usize) -> Self {
         self.data.lelimit = lelimit;
         self

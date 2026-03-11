@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=redirects` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryRedirectsData {
     common: ActionApiQueryCommonData,
@@ -46,6 +47,8 @@ impl ActionApiQueryRedirectsData {
     }
 }
 
+/// Builder for the `prop=redirects` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryRedirectsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -54,21 +57,25 @@ pub struct ActionApiQueryRedirectsBuilder<T> {
 }
 
 impl<T> ActionApiQueryRedirectsBuilder<T> {
+    /// Which properties to retrieve for each redirect (`rdprop`).
     pub fn rdprop<S: Into<String> + Clone>(mut self, rdprop: &[S]) -> Self {
         self.data.rdprop = Some(rdprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Only include redirects from pages in these namespaces (`rdnamespace`).
     pub fn rdnamespace(mut self, rdnamespace: &[NamespaceID]) -> Self {
         self.data.rdnamespace = Some(rdnamespace.to_vec());
         self
     }
 
+    /// Filter redirects to show only those matching these criteria, e.g. `fragment` or `!fragment` (`rdshow`).
     pub fn rdshow<S: Into<String> + Clone>(mut self, rdshow: &[S]) -> Self {
         self.data.rdshow = Some(rdshow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of redirects to return (`rdlimit`).
     pub fn rdlimit(mut self, rdlimit: usize) -> Self {
         self.data.rdlimit = rdlimit;
         self

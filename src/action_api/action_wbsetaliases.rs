@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsetaliases` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbsetaliasesData {
     id: Option<String>,
@@ -43,6 +44,7 @@ impl ActionApiWbsetaliasesData {
     }
 }
 
+/// Builder for the `action=wbsetaliases` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsetaliasesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -50,41 +52,49 @@ pub struct ActionApiWbsetaliasesBuilder<T> {
 }
 
 impl<T> ActionApiWbsetaliasesBuilder<T> {
+    /// Sets the language for which to modify aliases. `language`
     pub fn language<S: AsRef<str>>(mut self, language: S) -> Self {
         self.data.language = Some(language.as_ref().to_string());
         self
     }
 
+    /// Sets aliases to add to the existing list. `add`
     pub fn add<S: Into<String> + Clone>(mut self, add: &[S]) -> Self {
         self.data.add = Some(add.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets aliases to remove from the existing list. `remove`
     pub fn remove<S: Into<String> + Clone>(mut self, remove: &[S]) -> Self {
         self.data.remove = Some(remove.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Replaces all existing aliases with the given list. `set`
     pub fn set_aliases<S: Into<String> + Clone>(mut self, set: &[S]) -> Self {
         self.data.set = Some(set.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -92,6 +102,7 @@ impl<T> ActionApiWbsetaliasesBuilder<T> {
 }
 
 impl ActionApiWbsetaliasesBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -99,6 +110,7 @@ impl ActionApiWbsetaliasesBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity ID to modify. `id`
     pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetaliasesBuilder<NoToken> {
         self.data.id = Some(id.as_ref().to_string());
         ActionApiWbsetaliasesBuilder {
@@ -107,6 +119,7 @@ impl ActionApiWbsetaliasesBuilder<NoTarget> {
         }
     }
 
+    /// Sets the site and title to identify the entity to modify. `site`, `title`
     pub fn site_title<S: AsRef<str>>(
         mut self,
         site: S,
@@ -122,6 +135,7 @@ impl ActionApiWbsetaliasesBuilder<NoTarget> {
 }
 
 impl ActionApiWbsetaliasesBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetaliasesBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetaliasesBuilder {

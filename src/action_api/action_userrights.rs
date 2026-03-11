@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=userrights` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiUserrightsData {
     user: Option<String>,
@@ -39,6 +40,7 @@ impl ActionApiUserrightsData {
     }
 }
 
+/// Builder for the `action=userrights` API call, using a typestate pattern to enforce required fields before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiUserrightsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -46,36 +48,43 @@ pub struct ActionApiUserrightsBuilder<T> {
 }
 
 impl<T> ActionApiUserrightsBuilder<T> {
+    /// Sets the list of groups to add the user to (`add`).
     pub fn add<S: Into<String> + Clone>(mut self, add: &[S]) -> Self {
         self.data.add = Some(add.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the expiry timestamps for the groups being added (`expiry`).
     pub fn expiry<S: Into<String> + Clone>(mut self, expiry: &[S]) -> Self {
         self.data.expiry = Some(expiry.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the list of groups to remove the user from (`remove`).
     pub fn remove<S: Into<String> + Clone>(mut self, remove: &[S]) -> Self {
         self.data.remove = Some(remove.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the reason for the rights change (`reason`).
     pub fn reason<S: AsRef<str>>(mut self, reason: S) -> Self {
         self.data.reason = Some(reason.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the userrights log entry (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets whether to watch the user's talk page (`watchuser`).
     pub fn watchuser(mut self, watchuser: bool) -> Self {
         self.data.watchuser = watchuser;
         self
     }
 
+    /// Sets the expiry timestamp for the watchlist entry on the user's talk page (`watchlistexpiry`).
     pub fn watchlistexpiry<S: AsRef<str>>(mut self, watchlistexpiry: S) -> Self {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
@@ -83,6 +92,7 @@ impl<T> ActionApiUserrightsBuilder<T> {
 }
 
 impl ActionApiUserrightsBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -90,6 +100,7 @@ impl ActionApiUserrightsBuilder<NoTarget> {
         }
     }
 
+    /// Sets the username whose rights are to be changed (`user`).
     pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiUserrightsBuilder<NoToken> {
         self.data.user = Some(user.as_ref().to_string());
         ActionApiUserrightsBuilder {
@@ -98,6 +109,7 @@ impl ActionApiUserrightsBuilder<NoTarget> {
         }
     }
 
+    /// Sets the user ID whose rights are to be changed (`userid`).
     pub fn userid(mut self, userid: u64) -> ActionApiUserrightsBuilder<NoToken> {
         self.data.userid = Some(userid);
         ActionApiUserrightsBuilder {
@@ -108,6 +120,7 @@ impl ActionApiUserrightsBuilder<NoTarget> {
 }
 
 impl ActionApiUserrightsBuilder<NoToken> {
+    /// Sets the userrights token (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiUserrightsBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiUserrightsBuilder {

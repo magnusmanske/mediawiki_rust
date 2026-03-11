@@ -1,6 +1,7 @@
 use super::{ActionApiData, ActionApiRunnable};
 use std::collections::HashMap;
 
+/// Internal data container for `action=parse` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiParseData {
     title: Option<String>,
@@ -69,113 +70,135 @@ impl ActionApiParseData {
     }
 }
 
+/// Builder for `action=parse`. Set the content source via `.page()`, `.text()`, `.pageid()`, or `.oldid()`, then call `.run()`.
 #[derive(Debug, Clone)]
 pub struct ActionApiParseBuilder {
     pub(crate) data: ActionApiParseData,
 }
 
 impl ActionApiParseBuilder {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             data: ActionApiParseData::default(),
         }
     }
 
+    /// Title of the page to use as context when parsing wikitext supplied via `text` (`title`).
     pub fn title<S: AsRef<str>>(mut self, title: S) -> Self {
         self.data.title = Some(title.as_ref().to_string());
         self
     }
 
+    /// Wikitext to parse (`text`).
     pub fn text<S: AsRef<str>>(mut self, text: S) -> Self {
         self.data.text = Some(text.as_ref().to_string());
         self
     }
 
+    /// Revision ID to use for `{{REVISIONID}}` and similar magic words (`revid`).
     pub fn revid(mut self, revid: u64) -> Self {
         self.data.revid = Some(revid);
         self
     }
 
+    /// Edit summary to parse (`summary`).
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Title of the existing wiki page to parse (`page`).
     pub fn page<S: AsRef<str>>(mut self, page: S) -> Self {
         self.data.page = Some(page.as_ref().to_string());
         self
     }
 
+    /// Page ID of the existing wiki page to parse (`pageid`).
     pub fn pageid(mut self, pageid: u64) -> Self {
         self.data.pageid = Some(pageid);
         self
     }
 
+    /// Whether to automatically resolve redirects when using `page` or `pageid` (`redirects`).
     pub fn redirects(mut self, redirects: bool) -> Self {
         self.data.redirects = redirects;
         self
     }
 
+    /// Revision ID of the specific revision to parse (`oldid`).
     pub fn oldid(mut self, oldid: u64) -> Self {
         self.data.oldid = Some(oldid);
         self
     }
 
+    /// List of output properties to include in the parse response (`prop`).
     pub fn prop<S: Into<String> + Clone>(mut self, prop: &[S]) -> Self {
         self.data.prop = Some(prop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// CSS class to wrap parsed output in (`wrapoutputclass`).
     pub fn wrapoutputclass<S: AsRef<str>>(mut self, wrapoutputclass: S) -> Self {
         self.data.wrapoutputclass = Some(wrapoutputclass.as_ref().to_string());
         self
     }
 
+    /// Whether to apply pre-save transform (expand templates etc.) before parsing (`pst`).
     pub fn pst(mut self, pst: bool) -> Self {
         self.data.pst = pst;
         self
     }
 
+    /// Section number or `"new"` to parse only that section (`section`).
     pub fn section<S: AsRef<str>>(mut self, section: S) -> Self {
         self.data.section = Some(section.as_ref().to_string());
         self
     }
 
+    /// Whether to omit the parser limit report from the output (`disablelimitreport`).
     pub fn disablelimitreport(mut self, disablelimitreport: bool) -> Self {
         self.data.disablelimitreport = disablelimitreport;
         self
     }
 
+    /// Whether to omit section-edit links from the parsed output (`disableeditsection`).
     pub fn disableeditsection(mut self, disableeditsection: bool) -> Self {
         self.data.disableeditsection = disableeditsection;
         self
     }
 
+    /// Whether to omit the table of contents from the parsed output (`disabletoc`).
     pub fn disabletoc(mut self, disabletoc: bool) -> Self {
         self.data.disabletoc = disabletoc;
         self
     }
 
+    /// Whether to parse in preview mode (`preview`).
     pub fn preview(mut self, preview: bool) -> Self {
         self.data.preview = preview;
         self
     }
 
+    /// Skin to apply to the parsed output (`useskin`).
     pub fn useskin<S: AsRef<str>>(mut self, useskin: S) -> Self {
         self.data.useskin = Some(useskin.as_ref().to_string());
         self
     }
 
+    /// Content serialization format of the input text, e.g. `"text/x-wiki"` (`contentformat`).
     pub fn contentformat<S: AsRef<str>>(mut self, contentformat: S) -> Self {
         self.data.contentformat = Some(contentformat.as_ref().to_string());
         self
     }
 
+    /// Content model of the input text, e.g. `"wikitext"` (`contentmodel`).
     pub fn contentmodel<S: AsRef<str>>(mut self, contentmodel: S) -> Self {
         self.data.contentmodel = Some(contentmodel.as_ref().to_string());
         self
     }
 
+    /// Whether to transform the parsed output for mobile display (`mobileformat`).
     pub fn mobileformat(mut self, mobileformat: bool) -> Self {
         self.data.mobileformat = mobileformat;
         self

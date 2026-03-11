@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbcreateclaim` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbcreateclaimData {
     entity: Option<String>,
@@ -37,6 +38,7 @@ impl ActionApiWbcreateclaimData {
     }
 }
 
+/// Builder for the `action=wbcreateclaim` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbcreateclaimBuilder<T> {
     _phantom: PhantomData<T>,
@@ -44,36 +46,43 @@ pub struct ActionApiWbcreateclaimBuilder<T> {
 }
 
 impl<T> ActionApiWbcreateclaimBuilder<T> {
+    /// Sets the snak type for the claim. `snaktype`
     pub fn snaktype<S: AsRef<str>>(mut self, snaktype: S) -> Self {
         self.data.snaktype = Some(snaktype.as_ref().to_string());
         self
     }
 
+    /// Sets the property ID for the claim. `property`
     pub fn property<S: AsRef<str>>(mut self, property: S) -> Self {
         self.data.property = Some(property.as_ref().to_string());
         self
     }
 
+    /// Sets the value of the snak as a JSON-encoded string. `value`
     pub fn value<S: AsRef<str>>(mut self, value: S) -> Self {
         self.data.value = Some(value.as_ref().to_string());
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -81,6 +90,7 @@ impl<T> ActionApiWbcreateclaimBuilder<T> {
 }
 
 impl ActionApiWbcreateclaimBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -88,6 +98,7 @@ impl ActionApiWbcreateclaimBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity ID on which to create the claim, advancing the builder state. `entity`
     pub fn entity<S: AsRef<str>>(mut self, entity: S) -> ActionApiWbcreateclaimBuilder<NoToken> {
         self.data.entity = Some(entity.as_ref().to_string());
         ActionApiWbcreateclaimBuilder {
@@ -98,6 +109,7 @@ impl ActionApiWbcreateclaimBuilder<NoTarget> {
 }
 
 impl ActionApiWbcreateclaimBuilder<NoToken> {
+    /// Sets the CSRF token, advancing the builder to the runnable state. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbcreateclaimBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbcreateclaimBuilder {

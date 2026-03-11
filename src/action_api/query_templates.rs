@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=templates` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryTemplatesData {
     common: ActionApiQueryCommonData,
@@ -46,6 +47,8 @@ impl ActionApiQueryTemplatesData {
     }
 }
 
+/// Builder for the `prop=templates` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryTemplatesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -54,21 +57,25 @@ pub struct ActionApiQueryTemplatesBuilder<T> {
 }
 
 impl<T> ActionApiQueryTemplatesBuilder<T> {
+    /// Filter templates to only those in the given namespaces (`tlnamespace`).
     pub fn tlnamespace(mut self, tlnamespace: &[NamespaceID]) -> Self {
         self.data.tlnamespace = Some(tlnamespace.to_vec());
         self
     }
 
+    /// Maximum number of templates to return (`tllimit`).
     pub fn tllimit(mut self, tllimit: usize) -> Self {
         self.data.tllimit = tllimit;
         self
     }
 
+    /// Only list these specific templates (`tltemplates`).
     pub fn tltemplates<S: Into<String> + Clone>(mut self, tltemplates: &[S]) -> Self {
         self.data.tltemplates = Some(tltemplates.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Direction to list templates in, either `ascending` or `descending` (`tldir`).
     pub fn tldir<S: AsRef<str>>(mut self, tldir: S) -> Self {
         self.data.tldir = Some(tldir.as_ref().to_string());
         self

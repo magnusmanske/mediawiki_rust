@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=links` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLinksData {
     common: ActionApiQueryCommonData,
@@ -46,6 +47,8 @@ impl ActionApiQueryLinksData {
     }
 }
 
+/// Builder for the `prop=links` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLinksBuilder<T> {
     _phantom: PhantomData<T>,
@@ -54,21 +57,25 @@ pub struct ActionApiQueryLinksBuilder<T> {
 }
 
 impl<T> ActionApiQueryLinksBuilder<T> {
+    /// Filter links to only those in the given namespaces (`plnamespace`).
     pub fn plnamespace(mut self, plnamespace: &[NamespaceID]) -> Self {
         self.data.plnamespace = Some(plnamespace.to_vec());
         self
     }
 
+    /// Maximum number of links to return (`pllimit`).
     pub fn pllimit(mut self, pllimit: usize) -> Self {
         self.data.pllimit = pllimit;
         self
     }
 
+    /// Only list links to these specific titles (`pltitles`).
     pub fn pltitles<S: Into<String> + Clone>(mut self, pltitles: &[S]) -> Self {
         self.data.pltitles = Some(pltitles.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Direction to list links in, either `ascending` or `descending` (`pldir`).
     pub fn pldir<S: AsRef<str>>(mut self, pldir: S) -> Self {
         self.data.pldir = Some(pldir.as_ref().to_string());
         self

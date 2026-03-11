@@ -8,6 +8,7 @@ use crate::{
     api::NamespaceID,
 };
 
+/// Internal data container for `prop=linkshere` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLinkshereData {
     common: ActionApiQueryCommonData,
@@ -49,6 +50,8 @@ impl ActionApiQueryLinkshereData {
     }
 }
 
+/// Builder for the `prop=linkshere` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLinkshereBuilder<T> {
     _phantom: PhantomData<T>,
@@ -65,6 +68,7 @@ impl ActionApiGenerator for ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> 
 }
 
 impl<T> ActionApiQueryLinkshereBuilder<T> {
+    /// Which properties to retrieve for each linking page (`lhprop`).
     pub fn lhprop<S: Into<String> + Clone>(mut self, lhprop: &[S]) -> Self {
         self.data.lhprop = Some(
             lhprop
@@ -75,11 +79,13 @@ impl<T> ActionApiQueryLinkshereBuilder<T> {
         self
     }
 
+    /// Only include pages in the given namespaces (`lhnamespace`).
     pub fn lhnamespace(mut self, lhnamespace: &[NamespaceID]) -> Self {
         self.data.lhnamespace = Some(lhnamespace.to_vec());
         self
     }
 
+    /// Filter results to show only pages matching these criteria, e.g. `redirect` or `!redirect` (`lhshow`).
     pub fn lhshow<S: Into<String> + Clone>(mut self, lhshow: &[S]) -> Self {
         self.data.lhshow = Some(
             lhshow
@@ -90,6 +96,7 @@ impl<T> ActionApiQueryLinkshereBuilder<T> {
         self
     }
 
+    /// Maximum number of linking pages to return (`lhlimit`).
     pub fn lhlimit(mut self, lhlimit: usize) -> Self {
         self.data.lhlimit = lhlimit;
         self

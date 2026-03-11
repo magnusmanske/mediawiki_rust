@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wblinktitles` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWblinktitlesData {
     tosite: Option<String>,
@@ -29,6 +30,7 @@ impl ActionApiWblinktitlesData {
     }
 }
 
+/// Builder for the `action=wblinktitles` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWblinktitlesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -36,26 +38,31 @@ pub struct ActionApiWblinktitlesBuilder<T> {
 }
 
 impl<T> ActionApiWblinktitlesBuilder<T> {
+    /// Sets the site ID of the target page. `tosite`
     pub fn tosite<S: AsRef<str>>(mut self, tosite: S) -> Self {
         self.data.tosite = Some(tosite.as_ref().to_string());
         self
     }
 
+    /// Sets the title of the target page. `totitle`
     pub fn totitle<S: AsRef<str>>(mut self, totitle: S) -> Self {
         self.data.totitle = Some(totitle.as_ref().to_string());
         self
     }
 
+    /// Sets the site ID of the source page. `fromsite`
     pub fn fromsite<S: AsRef<str>>(mut self, fromsite: S) -> Self {
         self.data.fromsite = Some(fromsite.as_ref().to_string());
         self
     }
 
+    /// Sets the title of the source page. `fromtitle`
     pub fn fromtitle<S: AsRef<str>>(mut self, fromtitle: S) -> Self {
         self.data.fromtitle = Some(fromtitle.as_ref().to_string());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -63,6 +70,7 @@ impl<T> ActionApiWblinktitlesBuilder<T> {
 }
 
 impl ActionApiWblinktitlesBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -70,6 +78,7 @@ impl ActionApiWblinktitlesBuilder<NoTarget> {
         }
     }
 
+    /// Sets all four site-link parameters at once, advancing the builder state. `tosite`, `totitle`, `fromsite`, `fromtitle`
     pub fn link<S: AsRef<str>>(
         mut self,
         tosite: S,
@@ -89,6 +98,7 @@ impl ActionApiWblinktitlesBuilder<NoTarget> {
 }
 
 impl ActionApiWblinktitlesBuilder<NoToken> {
+    /// Sets the CSRF token, advancing the builder to the runnable state. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWblinktitlesBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWblinktitlesBuilder {

@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsetlabel` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbsetlabelData {
     id: Option<String>,
@@ -39,6 +40,7 @@ impl ActionApiWbsetlabelData {
     }
 }
 
+/// Builder for the `action=wbsetlabel` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsetlabelBuilder<T> {
     _phantom: PhantomData<T>,
@@ -46,31 +48,37 @@ pub struct ActionApiWbsetlabelBuilder<T> {
 }
 
 impl<T> ActionApiWbsetlabelBuilder<T> {
+    /// Sets the language for which to set the label. `language`
     pub fn language<S: AsRef<str>>(mut self, language: S) -> Self {
         self.data.language = Some(language.as_ref().to_string());
         self
     }
 
+    /// Sets the label text to assign. `value`
     pub fn value<S: AsRef<str>>(mut self, value: S) -> Self {
         self.data.value = Some(value.as_ref().to_string());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -78,6 +86,7 @@ impl<T> ActionApiWbsetlabelBuilder<T> {
 }
 
 impl ActionApiWbsetlabelBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -85,6 +94,7 @@ impl ActionApiWbsetlabelBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity ID to modify. `id`
     pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetlabelBuilder<NoToken> {
         self.data.id = Some(id.as_ref().to_string());
         ActionApiWbsetlabelBuilder {
@@ -93,6 +103,7 @@ impl ActionApiWbsetlabelBuilder<NoTarget> {
         }
     }
 
+    /// Sets the site and title to identify the entity to modify. `site`, `title`
     pub fn site_title<S: AsRef<str>>(
         mut self,
         site: S,
@@ -108,6 +119,7 @@ impl ActionApiWbsetlabelBuilder<NoTarget> {
 }
 
 impl ActionApiWbsetlabelBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetlabelBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetlabelBuilder {

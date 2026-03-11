@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoClaim = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsetclaim` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbsetclaimData {
     claim: Option<String>,
@@ -41,6 +42,7 @@ impl ActionApiWbsetclaimData {
     }
 }
 
+/// Builder for the `action=wbsetclaim` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsetclaimBuilder<T> {
     _phantom: PhantomData<T>,
@@ -48,31 +50,37 @@ pub struct ActionApiWbsetclaimBuilder<T> {
 }
 
 impl<T> ActionApiWbsetclaimBuilder<T> {
+    /// Sets the zero-based position of the claim within the statement list. `index`
     pub fn index(mut self, index: i64) -> Self {
         self.data.index = Some(index);
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
     }
 
+    /// When set, silently ignores duplicate main snaks instead of raising an error. `ignoreduplicatemainsnak`
     pub fn ignoreduplicatemainsnak(mut self, ignoreduplicatemainsnak: bool) -> Self {
         self.data.ignoreduplicatemainsnak = ignoreduplicatemainsnak;
         self
@@ -80,6 +88,7 @@ impl<T> ActionApiWbsetclaimBuilder<T> {
 }
 
 impl ActionApiWbsetclaimBuilder<NoClaim> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -87,6 +96,7 @@ impl ActionApiWbsetclaimBuilder<NoClaim> {
         }
     }
 
+    /// Sets the claim data as a serialized JSON object. `claim`
     pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbsetclaimBuilder<NoToken> {
         self.data.claim = Some(claim.as_ref().to_string());
         ActionApiWbsetclaimBuilder {
@@ -97,6 +107,7 @@ impl ActionApiWbsetclaimBuilder<NoClaim> {
 }
 
 impl ActionApiWbsetclaimBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetclaimBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetclaimBuilder {

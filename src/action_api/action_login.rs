@@ -4,6 +4,7 @@ use std::{collections::HashMap, marker::PhantomData};
 /// State: lgtoken not yet set
 pub(crate) type NoToken = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=login` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiLoginData {
     lgname: Option<String>,
@@ -26,6 +27,7 @@ impl ActionApiLoginData {
     }
 }
 
+/// Builder for `action=login`. Call `.lgtoken()` to supply the login token and make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiLoginBuilder<T> {
     _phantom: PhantomData<T>,
@@ -33,16 +35,19 @@ pub struct ActionApiLoginBuilder<T> {
 }
 
 impl<T> ActionApiLoginBuilder<T> {
+    /// Username to log in with (`lgname`).
     pub fn lgname<S: AsRef<str>>(mut self, lgname: S) -> Self {
         self.data.lgname = Some(lgname.as_ref().to_string());
         self
     }
 
+    /// Password to log in with (`lgpassword`).
     pub fn lgpassword<S: AsRef<str>>(mut self, lgpassword: S) -> Self {
         self.data.lgpassword = Some(lgpassword.as_ref().to_string());
         self
     }
 
+    /// Domain for external authentication (`lgdomain`).
     pub fn lgdomain<S: AsRef<str>>(mut self, lgdomain: S) -> Self {
         self.data.lgdomain = Some(lgdomain.as_ref().to_string());
         self
@@ -50,6 +55,7 @@ impl<T> ActionApiLoginBuilder<T> {
 }
 
 impl ActionApiLoginBuilder<NoToken> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -57,6 +63,7 @@ impl ActionApiLoginBuilder<NoToken> {
         }
     }
 
+    /// Login token obtained from `action=query&meta=tokens` (`lgtoken`).
     pub fn lgtoken<S: AsRef<str>>(mut self, lgtoken: S) -> ActionApiLoginBuilder<Runnable> {
         self.data.lgtoken = Some(lgtoken.as_ref().to_string());
         ActionApiLoginBuilder {

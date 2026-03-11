@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGe
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=prefixsearch` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListPrefixsearchData {
     pssearch: Option<String>,
@@ -41,6 +42,7 @@ impl ActionApiListPrefixsearchData {
     }
 }
 
+/// Builder for the `list=prefixsearch` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListPrefixsearchBuilder<T> {
     _phantom: PhantomData<T>,
@@ -49,16 +51,19 @@ pub struct ActionApiListPrefixsearchBuilder<T> {
 }
 
 impl<T> ActionApiListPrefixsearchBuilder<T> {
+    /// Filter results to pages in these namespaces (`psnamespace`).
     pub fn psnamespace(mut self, psnamespace: &[NamespaceID]) -> Self {
         self.data.psnamespace = Some(psnamespace.to_vec());
         self
     }
 
+    /// Maximum number of results to return (`pslimit`).
     pub fn pslimit(mut self, pslimit: usize) -> Self {
         self.data.pslimit = pslimit;
         self
     }
 
+    /// Number of results to skip before returning (`psoffset`).
     pub fn psoffset(mut self, psoffset: usize) -> Self {
         self.data.psoffset = psoffset;
         self
@@ -66,6 +71,7 @@ impl<T> ActionApiListPrefixsearchBuilder<T> {
 }
 
 impl ActionApiListPrefixsearchBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -74,6 +80,7 @@ impl ActionApiListPrefixsearchBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Search string to find pages whose title starts with this prefix (`pssearch`).
     pub fn pssearch<S: AsRef<str>>(
         mut self,
         pssearch: S,

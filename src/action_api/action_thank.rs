@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=thank` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiThankData {
     rev: Option<u64>,
@@ -29,6 +30,7 @@ impl ActionApiThankData {
     }
 }
 
+/// Builder for the `action=thank` API call, using a typestate pattern to enforce required fields before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiThankBuilder<T> {
     _phantom: PhantomData<T>,
@@ -36,6 +38,7 @@ pub struct ActionApiThankBuilder<T> {
 }
 
 impl<T> ActionApiThankBuilder<T> {
+    /// Sets the source of the thank action, e.g. `"diff"` (`source`).
     pub fn source<S: AsRef<str>>(mut self, source: S) -> Self {
         self.data.source = Some(source.as_ref().to_string());
         self
@@ -43,6 +46,7 @@ impl<T> ActionApiThankBuilder<T> {
 }
 
 impl ActionApiThankBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -50,6 +54,7 @@ impl ActionApiThankBuilder<NoTarget> {
         }
     }
 
+    /// Sets the revision ID to thank the editor of (`rev`).
     pub fn rev(mut self, rev: u64) -> ActionApiThankBuilder<NoToken> {
         self.data.rev = Some(rev);
         ActionApiThankBuilder {
@@ -58,6 +63,7 @@ impl ActionApiThankBuilder<NoTarget> {
         }
     }
 
+    /// Sets the log entry ID to thank the performer of (`log`).
     pub fn log(mut self, log: u64) -> ActionApiThankBuilder<NoToken> {
         self.data.log = Some(log);
         ActionApiThankBuilder {
@@ -68,6 +74,7 @@ impl ActionApiThankBuilder<NoTarget> {
 }
 
 impl ActionApiThankBuilder<NoToken> {
+    /// Sets the CSRF token (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiThankBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiThankBuilder {

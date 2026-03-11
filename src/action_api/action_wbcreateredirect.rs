@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoSource = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbcreateredirect` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbcreateredirectData {
     from: Option<String>,
@@ -25,6 +26,7 @@ impl ActionApiWbcreateredirectData {
     }
 }
 
+/// Builder for the `action=wbcreateredirect` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbcreateredirectBuilder<T> {
     _phantom: PhantomData<T>,
@@ -32,11 +34,13 @@ pub struct ActionApiWbcreateredirectBuilder<T> {
 }
 
 impl<T> ActionApiWbcreateredirectBuilder<T> {
+    /// Sets the target entity ID for the redirect. `to`
     pub fn to<S: AsRef<str>>(mut self, to: S) -> Self {
         self.data.to = Some(to.as_ref().to_string());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -44,6 +48,7 @@ impl<T> ActionApiWbcreateredirectBuilder<T> {
 }
 
 impl ActionApiWbcreateredirectBuilder<NoSource> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -51,6 +56,7 @@ impl ActionApiWbcreateredirectBuilder<NoSource> {
         }
     }
 
+    /// Sets the source entity ID to be redirected, advancing the builder state. `from`
     pub fn from<S: AsRef<str>>(
         mut self,
         from: S,
@@ -64,6 +70,7 @@ impl ActionApiWbcreateredirectBuilder<NoSource> {
 }
 
 impl ActionApiWbcreateredirectBuilder<NoToken> {
+    /// Sets the CSRF token, advancing the builder to the runnable state. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbcreateredirectBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbcreateredirectBuilder {

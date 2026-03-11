@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGe
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=usercontribs` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListUsercontribsData {
     ucuser: Option<Vec<String>>,
@@ -67,6 +68,7 @@ impl ActionApiListUsercontribsData {
     }
 }
 
+/// Builder for the `list=usercontribs` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListUsercontribsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -75,41 +77,49 @@ pub struct ActionApiListUsercontribsBuilder<T> {
 }
 
 impl<T> ActionApiListUsercontribsBuilder<T> {
+    /// Maximum number of contributions to return (`uclimit`).
     pub fn uclimit(mut self, uclimit: usize) -> Self {
         self.data.uclimit = uclimit;
         self
     }
 
+    /// Timestamp to start enumerating contributions from (`ucstart`).
     pub fn ucstart<S: AsRef<str>>(mut self, ucstart: S) -> Self {
         self.data.ucstart = Some(ucstart.as_ref().to_string());
         self
     }
 
+    /// Timestamp to stop enumerating contributions at (`ucend`).
     pub fn ucend<S: AsRef<str>>(mut self, ucend: S) -> Self {
         self.data.ucend = Some(ucend.as_ref().to_string());
         self
     }
 
+    /// Enumeration direction (`newer` or `older`) (`ucdir`).
     pub fn ucdir<S: AsRef<str>>(mut self, ucdir: S) -> Self {
         self.data.ucdir = Some(ucdir.as_ref().to_string());
         self
     }
 
+    /// Filter contributions to these namespaces (`ucnamespace`).
     pub fn ucnamespace(mut self, ucnamespace: &[NamespaceID]) -> Self {
         self.data.ucnamespace = Some(ucnamespace.to_vec());
         self
     }
 
+    /// Properties to retrieve for each contribution (`ucprop`).
     pub fn ucprop<S: Into<String> + Clone>(mut self, ucprop: &[S]) -> Self {
         self.data.ucprop = Some(ucprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Show only contributions matching these criteria (e.g. `minor`, `top`) (`ucshow`).
     pub fn ucshow<S: Into<String> + Clone>(mut self, ucshow: &[S]) -> Self {
         self.data.ucshow = Some(ucshow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter contributions to those tagged with this tag (`uctag`).
     pub fn uctag<S: AsRef<str>>(mut self, uctag: S) -> Self {
         self.data.uctag = Some(uctag.as_ref().to_string());
         self
@@ -117,6 +127,7 @@ impl<T> ActionApiListUsercontribsBuilder<T> {
 }
 
 impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -125,6 +136,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// One or more usernames whose contributions to retrieve (`ucuser`).
     pub fn ucuser<S: Into<String> + Clone>(
         mut self,
         ucuser: &[S],
@@ -137,6 +149,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// One or more user IDs whose contributions to retrieve (`ucuserids`).
     pub fn ucuserids(
         mut self,
         ucuserids: &[u64],
@@ -149,6 +162,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Retrieve contributions for all users whose name starts with this prefix (`ucuserprefix`).
     pub fn ucuserprefix<S: AsRef<str>>(
         mut self,
         ucuserprefix: S,
@@ -161,6 +175,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Retrieve contributions from all IP addresses in this CIDR range (`uciprange`).
     pub fn uciprange<S: AsRef<str>>(
         mut self,
         uciprange: S,

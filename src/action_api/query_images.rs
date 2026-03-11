@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=images` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryImagesData {
     common: ActionApiQueryCommonData,
@@ -39,6 +40,10 @@ impl ActionApiQueryImagesData {
     }
 }
 
+/// Builder for the `prop=images` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryImagesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -47,16 +52,19 @@ pub struct ActionApiQueryImagesBuilder<T> {
 }
 
 impl<T> ActionApiQueryImagesBuilder<T> {
+    /// Maximum number of images to return (`imlimit`).
     pub fn imlimit(mut self, imlimit: usize) -> Self {
         self.data.imlimit = imlimit;
         self
     }
 
+    /// Only list these images (useful for checking if a page uses certain files) (`imimages`).
     pub fn imimages<S: Into<String> + Clone>(mut self, imimages: &[S]) -> Self {
         self.data.imimages = Some(imimages.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Direction to list images in (`ascending` or `descending`) (`imdir`).
     pub fn imdir<S: AsRef<str>>(mut self, imdir: S) -> Self {
         self.data.imdir = Some(imdir.as_ref().to_string());
         self

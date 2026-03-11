@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=contributors` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryContributorsData {
     common: ActionApiQueryCommonData,
@@ -45,6 +46,10 @@ impl ActionApiQueryContributorsData {
     }
 }
 
+/// Builder for the `prop=contributors` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryContributorsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -53,27 +58,32 @@ pub struct ActionApiQueryContributorsBuilder<T> {
 }
 
 impl<T> ActionApiQueryContributorsBuilder<T> {
+    /// Only include contributors belonging to these user groups (`pcgroup`).
     pub fn pcgroup<S: Into<String> + Clone>(mut self, pcgroup: &[S]) -> Self {
         self.data.pcgroup = Some(pcgroup.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Exclude contributors belonging to these user groups (`pcexcludegroup`).
     pub fn pcexcludegroup<S: Into<String> + Clone>(mut self, pcexcludegroup: &[S]) -> Self {
         self.data.pcexcludegroup = Some(pcexcludegroup.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Only include contributors having these user rights (`pcrights`).
     pub fn pcrights<S: Into<String> + Clone>(mut self, pcrights: &[S]) -> Self {
         self.data.pcrights = Some(pcrights.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Exclude contributors having these user rights (`pcexcluderights`).
     pub fn pcexcluderights<S: Into<String> + Clone>(mut self, pcexcluderights: &[S]) -> Self {
         self.data.pcexcluderights =
             Some(pcexcluderights.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of contributors to return (`pclimit`).
     pub fn pclimit(mut self, pclimit: usize) -> Self {
         self.data.pclimit = pclimit;
         self

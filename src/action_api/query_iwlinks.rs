@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=iwlinks` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryIwlinksData {
     common: ActionApiQueryCommonData,
@@ -45,6 +46,10 @@ impl ActionApiQueryIwlinksData {
     }
 }
 
+/// Builder for the `prop=iwlinks` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryIwlinksBuilder<T> {
     _phantom: PhantomData<T>,
@@ -53,26 +58,31 @@ pub struct ActionApiQueryIwlinksBuilder<T> {
 }
 
 impl<T> ActionApiQueryIwlinksBuilder<T> {
+    /// Which additional properties to retrieve for each interwiki link (`iwprop`).
     pub fn iwprop<S: Into<String> + Clone>(mut self, iwprop: &[S]) -> Self {
         self.data.iwprop = Some(iwprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Only return interwiki links with this prefix (`iwprefix`).
     pub fn iwprefix<S: AsRef<str>>(mut self, iwprefix: S) -> Self {
         self.data.iwprefix = Some(iwprefix.as_ref().to_string());
         self
     }
 
+    /// Only return interwiki links pointing to this title (requires `iwprefix`) (`iwtitle`).
     pub fn iwtitle<S: AsRef<str>>(mut self, iwtitle: S) -> Self {
         self.data.iwtitle = Some(iwtitle.as_ref().to_string());
         self
     }
 
+    /// Direction to list interwiki links in (`ascending` or `descending`) (`iwdir`).
     pub fn iwdir<S: AsRef<str>>(mut self, iwdir: S) -> Self {
         self.data.iwdir = Some(iwdir.as_ref().to_string());
         self
     }
 
+    /// Maximum number of interwiki links to return (`iwlimit`).
     pub fn iwlimit(mut self, iwlimit: usize) -> Self {
         self.data.iwlimit = iwlimit;
         self

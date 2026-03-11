@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=langlinks` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLanglinksData {
     common: ActionApiQueryCommonData,
@@ -48,6 +49,8 @@ impl ActionApiQueryLanglinksData {
     }
 }
 
+/// Builder for the `prop=langlinks` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryLanglinksBuilder<T> {
     _phantom: PhantomData<T>,
@@ -56,31 +59,37 @@ pub struct ActionApiQueryLanglinksBuilder<T> {
 }
 
 impl<T> ActionApiQueryLanglinksBuilder<T> {
+    /// Which additional properties to retrieve for each language link (`llprop`).
     pub fn llprop<S: Into<String> + Clone>(mut self, llprop: &[S]) -> Self {
         self.data.llprop = Some(llprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter language links to only the specified language code (`lllang`).
     pub fn lllang<S: AsRef<str>>(mut self, lllang: S) -> Self {
         self.data.lllang = Some(lllang.as_ref().to_string());
         self
     }
 
+    /// Filter language links to only those pointing to the given title (`lltitle`).
     pub fn lltitle<S: AsRef<str>>(mut self, lltitle: S) -> Self {
         self.data.lltitle = Some(lltitle.as_ref().to_string());
         self
     }
 
+    /// Direction to list language links in, either `ascending` or `descending` (`lldir`).
     pub fn lldir<S: AsRef<str>>(mut self, lldir: S) -> Self {
         self.data.lldir = Some(lldir.as_ref().to_string());
         self
     }
 
+    /// Language code used to localise language names in the response (`llinlanguagecode`).
     pub fn llinlanguagecode<S: AsRef<str>>(mut self, llinlanguagecode: S) -> Self {
         self.data.llinlanguagecode = Some(llinlanguagecode.as_ref().to_string());
         self
     }
 
+    /// Maximum number of language links to return (`lllimit`).
     pub fn lllimit(mut self, lllimit: usize) -> Self {
         self.data.lllimit = lllimit;
         self

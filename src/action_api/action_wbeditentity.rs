@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbeditentity` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbeditentityData {
     id: Option<String>,
@@ -41,6 +42,7 @@ impl ActionApiWbeditentityData {
     }
 }
 
+/// Builder for the `action=wbeditentity` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbeditentityBuilder<T> {
     _phantom: PhantomData<T>,
@@ -48,41 +50,49 @@ pub struct ActionApiWbeditentityBuilder<T> {
 }
 
 impl<T> ActionApiWbeditentityBuilder<T> {
+    /// Sets the site identifier used to look up the entity by title. `site`
     pub fn site<S: AsRef<str>>(mut self, site: S) -> Self {
         self.data.site = Some(site.as_ref().to_string());
         self
     }
 
+    /// Sets the page title used with `site` to identify the entity. `title`
     pub fn title<S: AsRef<str>>(mut self, title: S) -> Self {
         self.data.title = Some(title.as_ref().to_string());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
     }
 
+    /// Sets the serialized JSON data describing the entity changes. `data`
     pub fn data<S: AsRef<str>>(mut self, data: S) -> Self {
         self.data.data = Some(data.as_ref().to_string());
         self
     }
 
+    /// If true, clears all existing data on the entity before applying changes. `clear`
     pub fn clear(mut self, clear: bool) -> Self {
         self.data.clear = clear;
         self
@@ -90,6 +100,7 @@ impl<T> ActionApiWbeditentityBuilder<T> {
 }
 
 impl ActionApiWbeditentityBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -97,6 +108,7 @@ impl ActionApiWbeditentityBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity ID to edit, advancing the builder state. `id`
     pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbeditentityBuilder<NoToken> {
         self.data.id = Some(id.as_ref().to_string());
         ActionApiWbeditentityBuilder {
@@ -105,6 +117,7 @@ impl ActionApiWbeditentityBuilder<NoTarget> {
         }
     }
 
+    /// Sets the entity type to create a new entity of that type, advancing the builder state. `new`
     pub fn new_type<S: AsRef<str>>(
         mut self,
         new_type: S,
@@ -118,6 +131,7 @@ impl ActionApiWbeditentityBuilder<NoTarget> {
 }
 
 impl ActionApiWbeditentityBuilder<NoToken> {
+    /// Sets the CSRF token, advancing the builder to the runnable state. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbeditentityBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbeditentityBuilder {

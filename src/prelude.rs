@@ -9,6 +9,6 @@ pub use crate::{
     Api, ApiSync, MediaWikiError, Page, Revision, Title, User,
     action_api::{
         ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiQuery,
-        ActionApiQueryCommonBuilder, ActionApiRunnable, batch_complete,
+        ActionApiQueryCommonBuilder, ActionApiRunnable,
     },
 };

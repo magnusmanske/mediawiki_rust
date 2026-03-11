@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoSearch = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbsearchentities` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsearchentitiesData {
     search: Option<String>,
@@ -50,6 +51,7 @@ impl ActionApiWbsearchentitiesData {
     }
 }
 
+/// Builder for the `action=wbsearchentities` API action; uses the typestate pattern to enforce the required search term.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbsearchentitiesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -58,36 +60,43 @@ pub struct ActionApiWbsearchentitiesBuilder<T> {
 }
 
 impl<T> ActionApiWbsearchentitiesBuilder<T> {
+    /// Sets the language of labels and descriptions to search in. `language`
     pub fn language<S: AsRef<str>>(mut self, language: S) -> Self {
         self.data.language = Some(language.as_ref().to_string());
         self
     }
 
+    /// Restricts search results to entities whose label matches the language exactly. `strictlanguage`
     pub fn strictlanguage(mut self, strictlanguage: bool) -> Self {
         self.data.strictlanguage = strictlanguage;
         self
     }
 
+    /// Sets the type of entity to search for (e.g. `item` or `property`). `type`
     pub fn entity_type<S: AsRef<str>>(mut self, entity_type: S) -> Self {
         self.data.entity_type = Some(entity_type.as_ref().to_string());
         self
     }
 
+    /// Sets the maximum number of results to return. `limit`
     pub fn limit(mut self, limit: usize) -> Self {
         self.data.limit = limit;
         self
     }
 
+    /// Sets the offset into the search results to continue from. `continue`
     pub fn search_continue(mut self, search_continue: usize) -> Self {
         self.data.search_continue = search_continue;
         self
     }
 
+    /// Sets the properties to include in the response. `props`
     pub fn props<S: Into<String> + Clone>(mut self, props: &[S]) -> Self {
         self.data.props = Some(props.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the search profile to use for ranking results. `profile`
     pub fn profile<S: AsRef<str>>(mut self, profile: S) -> Self {
         self.data.profile = Some(profile.as_ref().to_string());
         self
@@ -95,6 +104,7 @@ impl<T> ActionApiWbsearchentitiesBuilder<T> {
 }
 
 impl ActionApiWbsearchentitiesBuilder<NoSearch> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -103,6 +113,7 @@ impl ActionApiWbsearchentitiesBuilder<NoSearch> {
         }
     }
 
+    /// Sets the search string to look up in entity labels and aliases. `search`
     pub fn search<S: AsRef<str>>(
         mut self,
         search: S,

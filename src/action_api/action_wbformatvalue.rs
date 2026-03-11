@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoValue = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbformatvalue` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbformatvalueData {
     datavalue: Option<String>,
@@ -27,6 +28,7 @@ impl ActionApiWbformatvalueData {
     }
 }
 
+/// Builder for the `action=wbformatvalue` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbformatvalueBuilder<T> {
     _phantom: PhantomData<T>,
@@ -34,21 +36,25 @@ pub struct ActionApiWbformatvalueBuilder<T> {
 }
 
 impl<T> ActionApiWbformatvalueBuilder<T> {
+    /// Sets the output format generator (e.g., `text/html`). `generate`
     pub fn generate<S: AsRef<str>>(mut self, generate: S) -> Self {
         self.data.generate = Some(generate.as_ref().to_string());
         self
     }
 
+    /// Sets the data type of the value to format. `datatype`
     pub fn datatype<S: AsRef<str>>(mut self, datatype: S) -> Self {
         self.data.datatype = Some(datatype.as_ref().to_string());
         self
     }
 
+    /// Sets the property ID used to infer the data type. `property`
     pub fn property<S: AsRef<str>>(mut self, property: S) -> Self {
         self.data.property = Some(property.as_ref().to_string());
         self
     }
 
+    /// Sets additional options as a JSON-encoded string. `options`
     pub fn options<S: AsRef<str>>(mut self, options: S) -> Self {
         self.data.options = Some(options.as_ref().to_string());
         self
@@ -56,6 +62,7 @@ impl<T> ActionApiWbformatvalueBuilder<T> {
 }
 
 impl ActionApiWbformatvalueBuilder<NoValue> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -63,6 +70,7 @@ impl ActionApiWbformatvalueBuilder<NoValue> {
         }
     }
 
+    /// Sets the data value to format as a JSON-encoded string, advancing the builder to the runnable state. `datavalue`
     pub fn datavalue<S: AsRef<str>>(
         mut self,
         datavalue: S,

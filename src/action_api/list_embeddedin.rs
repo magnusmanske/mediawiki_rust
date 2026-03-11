@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRu
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=embeddedin` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListEmbeddedinData {
     eititle: Option<String>,
@@ -48,6 +49,7 @@ impl ActionApiListEmbeddedinData {
     }
 }
 
+/// Builder for the `list=embeddedin` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListEmbeddedinBuilder<T> {
     _phantom: PhantomData<T>,
@@ -56,21 +58,25 @@ pub struct ActionApiListEmbeddedinBuilder<T> {
 }
 
 impl<T> ActionApiListEmbeddedinBuilder<T> {
+    /// Filter results to pages in these namespaces (`einamespace`).
     pub fn einamespace(mut self, einamespace: &[NamespaceID]) -> Self {
         self.data.einamespace = Some(einamespace.to_vec());
         self
     }
 
+    /// Sort direction for listing (`eidir`).
     pub fn eidir<S: AsRef<str>>(mut self, eidir: S) -> Self {
         self.data.eidir = Some(eidir.as_ref().to_string());
         self
     }
 
+    /// Filter by redirect status of transclusion pages (`eifilterredir`).
     pub fn eifilterredir<S: AsRef<str>>(mut self, eifilterredir: S) -> Self {
         self.data.eifilterredir = Some(eifilterredir.as_ref().to_string());
         self
     }
 
+    /// Maximum number of pages to return (`eilimit`).
     pub fn eilimit(mut self, eilimit: usize) -> Self {
         self.data.eilimit = eilimit;
         self
@@ -78,6 +84,7 @@ impl<T> ActionApiListEmbeddedinBuilder<T> {
 }
 
 impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -86,6 +93,7 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Title of the template or page to find transclusions of (`eititle`).
     pub fn eititle<S: AsRef<str>>(mut self, eititle: S) -> ActionApiListEmbeddedinBuilder<Runnable> {
         self.data.eititle = Some(eititle.as_ref().to_string());
         ActionApiListEmbeddedinBuilder {
@@ -95,6 +103,7 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Page ID of the template or page to find transclusions of (`eipageid`).
     pub fn eipageid(mut self, eipageid: u64) -> ActionApiListEmbeddedinBuilder<Runnable> {
         self.data.eipageid = Some(eipageid);
         ActionApiListEmbeddedinBuilder {

@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `action=purge` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiPurgeData {
     common: ActionApiQueryCommonData,
@@ -31,6 +32,7 @@ impl ActionApiPurgeData {
     }
 }
 
+/// Builder for `action=purge`. Call `.titles()`, `.pageids()`, or a generator to specify pages, which makes it runnable.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ActionApiPurgeBuilder<T> {
@@ -39,21 +41,25 @@ pub struct ActionApiPurgeBuilder<T> {
 }
 
 impl<T> ActionApiPurgeBuilder<T> {
+    /// Whether to update the links tables for the purged pages (`forcelinkupdate`).
     pub fn forcelinkupdate(mut self, forcelinkupdate: bool) -> Self {
         self.data.forcelinkupdate = forcelinkupdate;
         self
     }
 
+    /// Whether to recursively update link tables for pages that use the purged pages as templates (`forcerecursivelinkupdate`).
     pub fn forcerecursivelinkupdate(mut self, forcerecursivelinkupdate: bool) -> Self {
         self.data.forcerecursivelinkupdate = forcerecursivelinkupdate;
         self
     }
 
+    /// Whether to automatically resolve redirects listed in the titles (`redirects`).
     pub fn redirects(mut self, redirects: bool) -> Self {
         self.data.redirects = redirects;
         self
     }
 
+    /// Whether to convert titles to other language variants when appropriate (`converttitles`).
     pub fn converttitles(mut self, converttitles: bool) -> Self {
         self.data.converttitles = converttitles;
         self
@@ -61,6 +67,7 @@ impl<T> ActionApiPurgeBuilder<T> {
 }
 
 impl ActionApiPurgeBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,

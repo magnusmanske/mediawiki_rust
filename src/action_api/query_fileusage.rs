@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=fileusage` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryFileusageData {
     common: ActionApiQueryCommonData,
@@ -46,6 +47,10 @@ impl ActionApiQueryFileusageData {
     }
 }
 
+/// Builder for the `prop=fileusage` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryFileusageBuilder<T> {
     _phantom: PhantomData<T>,
@@ -54,21 +59,25 @@ pub struct ActionApiQueryFileusageBuilder<T> {
 }
 
 impl<T> ActionApiQueryFileusageBuilder<T> {
+    /// Which properties to return for each page using the file (`fuprop`).
     pub fn fuprop<S: Into<String> + Clone>(mut self, fuprop: &[S]) -> Self {
         self.data.fuprop = Some(fuprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Only return pages using the file that belong to these namespaces (`funamespace`).
     pub fn funamespace(mut self, funamespace: &[NamespaceID]) -> Self {
         self.data.funamespace = Some(funamespace.to_vec());
         self
     }
 
+    /// Filter file-usage pages by redirect status (e.g. `redirect`, `!redirect`) (`fushow`).
     pub fn fushow<S: Into<String> + Clone>(mut self, fushow: &[S]) -> Self {
         self.data.fushow = Some(fushow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of file-usage pages to return (`fulimit`).
     pub fn fulimit(mut self, fulimit: usize) -> Self {
         self.data.fulimit = fulimit;
         self

@@ -1,6 +1,7 @@
 use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=users` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiListUsersData {
     usprop: Option<Vec<String>>,
@@ -25,6 +26,7 @@ impl ActionApiListUsersData {
     }
 }
 
+/// Builder for the `list=users` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListUsersBuilder<T> {
     _phantom: PhantomData<T>,
@@ -33,11 +35,13 @@ pub struct ActionApiListUsersBuilder<T> {
 }
 
 impl<T> ActionApiListUsersBuilder<T> {
+    /// Properties to retrieve for each user (`usprop`).
     pub fn usprop<S: Into<String> + Clone>(mut self, usprop: &[S]) -> Self {
         self.data.usprop = Some(usprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Wiki to check for attached account when `centralids` is in `usprop` (`usattachedwiki`).
     pub fn usattachedwiki<S: AsRef<str>>(mut self, usattachedwiki: S) -> Self {
         self.data.usattachedwiki = Some(usattachedwiki.as_ref().to_string());
         self
@@ -45,6 +49,7 @@ impl<T> ActionApiListUsersBuilder<T> {
 }
 
 impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -53,6 +58,7 @@ impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// One or more usernames to retrieve information for (`ususers`).
     pub fn ususers<S: Into<String> + Clone>(
         mut self,
         ususers: &[S],
@@ -65,6 +71,7 @@ impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// One or more user IDs to retrieve information for (`ususerids`).
     pub fn ususerids(mut self, ususerids: &[u64]) -> ActionApiListUsersBuilder<Runnable> {
         self.data.ususerids = Some(ususerids.to_vec());
         ActionApiListUsersBuilder {

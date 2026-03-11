@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGe
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=search` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListSearchData {
     srsearch: Option<String>,
@@ -56,6 +57,7 @@ impl ActionApiListSearchData {
     }
 }
 
+/// Builder for the `list=search` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListSearchBuilder<T> {
     _phantom: PhantomData<T>,
@@ -64,41 +66,49 @@ pub struct ActionApiListSearchBuilder<T> {
 }
 
 impl<T> ActionApiListSearchBuilder<T> {
+    /// Filter results to pages in these namespaces (`srnamespace`).
     pub fn srnamespace(mut self, srnamespace: &[NamespaceID]) -> Self {
         self.data.srnamespace = Some(srnamespace.to_vec());
         self
     }
 
+    /// Maximum number of results to return (`srlimit`).
     pub fn srlimit(mut self, srlimit: usize) -> Self {
         self.data.srlimit = srlimit;
         self
     }
 
+    /// Number of results to skip before returning (`sroffset`).
     pub fn sroffset(mut self, sroffset: usize) -> Self {
         self.data.sroffset = sroffset;
         self
     }
 
+    /// Which type of search to perform: `title`, `text`, or `nearmatch` (`srwhat`).
     pub fn srwhat<S: AsRef<str>>(mut self, srwhat: S) -> Self {
         self.data.srwhat = Some(srwhat.as_ref().to_string());
         self
     }
 
+    /// Metadata to return about the search results (e.g. `totalhits`) (`srinfo`).
     pub fn srinfo<S: Into<String> + Clone>(mut self, srinfo: &[S]) -> Self {
         self.data.srinfo = Some(srinfo.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Properties to retrieve for each search result (`srprop`).
     pub fn srprop<S: Into<String> + Clone>(mut self, srprop: &[S]) -> Self {
         self.data.srprop = Some(srprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// When set, include interwiki results in the search response (`srinterwiki`).
     pub fn srinterwiki(mut self, srinterwiki: bool) -> Self {
         self.data.srinterwiki = srinterwiki;
         self
     }
 
+    /// Sort order for search results (`srsort`).
     pub fn srsort<S: AsRef<str>>(mut self, srsort: S) -> Self {
         self.data.srsort = Some(srsort.as_ref().to_string());
         self
@@ -106,6 +116,7 @@ impl<T> ActionApiListSearchBuilder<T> {
 }
 
 impl ActionApiListSearchBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -114,6 +125,7 @@ impl ActionApiListSearchBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Search query string (`srsearch`).
     pub fn srsearch<S: AsRef<str>>(
         mut self,
         srsearch: S,

@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoText = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=expandtemplates` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiExpandtemplatesData {
     title: Option<String>,
@@ -59,6 +60,7 @@ impl ActionApiExpandtemplatesData {
     }
 }
 
+/// Builder for `action=expandtemplates`. Call `.text()` to set the wikitext to expand, making it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiExpandtemplatesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -66,21 +68,25 @@ pub struct ActionApiExpandtemplatesBuilder<T> {
 }
 
 impl<T> ActionApiExpandtemplatesBuilder<T> {
+    /// Page title used as context for template expansion (`title`).
     pub fn title<S: AsRef<str>>(mut self, title: S) -> Self {
         self.data.title = Some(title.as_ref().to_string());
         self
     }
 
+    /// Revision ID used to set `{{REVISIONID}}` and similar variables (`revid`).
     pub fn revid(mut self, revid: u64) -> Self {
         self.data.revid = Some(revid);
         self
     }
 
+    /// Output properties to include in the response (`prop`).
     pub fn prop<S: Into<String> + Clone>(mut self, prop: &[S]) -> Self {
         self.data.prop = Some(prop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Whether to include HTML comments in the output (`includecomments`).
     pub fn includecomments(mut self, includecomments: bool) -> Self {
         self.data.includecomments = includecomments;
         self
@@ -88,6 +94,7 @@ impl<T> ActionApiExpandtemplatesBuilder<T> {
 }
 
 impl ActionApiExpandtemplatesBuilder<NoText> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -95,6 +102,7 @@ impl ActionApiExpandtemplatesBuilder<NoText> {
         }
     }
 
+    /// Wikitext to expand (`text`).
     pub fn text<S: AsRef<str>>(mut self, text: S) -> ActionApiExpandtemplatesBuilder<Runnable> {
         self.data.text = Some(text.as_ref().to_string());
         ActionApiExpandtemplatesBuilder {

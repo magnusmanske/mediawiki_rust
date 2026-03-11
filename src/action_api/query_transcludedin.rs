@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=transcludedin` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryTranscludedinData {
     common: ActionApiQueryCommonData,
@@ -46,6 +47,8 @@ impl ActionApiQueryTranscludedinData {
     }
 }
 
+/// Builder for the `prop=transcludedin` query module; uses the typestate pattern, starting in
+/// `NoTitlesOrGenerator` and becoming `Runnable` once titles/pageids/revids/generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryTranscludedinBuilder<T> {
     _phantom: PhantomData<T>,
@@ -54,21 +57,25 @@ pub struct ActionApiQueryTranscludedinBuilder<T> {
 }
 
 impl<T> ActionApiQueryTranscludedinBuilder<T> {
+    /// Which properties to retrieve for each transcluding page (`tiprop`).
     pub fn tiprop<S: Into<String> + Clone>(mut self, tiprop: &[S]) -> Self {
         self.data.tiprop = Some(tiprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Only include pages that transclude the target from these namespaces (`tinamespace`).
     pub fn tinamespace(mut self, tinamespace: &[NamespaceID]) -> Self {
         self.data.tinamespace = Some(tinamespace.to_vec());
         self
     }
 
+    /// Filter transcluding pages to show only those matching these criteria, e.g. `redirect` or `!redirect` (`tishow`).
     pub fn tishow<S: Into<String> + Clone>(mut self, tishow: &[S]) -> Self {
         self.data.tishow = Some(tishow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of transcluding pages to return (`tilimit`).
     pub fn tilimit(mut self, tilimit: usize) -> Self {
         self.data.tilimit = tilimit;
         self

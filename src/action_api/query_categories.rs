@@ -5,6 +5,7 @@ use super::{
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `prop=categories` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryCategoriesData {
     common: ActionApiQueryCommonData,
@@ -52,6 +53,10 @@ impl ActionApiQueryCategoriesData {
     }
 }
 
+/// Builder for the `prop=categories` query module.
+///
+/// Starts in `NoTitlesOrGenerator` state and becomes `Runnable` after titles, pageids, revids,
+/// or a generator is set via `ActionApiQueryCommonBuilder`.
 #[derive(Debug, Clone)]
 pub struct ActionApiQueryCategoriesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -60,31 +65,37 @@ pub struct ActionApiQueryCategoriesBuilder<T> {
 }
 
 impl<T> ActionApiQueryCategoriesBuilder<T> {
+    /// Which additional properties to retrieve for each category (`clprop`).
     pub fn clprop<S: Into<String> + Clone>(mut self, clprop: &[S]) -> Self {
         self.data.clprop = Some(clprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter categories by visibility (e.g. `hidden`, `!hidden`) (`clshow`).
     pub fn clshow<S: Into<String> + Clone>(mut self, clshow: &[S]) -> Self {
         self.data.clshow = Some(clshow.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of categories to return (`cllimit`).
     pub fn cllimit(mut self, cllimit: usize) -> Self {
         self.data.cllimit = cllimit;
         self
     }
 
+    /// Only list these categories (useful for checking if a page is in certain categories) (`clcategories`).
     pub fn clcategories<S: Into<String> + Clone>(mut self, clcategories: &[S]) -> Self {
         self.data.clcategories = Some(clcategories.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Direction to list categories in (`ascending` or `descending`) (`cldir`).
     pub fn cldir<S: AsRef<str>>(mut self, cldir: S) -> Self {
         self.data.cldir = Some(cldir.as_ref().to_string());
         self
     }
 
+    /// Only include categories in these namespaces (`clnamespace`).
     pub fn clnamespace(mut self, clnamespace: &[NamespaceID]) -> Self {
         self.data.clnamespace = Some(clnamespace.to_vec());
         self

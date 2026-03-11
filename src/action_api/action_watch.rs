@@ -4,6 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `action=watch` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWatchData {
     common: ActionApiQueryCommonData,
@@ -25,6 +26,7 @@ impl ActionApiWatchData {
     }
 }
 
+/// Builder for the `action=watch` API call, using a typestate pattern to enforce required fields before execution.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ActionApiWatchBuilder<T> {
@@ -33,11 +35,13 @@ pub struct ActionApiWatchBuilder<T> {
 }
 
 impl<T> ActionApiWatchBuilder<T> {
+    /// Sets the expiry timestamp for the watchlist entry (`expiry`).
     pub fn expiry<S: AsRef<str>>(mut self, expiry: S) -> Self {
         self.data.expiry = Some(expiry.as_ref().to_string());
         self
     }
 
+    /// Sets whether to unwatch rather than watch the page (`unwatch`).
     pub fn unwatch(mut self, unwatch: bool) -> Self {
         self.data.unwatch = unwatch;
         self
@@ -46,6 +50,7 @@ impl<T> ActionApiWatchBuilder<T> {
 }
 
 impl ActionApiWatchBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -70,6 +75,7 @@ impl ActionApiQueryCommonBuilder for ActionApiWatchBuilder<NoTitlesOrGenerator> 
 }
 
 impl ActionApiWatchBuilder<NoToken> {
+    /// Sets the watch token (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWatchBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWatchBuilder {

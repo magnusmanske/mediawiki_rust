@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=edit` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiEditData {
     title: Option<String>,
@@ -79,6 +80,27 @@ impl ActionApiEditData {
     }
 }
 
+/// Builder for `action=edit` — creates or modifies a page.
+///
+/// # Typestate
+/// - Start: [`NoTitlesOrGenerator`] — call `.title()` or `.pageid()` to set the target page.
+/// - After target: [`NoToken`] — call `.token(csrf_token)` to advance to [`Runnable`].
+///
+/// # Example
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use mediawiki::prelude::*;
+/// let mut api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+/// let token = api.get_edit_token().await.unwrap();
+/// let _result = ActionApi::edit()
+///     .title("Sandbox")
+///     .text("Hello world")
+///     .summary("test edit")
+///     .token(&token)
+///     .run(&api)
+///     .await;
+/// # });
+/// ```
 #[derive(Debug, Clone)]
 pub struct ActionApiEditBuilder<T> {
     _phantom: PhantomData<T>,
@@ -86,121 +108,145 @@ pub struct ActionApiEditBuilder<T> {
 }
 
 impl<T> ActionApiEditBuilder<T> {
+    /// Sets the section number to edit, or `"new"` to add a new section.
     pub fn section<S: AsRef<str>>(mut self, section: S) -> Self {
         self.data.section = Some(section.as_ref().to_string());
         self
     }
 
+    /// Title of the new section when adding a new section (`sectiontitle`).
     pub fn sectiontitle<S: AsRef<str>>(mut self, sectiontitle: S) -> Self {
         self.data.sectiontitle = Some(sectiontitle.as_ref().to_string());
         self
     }
 
+    /// Full page content to replace the current wikitext (`text`).
     pub fn text<S: AsRef<str>>(mut self, text: S) -> Self {
         self.data.text = Some(text.as_ref().to_string());
         self
     }
 
+    /// Edit summary (`summary`).
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Change tags to apply to the edit (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Mark the edit as minor (`minor`).
     pub fn minor(mut self, minor: bool) -> Self {
         self.data.minor = minor;
         self
     }
 
+    /// Mark the edit as non-minor, overriding user preferences (`notminor`).
     pub fn notminor(mut self, notminor: bool) -> Self {
         self.data.notminor = notminor;
         self
     }
 
+    /// Mark the edit as a bot edit (`bot`).
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
     }
 
+    /// Revision ID of the base revision to detect edit conflicts (`baserevid`).
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Timestamp of the base revision to detect edit conflicts (`basetimestamp`).
     pub fn basetimestamp<S: AsRef<str>>(mut self, basetimestamp: S) -> Self {
         self.data.basetimestamp = Some(basetimestamp.as_ref().to_string());
         self
     }
 
+    /// Timestamp when the editing session began, used for lost-edit detection (`starttimestamp`).
     pub fn starttimestamp<S: AsRef<str>>(mut self, starttimestamp: S) -> Self {
         self.data.starttimestamp = Some(starttimestamp.as_ref().to_string());
         self
     }
 
+    /// Override any errors about the article having been deleted (`recreate`).
     pub fn recreate(mut self, recreate: bool) -> Self {
         self.data.recreate = recreate;
         self
     }
 
+    /// Only create the page; return an error if it already exists (`createonly`).
     pub fn createonly(mut self, createonly: bool) -> Self {
         self.data.createonly = createonly;
         self
     }
 
+    /// Return an error if the page doesn't exist (`nocreate`).
     pub fn nocreate(mut self, nocreate: bool) -> Self {
         self.data.nocreate = nocreate;
         self
     }
 
+    /// Watchlist handling: `"watch"`, `"unwatch"`, `"preferences"`, or `"nochange"` (`watchlist`).
     pub fn watchlist<S: AsRef<str>>(mut self, watchlist: S) -> Self {
         self.data.watchlist = Some(watchlist.as_ref().to_string());
         self
     }
 
+    /// Watchlist expiry timestamp (`watchlistexpiry`).
     pub fn watchlistexpiry<S: AsRef<str>>(mut self, watchlistexpiry: S) -> Self {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
 
+    /// MD5 hash of the `text` parameter, used for integrity verification (`md5`).
     pub fn md5<S: AsRef<str>>(mut self, md5: S) -> Self {
         self.data.md5 = Some(md5.as_ref().to_string());
         self
     }
 
+    /// Text to prepend to the page content (`prependtext`).
     pub fn prependtext<S: AsRef<str>>(mut self, prependtext: S) -> Self {
         self.data.prependtext = Some(prependtext.as_ref().to_string());
         self
     }
 
+    /// Text to append to the page content (`appendtext`).
     pub fn appendtext<S: AsRef<str>>(mut self, appendtext: S) -> Self {
         self.data.appendtext = Some(appendtext.as_ref().to_string());
         self
     }
 
+    /// Revision ID to undo (`undo`).
     pub fn undo(mut self, undo: u64) -> Self {
         self.data.undo = Some(undo);
         self
     }
 
+    /// Revision ID to stop undoing at (`undoafter`).
     pub fn undoafter(mut self, undoafter: u64) -> Self {
         self.data.undoafter = Some(undoafter);
         self
     }
 
+    /// Whether to follow redirects (`redirect`).
     pub fn redirect(mut self, redirect: bool) -> Self {
         self.data.redirect = redirect;
         self
     }
 
+    /// Content serialisation format, e.g. `"text/x-wiki"` (`contentformat`).
     pub fn contentformat<S: AsRef<str>>(mut self, contentformat: S) -> Self {
         self.data.contentformat = Some(contentformat.as_ref().to_string());
         self
     }
 
+    /// Content model, e.g. `"wikitext"` or `"json"` (`contentmodel`).
     pub fn contentmodel<S: AsRef<str>>(mut self, contentmodel: S) -> Self {
         self.data.contentmodel = Some(contentmodel.as_ref().to_string());
         self
@@ -209,6 +255,7 @@ impl<T> ActionApiEditBuilder<T> {
 }
 
 impl ActionApiEditBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -216,6 +263,7 @@ impl ActionApiEditBuilder<NoTarget> {
         }
     }
 
+    /// Sets the title of the page to edit, advancing to the [`NoToken`] state.
     pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiEditBuilder<NoToken> {
         self.data.title = Some(title.as_ref().to_string());
         ActionApiEditBuilder {
@@ -224,6 +272,7 @@ impl ActionApiEditBuilder<NoTarget> {
         }
     }
 
+    /// Sets the page ID of the page to edit, advancing to the [`NoToken`] state.
     pub fn pageid(mut self, pageid: u64) -> ActionApiEditBuilder<NoToken> {
         self.data.pageid = Some(pageid);
         ActionApiEditBuilder {
@@ -234,6 +283,7 @@ impl ActionApiEditBuilder<NoTarget> {
 }
 
 impl ActionApiEditBuilder<NoToken> {
+    /// Sets the CSRF token, advancing to the [`Runnable`] state.
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiEditBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiEditBuilder {

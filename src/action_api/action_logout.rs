@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoToken = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=logout` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiLogoutData {
     token: Option<String>,
@@ -19,6 +20,7 @@ impl ActionApiLogoutData {
     }
 }
 
+/// Builder for `action=logout`. Call `.token()` to supply the CSRF token and make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiLogoutBuilder<T> {
     _phantom: PhantomData<T>,
@@ -26,6 +28,7 @@ pub struct ActionApiLogoutBuilder<T> {
 }
 
 impl ActionApiLogoutBuilder<NoToken> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -33,6 +36,7 @@ impl ActionApiLogoutBuilder<NoToken> {
         }
     }
 
+    /// CSRF token required to perform the logout (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiLogoutBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiLogoutBuilder {

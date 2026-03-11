@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoSource = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbmergeitems` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbmergeitemsData {
     fromid: Option<String>,
@@ -31,6 +32,7 @@ impl ActionApiWbmergeitemsData {
     }
 }
 
+/// Builder for the `action=wbmergeitems` API action; uses the typestate pattern to enforce required parameters before execution.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbmergeitemsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -38,27 +40,32 @@ pub struct ActionApiWbmergeitemsBuilder<T> {
 }
 
 impl<T> ActionApiWbmergeitemsBuilder<T> {
+    /// Sets the target entity ID to merge into. `toid`
     pub fn toid<S: AsRef<str>>(mut self, toid: S) -> Self {
         self.data.toid = Some(toid.as_ref().to_string());
         self
     }
 
+    /// Sets the conflict types to ignore during the merge (e.g., `label`, `description`). `ignoreconflicts`
     pub fn ignoreconflicts<S: Into<String> + Clone>(mut self, ignoreconflicts: &[S]) -> Self {
         self.data.ignoreconflicts =
             Some(ignoreconflicts.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -67,6 +74,7 @@ impl<T> ActionApiWbmergeitemsBuilder<T> {
 }
 
 impl ActionApiWbmergeitemsBuilder<NoSource> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -74,6 +82,7 @@ impl ActionApiWbmergeitemsBuilder<NoSource> {
         }
     }
 
+    /// Sets the source entity ID to merge from, advancing the builder state. `fromid`
     pub fn fromid<S: AsRef<str>>(mut self, fromid: S) -> ActionApiWbmergeitemsBuilder<NoToken> {
         self.data.fromid = Some(fromid.as_ref().to_string());
         ActionApiWbmergeitemsBuilder {
@@ -84,6 +93,7 @@ impl ActionApiWbmergeitemsBuilder<NoSource> {
 }
 
 impl ActionApiWbmergeitemsBuilder<NoToken> {
+    /// Sets the CSRF token, advancing the builder to the runnable state. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbmergeitemsBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbmergeitemsBuilder {

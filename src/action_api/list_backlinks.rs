@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRu
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=backlinks` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListBacklinksData {
     bltitle: Option<String>,
@@ -51,6 +52,7 @@ impl ActionApiListBacklinksData {
     }
 }
 
+/// Builder for the `list=backlinks` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListBacklinksBuilder<T> {
     _phantom: PhantomData<T>,
@@ -59,26 +61,31 @@ pub struct ActionApiListBacklinksBuilder<T> {
 }
 
 impl<T> ActionApiListBacklinksBuilder<T> {
+    /// Filter results to pages in these namespaces (`blnamespace`).
     pub fn blnamespace(mut self, blnamespace: &[NamespaceID]) -> Self {
         self.data.blnamespace = Some(blnamespace.to_vec());
         self
     }
 
+    /// Sort direction for listing (`bldir`).
     pub fn bldir<S: AsRef<str>>(mut self, bldir: S) -> Self {
         self.data.bldir = Some(bldir.as_ref().to_string());
         self
     }
 
+    /// Filter by redirect status of linking pages (`blfilterredir`).
     pub fn blfilterredir<S: AsRef<str>>(mut self, blfilterredir: S) -> Self {
         self.data.blfilterredir = Some(blfilterredir.as_ref().to_string());
         self
     }
 
+    /// Maximum number of backlinks to return (`bllimit`).
     pub fn bllimit(mut self, bllimit: usize) -> Self {
         self.data.bllimit = bllimit;
         self
     }
 
+    /// When set, also list pages that link to redirects pointing at the target (`blredirect`).
     pub fn blredirect(mut self, blredirect: bool) -> Self {
         self.data.blredirect = blredirect;
         self
@@ -86,6 +93,7 @@ impl<T> ActionApiListBacklinksBuilder<T> {
 }
 
 impl ActionApiListBacklinksBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -94,6 +102,7 @@ impl ActionApiListBacklinksBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Title of the page to find backlinks for (`bltitle`).
     pub fn bltitle<S: AsRef<str>>(mut self, bltitle: S) -> ActionApiListBacklinksBuilder<Runnable> {
         self.data.bltitle = Some(bltitle.as_ref().to_string());
         ActionApiListBacklinksBuilder {
@@ -103,6 +112,7 @@ impl ActionApiListBacklinksBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Page ID of the page to find backlinks for (`blpageid`).
     pub fn blpageid(mut self, blpageid: u64) -> ActionApiListBacklinksBuilder<Runnable> {
         self.data.blpageid = Some(blpageid);
         ActionApiListBacklinksBuilder {

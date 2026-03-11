@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoStatement = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbremovereferences` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbremovereferencesData {
     statement: Option<String>,
@@ -33,6 +34,7 @@ impl ActionApiWbremovereferencesData {
     }
 }
 
+/// Builder for the `action=wbremovereferences` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbremovereferencesBuilder<T> {
     _phantom: PhantomData<T>,
@@ -40,26 +42,31 @@ pub struct ActionApiWbremovereferencesBuilder<T> {
 }
 
 impl<T> ActionApiWbremovereferencesBuilder<T> {
+    /// Sets the hashes of the references to remove. `references`
     pub fn references<S: Into<String> + Clone>(mut self, references: &[S]) -> Self {
         self.data.references = Some(references.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -67,6 +74,7 @@ impl<T> ActionApiWbremovereferencesBuilder<T> {
 }
 
 impl ActionApiWbremovereferencesBuilder<NoStatement> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -74,6 +82,7 @@ impl ActionApiWbremovereferencesBuilder<NoStatement> {
         }
     }
 
+    /// Sets the GUID of the statement whose references are to be removed. `statement`
     pub fn statement<S: AsRef<str>>(
         mut self,
         statement: S,
@@ -87,6 +96,7 @@ impl ActionApiWbremovereferencesBuilder<NoStatement> {
 }
 
 impl ActionApiWbremovereferencesBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(
         mut self,
         token: S,

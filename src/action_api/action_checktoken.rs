@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoType = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=checktoken` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiChecktokenData {
     token_type: Option<String>,
@@ -27,6 +28,7 @@ impl ActionApiChecktokenData {
     }
 }
 
+/// Builder for `action=checktoken`. Call `.token_type()` to set the required token type, making it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiChecktokenBuilder<T> {
     _phantom: PhantomData<T>,
@@ -34,11 +36,13 @@ pub struct ActionApiChecktokenBuilder<T> {
 }
 
 impl<T> ActionApiChecktokenBuilder<T> {
+    /// The token to check (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
         self.data.token = Some(token.as_ref().to_string());
         self
     }
 
+    /// Maximum acceptable token age in seconds (`maxtokenage`).
     pub fn maxtokenage(mut self, maxtokenage: u64) -> Self {
         self.data.maxtokenage = Some(maxtokenage);
         self
@@ -46,6 +50,7 @@ impl<T> ActionApiChecktokenBuilder<T> {
 }
 
 impl ActionApiChecktokenBuilder<NoType> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -53,6 +58,7 @@ impl ActionApiChecktokenBuilder<NoType> {
         }
     }
 
+    /// Type of token being validated, e.g. `"csrf"` (`type`).
     pub fn token_type<S: AsRef<str>>(
         mut self,
         token_type: S,

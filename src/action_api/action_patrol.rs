@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=patrol` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiPatrolData {
     rcid: Option<u64>,
@@ -29,6 +30,7 @@ impl ActionApiPatrolData {
     }
 }
 
+/// Builder for `action=patrol`. Call `.rcid()` or `.revid()` to identify the target, then `.token()` to make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiPatrolBuilder<T> {
     _phantom: PhantomData<T>,
@@ -36,6 +38,7 @@ pub struct ActionApiPatrolBuilder<T> {
 }
 
 impl<T> ActionApiPatrolBuilder<T> {
+    /// Change tags to apply to the patrol log entry (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
@@ -44,6 +47,7 @@ impl<T> ActionApiPatrolBuilder<T> {
 }
 
 impl ActionApiPatrolBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -51,6 +55,7 @@ impl ActionApiPatrolBuilder<NoTarget> {
         }
     }
 
+    /// Recent changes ID to mark as patrolled (`rcid`).
     pub fn rcid(mut self, rcid: u64) -> ActionApiPatrolBuilder<NoToken> {
         self.data.rcid = Some(rcid);
         ActionApiPatrolBuilder {
@@ -59,6 +64,7 @@ impl ActionApiPatrolBuilder<NoTarget> {
         }
     }
 
+    /// Revision ID to mark as patrolled (`revid`).
     pub fn revid(mut self, revid: u64) -> ActionApiPatrolBuilder<NoToken> {
         self.data.revid = Some(revid);
         ActionApiPatrolBuilder {
@@ -69,6 +75,7 @@ impl ActionApiPatrolBuilder<NoTarget> {
 }
 
 impl ActionApiPatrolBuilder<NoToken> {
+    /// Patrol token required to mark a page as patrolled (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiPatrolBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiPatrolBuilder {

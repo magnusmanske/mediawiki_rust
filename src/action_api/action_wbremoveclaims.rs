@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoClaims = NoTitlesOrGenerator;
 
+/// Internal data container for `action=wbremoveclaims` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiWbremoveclaimsData {
     claim: Option<Vec<String>>,
@@ -31,6 +32,7 @@ impl ActionApiWbremoveclaimsData {
     }
 }
 
+/// Builder for the `action=wbremoveclaims` API action; uses the typestate pattern to enforce required fields.
 #[derive(Debug, Clone)]
 pub struct ActionApiWbremoveclaimsBuilder<T> {
     _phantom: PhantomData<T>,
@@ -38,21 +40,25 @@ pub struct ActionApiWbremoveclaimsBuilder<T> {
 }
 
 impl<T> ActionApiWbremoveclaimsBuilder<T> {
+    /// Sets the edit summary. `summary`
     pub fn summary<S: AsRef<str>>(mut self, summary: S) -> Self {
         self.data.summary = Some(summary.as_ref().to_string());
         self
     }
 
+    /// Sets the change tags to apply to the edit. `tags`
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Sets the base revision ID for conflict detection. `baserevid`
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
     }
 
+    /// Marks the edit as a bot edit. `bot`
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -60,6 +66,7 @@ impl<T> ActionApiWbremoveclaimsBuilder<T> {
 }
 
 impl ActionApiWbremoveclaimsBuilder<NoClaims> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -67,6 +74,7 @@ impl ActionApiWbremoveclaimsBuilder<NoClaims> {
         }
     }
 
+    /// Sets the GUIDs of the claims to remove. `claim`
     pub fn claim<S: Into<String> + Clone>(
         mut self,
         claim: &[S],
@@ -80,6 +88,7 @@ impl ActionApiWbremoveclaimsBuilder<NoClaims> {
 }
 
 impl ActionApiWbremoveclaimsBuilder<NoToken> {
+    /// Sets the CSRF token required to perform the write action. `token`
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbremoveclaimsBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiWbremoveclaimsBuilder {

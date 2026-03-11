@@ -4,6 +4,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoSearch = super::NoTitlesOrGenerator;
 
+/// Internal data container for `action=opensearch` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiOpensearchData {
     search: Option<String>,
@@ -40,6 +41,7 @@ impl ActionApiOpensearchData {
     }
 }
 
+/// Builder for `action=opensearch`. Call `.search()` to set the search string and make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiOpensearchBuilder<T> {
     _phantom: PhantomData<T>,
@@ -47,16 +49,19 @@ pub struct ActionApiOpensearchBuilder<T> {
 }
 
 impl<T> ActionApiOpensearchBuilder<T> {
+    /// Namespaces to search within (`namespace`).
     pub fn namespace(mut self, namespace: &[NamespaceID]) -> Self {
         self.data.namespace = Some(namespace.to_vec());
         self
     }
 
+    /// Maximum number of results to return (`limit`).
     pub fn limit(mut self, limit: usize) -> Self {
         self.data.limit = limit;
         self
     }
 
+    /// How to handle redirect pages in results, e.g. `"resolve"` (`redirects`).
     pub fn redirects<S: AsRef<str>>(mut self, redirects: S) -> Self {
         self.data.redirects = Some(redirects.as_ref().to_string());
         self
@@ -64,6 +69,7 @@ impl<T> ActionApiOpensearchBuilder<T> {
 }
 
 impl ActionApiOpensearchBuilder<NoSearch> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -71,6 +77,7 @@ impl ActionApiOpensearchBuilder<NoSearch> {
         }
     }
 
+    /// Search string to look up (`search`).
     pub fn search<S: AsRef<str>>(mut self, search: S) -> ActionApiOpensearchBuilder<Runnable> {
         self.data.search = Some(search.as_ref().to_string());
         ActionApiOpensearchBuilder {

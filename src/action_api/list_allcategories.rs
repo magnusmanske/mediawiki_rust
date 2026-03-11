@@ -1,6 +1,7 @@
 use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use std::collections::HashMap;
 
+/// Internal data container for `list=allcategories` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllcategoriesData {
     acfrom: Option<String>,
@@ -52,6 +53,7 @@ impl ActionApiListAllcategoriesData {
     }
 }
 
+/// Builder for the `list=allcategories` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllcategoriesBuilder {
     pub(crate) data: ActionApiListAllcategoriesData,
@@ -59,6 +61,7 @@ pub struct ActionApiListAllcategoriesBuilder {
 }
 
 impl ActionApiListAllcategoriesBuilder {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             data: ActionApiListAllcategoriesData::default(),
@@ -66,41 +69,49 @@ impl ActionApiListAllcategoriesBuilder {
         }
     }
 
+    /// Start listing from this category title (`acfrom`).
     pub fn acfrom<S: AsRef<str>>(mut self, acfrom: S) -> Self {
         self.data.acfrom = Some(acfrom.as_ref().to_string());
         self
     }
 
+    /// Stop listing at this category title (`acto`).
     pub fn acto<S: AsRef<str>>(mut self, acto: S) -> Self {
         self.data.acto = Some(acto.as_ref().to_string());
         self
     }
 
+    /// Filter categories to those starting with this prefix (`acprefix`).
     pub fn acprefix<S: AsRef<str>>(mut self, acprefix: S) -> Self {
         self.data.acprefix = Some(acprefix.as_ref().to_string());
         self
     }
 
+    /// Sort direction for listing (`acdir`).
     pub fn acdir<S: AsRef<str>>(mut self, acdir: S) -> Self {
         self.data.acdir = Some(acdir.as_ref().to_string());
         self
     }
 
+    /// Only return categories with at least this many members (`acmin`).
     pub fn acmin(mut self, acmin: u32) -> Self {
         self.data.acmin = Some(acmin);
         self
     }
 
+    /// Only return categories with at most this many members (`acmax`).
     pub fn acmax(mut self, acmax: u32) -> Self {
         self.data.acmax = Some(acmax);
         self
     }
 
+    /// Maximum number of categories to return (`aclimit`).
     pub fn aclimit(mut self, aclimit: usize) -> Self {
         self.data.aclimit = aclimit;
         self
     }
 
+    /// Properties to retrieve for each category (`acprop`).
     pub fn acprop<S: Into<String> + Clone>(mut self, acprop: &[S]) -> Self {
         self.data.acprop = Some(acprop.iter().map(|s| s.clone().into()).collect());
         self

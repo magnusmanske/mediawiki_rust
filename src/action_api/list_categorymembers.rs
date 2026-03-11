@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRu
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=categorymembers` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListCategorymembersData {
     cmtitle: Option<String>,
@@ -72,6 +73,7 @@ impl ActionApiListCategorymembersData {
     }
 }
 
+/// Builder for the `list=categorymembers` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListCategorymembersBuilder<T> {
     _phantom: PhantomData<T>,
@@ -80,61 +82,73 @@ pub struct ActionApiListCategorymembersBuilder<T> {
 }
 
 impl<T> ActionApiListCategorymembersBuilder<T> {
+    /// Properties to retrieve for each member page (`cmprop`).
     pub fn cmprop<S: Into<String> + Clone>(mut self, cmprop: &[S]) -> Self {
         self.data.cmprop = Some(cmprop.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Filter members to these namespaces (`cmnamespace`).
     pub fn cmnamespace(mut self, cmnamespace: &[NamespaceID]) -> Self {
         self.data.cmnamespace = Some(cmnamespace.to_vec());
         self
     }
 
+    /// Filter by member type: `page`, `subcat`, or `file` (`cmtype`).
     pub fn cmtype<S: Into<String> + Clone>(mut self, cmtype: &[S]) -> Self {
         self.data.cmtype = Some(cmtype.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Maximum number of members to return (`cmlimit`).
     pub fn cmlimit(mut self, cmlimit: usize) -> Self {
         self.data.cmlimit = cmlimit;
         self
     }
 
+    /// Property to sort members by: `sortkey` or `timestamp` (`cmsort`).
     pub fn cmsort<S: AsRef<str>>(mut self, cmsort: S) -> Self {
         self.data.cmsort = Some(cmsort.as_ref().to_string());
         self
     }
 
+    /// Sort direction (`asc` or `desc`) (`cmdir`).
     pub fn cmdir<S: AsRef<str>>(mut self, cmdir: S) -> Self {
         self.data.cmdir = Some(cmdir.as_ref().to_string());
         self
     }
 
+    /// Timestamp or sortkey to start listing from (`cmstart`).
     pub fn cmstart<S: AsRef<str>>(mut self, cmstart: S) -> Self {
         self.data.cmstart = Some(cmstart.as_ref().to_string());
         self
     }
 
+    /// Timestamp or sortkey to stop listing at (`cmend`).
     pub fn cmend<S: AsRef<str>>(mut self, cmend: S) -> Self {
         self.data.cmend = Some(cmend.as_ref().to_string());
         self
     }
 
+    /// Hex sortkey to start listing from when sorted by `sortkey` (`cmstarthexsortkey`).
     pub fn cmstarthexsortkey<S: AsRef<str>>(mut self, cmstarthexsortkey: S) -> Self {
         self.data.cmstarthexsortkey = Some(cmstarthexsortkey.as_ref().to_string());
         self
     }
 
+    /// Hex sortkey to stop listing at when sorted by `sortkey` (`cmendhexsortkey`).
     pub fn cmendhexsortkey<S: AsRef<str>>(mut self, cmendhexsortkey: S) -> Self {
         self.data.cmendhexsortkey = Some(cmendhexsortkey.as_ref().to_string());
         self
     }
 
+    /// Sortkey prefix to start listing from (`cmstartsortkeyprefix`).
     pub fn cmstartsortkeyprefix<S: AsRef<str>>(mut self, cmstartsortkeyprefix: S) -> Self {
         self.data.cmstartsortkeyprefix = Some(cmstartsortkeyprefix.as_ref().to_string());
         self
     }
 
+    /// Sortkey prefix to stop listing at (`cmendsortkeyprefix`).
     pub fn cmendsortkeyprefix<S: AsRef<str>>(mut self, cmendsortkeyprefix: S) -> Self {
         self.data.cmendsortkeyprefix = Some(cmendsortkeyprefix.as_ref().to_string());
         self
@@ -142,6 +156,7 @@ impl<T> ActionApiListCategorymembersBuilder<T> {
 }
 
 impl ActionApiListCategorymembersBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -150,6 +165,7 @@ impl ActionApiListCategorymembersBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Title of the category to enumerate members of (`cmtitle`).
     pub fn cmtitle<S: AsRef<str>>(
         mut self,
         cmtitle: S,
@@ -162,6 +178,7 @@ impl ActionApiListCategorymembersBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Page ID of the category to enumerate members of (`cmpageid`).
     pub fn cmpageid(mut self, cmpageid: u64) -> ActionApiListCategorymembersBuilder<Runnable> {
         self.data.cmpageid = Some(cmpageid);
         ActionApiListCategorymembersBuilder {

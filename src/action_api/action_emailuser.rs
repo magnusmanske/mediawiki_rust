@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=emailuser` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiEmailuserData {
     target: Option<String>,
@@ -27,6 +28,7 @@ impl ActionApiEmailuserData {
     }
 }
 
+/// Builder for `action=emailuser`. Call `.target()` to set the recipient user, then `.token()` to make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiEmailuserBuilder<T> {
     _phantom: PhantomData<T>,
@@ -34,16 +36,19 @@ pub struct ActionApiEmailuserBuilder<T> {
 }
 
 impl<T> ActionApiEmailuserBuilder<T> {
+    /// Subject of the email (`subject`).
     pub fn subject<S: AsRef<str>>(mut self, subject: S) -> Self {
         self.data.subject = Some(subject.as_ref().to_string());
         self
     }
 
+    /// Body text of the email (`text`).
     pub fn text<S: AsRef<str>>(mut self, text: S) -> Self {
         self.data.text = Some(text.as_ref().to_string());
         self
     }
 
+    /// Send a copy of the email to the sender (`ccme`).
     pub fn ccme(mut self, ccme: bool) -> Self {
         self.data.ccme = ccme;
         self
@@ -52,6 +57,7 @@ impl<T> ActionApiEmailuserBuilder<T> {
 }
 
 impl ActionApiEmailuserBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -59,6 +65,7 @@ impl ActionApiEmailuserBuilder<NoTarget> {
         }
     }
 
+    /// Username of the recipient to email (`target`).
     pub fn target<S: AsRef<str>>(mut self, target: S) -> ActionApiEmailuserBuilder<NoToken> {
         self.data.target = Some(target.as_ref().to_string());
         ActionApiEmailuserBuilder {
@@ -69,6 +76,7 @@ impl ActionApiEmailuserBuilder<NoTarget> {
 }
 
 impl ActionApiEmailuserBuilder<NoToken> {
+    /// CSRF token required to send the email (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiEmailuserBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiEmailuserBuilder {

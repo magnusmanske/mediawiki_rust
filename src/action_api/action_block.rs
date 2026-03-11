@@ -3,6 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
 
+/// Internal data container for `action=block` parameters.
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiBlockData {
     user: Option<String>,
@@ -58,6 +59,7 @@ impl ActionApiBlockData {
     }
 }
 
+/// Builder for `action=block`. Call `.user()` to set the target user, then `.token()` to make it runnable.
 #[derive(Debug, Clone)]
 pub struct ActionApiBlockBuilder<T> {
     _phantom: PhantomData<T>,
@@ -65,87 +67,104 @@ pub struct ActionApiBlockBuilder<T> {
 }
 
 impl<T> ActionApiBlockBuilder<T> {
+    /// Block expiry time (`expiry`).
     pub fn expiry<S: AsRef<str>>(mut self, expiry: S) -> Self {
         self.data.expiry = Some(expiry.as_ref().to_string());
         self
     }
 
+    /// Reason for the block (`reason`).
     pub fn reason<S: AsRef<str>>(mut self, reason: S) -> Self {
         self.data.reason = Some(reason.as_ref().to_string());
         self
     }
 
+    /// Block anonymous users only (`anononly`).
     pub fn anononly(mut self, anononly: bool) -> Self {
         self.data.anononly = anononly;
         self
     }
 
+    /// Prevent account creation (`nocreate`).
     pub fn nocreate(mut self, nocreate: bool) -> Self {
         self.data.nocreate = nocreate;
         self
     }
 
+    /// Automatically block the last used IP address (`autoblock`).
     pub fn autoblock(mut self, autoblock: bool) -> Self {
         self.data.autoblock = autoblock;
         self
     }
 
+    /// Prevent the user from sending email (`noemail`).
     pub fn noemail(mut self, noemail: bool) -> Self {
         self.data.noemail = noemail;
         self
     }
 
+    /// Hide the username from block logs (`hidename`).
     pub fn hidename(mut self, hidename: bool) -> Self {
         self.data.hidename = hidename;
         self
     }
 
+    /// Allow the user to edit their own talk page while blocked (`allowusertalk`).
     pub fn allowusertalk(mut self, allowusertalk: bool) -> Self {
         self.data.allowusertalk = allowusertalk;
         self
     }
 
+    /// Overwrite an existing block on this user (`reblock`).
     pub fn reblock(mut self, reblock: bool) -> Self {
         self.data.reblock = reblock;
         self
     }
 
+    /// Mark this as a new-style block (`newblock`).
     pub fn newblock(mut self, newblock: bool) -> Self {
         self.data.newblock = newblock;
         self
     }
 
+    /// Add the blocked user to the watchlist (`watchuser`).
     pub fn watchuser(mut self, watchuser: bool) -> Self {
         self.data.watchuser = watchuser;
         self
     }
 
+    /// Expiry of the watchlist entry (`watchlistexpiry`).
     pub fn watchlistexpiry<S: AsRef<str>>(mut self, watchlistexpiry: S) -> Self {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
 
+    /// Change tags to apply to the block log entry (`tags`).
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Apply a partial block rather than a full site-wide block (`partial`).
     pub fn partial(mut self, partial: bool) -> Self {
         self.data.partial = partial;
         self
     }
 
+    /// Pages to restrict the user from editing for a partial block (`pagerestrictions`).
     pub fn pagerestrictions<S: Into<String> + Clone>(mut self, pagerestrictions: &[S]) -> Self {
         self.data.pagerestrictions =
             Some(pagerestrictions.iter().map(|s| s.clone().into()).collect());
         self
     }
 
+    /// Namespace IDs to restrict the user from editing for a partial block (`namespacerestrictions`).
     pub fn namespacerestrictions(mut self, namespacerestrictions: &[i64]) -> Self {
         self.data.namespacerestrictions = Some(namespacerestrictions.to_vec());
         self
     }
 
+    /// Actions to restrict for a partial block (`actionrestrictions`).
     pub fn actionrestrictions<S: Into<String> + Clone>(
         mut self,
         actionrestrictions: &[S],
@@ -158,6 +177,7 @@ impl<T> ActionApiBlockBuilder<T> {
 }
 
 impl ActionApiBlockBuilder<NoTarget> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -165,6 +185,7 @@ impl ActionApiBlockBuilder<NoTarget> {
         }
     }
 
+    /// Username or IP address to block (`user`).
     pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiBlockBuilder<NoToken> {
         self.data.user = Some(user.as_ref().to_string());
         ActionApiBlockBuilder {
@@ -175,6 +196,7 @@ impl ActionApiBlockBuilder<NoTarget> {
 }
 
 impl ActionApiBlockBuilder<NoToken> {
+    /// CSRF token required to perform the block (`token`).
     pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiBlockBuilder<Runnable> {
         self.data.token = Some(token.as_ref().to_string());
         ActionApiBlockBuilder {

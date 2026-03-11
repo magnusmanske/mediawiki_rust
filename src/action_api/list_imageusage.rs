@@ -2,6 +2,7 @@ use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRu
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
+/// Internal data container for `list=imageusage` parameters.
 #[derive(Debug, Clone)]
 pub struct ActionApiListImageusageData {
     iutitle: Option<String>,
@@ -51,6 +52,7 @@ impl ActionApiListImageusageData {
     }
 }
 
+/// Builder for the `list=imageusage` API module; supports pagination via `ActionApiContinuable`.
 #[derive(Debug, Clone)]
 pub struct ActionApiListImageusageBuilder<T> {
     _phantom: PhantomData<T>,
@@ -59,26 +61,31 @@ pub struct ActionApiListImageusageBuilder<T> {
 }
 
 impl<T> ActionApiListImageusageBuilder<T> {
+    /// Filter results to pages in these namespaces (`iunamespace`).
     pub fn iunamespace(mut self, iunamespace: &[NamespaceID]) -> Self {
         self.data.iunamespace = Some(iunamespace.to_vec());
         self
     }
 
+    /// Sort direction for listing (`iudir`).
     pub fn iudir<S: AsRef<str>>(mut self, iudir: S) -> Self {
         self.data.iudir = Some(iudir.as_ref().to_string());
         self
     }
 
+    /// Filter by redirect status of pages using the image (`iufilterredir`).
     pub fn iufilterredir<S: AsRef<str>>(mut self, iufilterredir: S) -> Self {
         self.data.iufilterredir = Some(iufilterredir.as_ref().to_string());
         self
     }
 
+    /// Maximum number of pages to return (`iulimit`).
     pub fn iulimit(mut self, iulimit: usize) -> Self {
         self.data.iulimit = iulimit;
         self
     }
 
+    /// When set, also list pages that link to redirects pointing at the image (`iuredirect`).
     pub fn iuredirect(mut self, iuredirect: bool) -> Self {
         self.data.iuredirect = iuredirect;
         self
@@ -86,6 +93,7 @@ impl<T> ActionApiListImageusageBuilder<T> {
 }
 
 impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -94,6 +102,7 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Title of the image to find usage for (`iutitle`).
     pub fn iutitle<S: AsRef<str>>(mut self, iutitle: S) -> ActionApiListImageusageBuilder<Runnable> {
         self.data.iutitle = Some(iutitle.as_ref().to_string());
         ActionApiListImageusageBuilder {
@@ -103,6 +112,7 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         }
     }
 
+    /// Page ID of the image to find usage for (`iupageid`).
     pub fn iupageid(mut self, iupageid: u64) -> ActionApiListImageusageBuilder<Runnable> {
         self.data.iupageid = Some(iupageid);
         ActionApiListImageusageBuilder {

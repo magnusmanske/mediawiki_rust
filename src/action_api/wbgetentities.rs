@@ -52,13 +52,18 @@ impl ActionApiWbGetEntitiesData {
     }
 }
 
+/// Typestate marker: no entity identifier has been set yet on `wbgetentities`.
 #[derive(Debug, Clone, Copy)]
 pub struct NoTitles;
 
+/// Specifies how entities are identified in a `wbgetentities` request.
 #[derive(Debug, Clone)]
 pub enum WbGetEntitiesTitles {
+    /// Identify entities by their Wikibase IDs (e.g. `["Q42", "P31"]`).
     Ids(Vec<String>),
+    /// Identify entities by a single sitelink site and multiple titles.
     SiteTitles { site: String, titles: Vec<String> },
+    /// Identify entities by multiple sitelink sites and a single title.
     SitesTitle { sites: Vec<String>, title: String },
 }
 
@@ -80,6 +85,25 @@ impl WbGetEntitiesTitles {
     }
 }
 
+/// Builder for `action=wbgetentities` — fetches Wikibase entities.
+///
+/// # Typestate
+/// - Start: [`NoTitles`] — call `.ids()`, `.site_titles()`, or `.sites_title()` to set the target.
+/// - After target: [`WbGetEntitiesTitles`] — builder is [`Runnable`](crate::action_api::Runnable).
+///
+/// # Example
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use mediawiki::prelude::*;
+/// let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+/// let result = ActionApi::wbgetentities()
+///     .ids(&["Q42"])
+///     .languages(&["en"])
+///     .run(&api)
+///     .await
+///     .unwrap();
+/// # });
+/// ```
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ActionApiWbGetEntitiesBuilder<T> {
@@ -88,11 +112,13 @@ pub struct ActionApiWbGetEntitiesBuilder<T> {
 }
 
 impl<T> ActionApiWbGetEntitiesBuilder<T> {
+    /// Whether to follow entity redirects (default `true`) (`redirects`).
     pub fn redirects(mut self, redirects: bool) -> Self {
         self.data.redirects = redirects;
         self
     }
 
+    /// Entity properties to include, e.g. `["labels", "descriptions", "claims"]` (`props`).
     pub fn props<S: Into<String> + Clone>(mut self, props: &[S]) -> Self {
         self.data.props = Some(
             props
@@ -103,6 +129,7 @@ impl<T> ActionApiWbGetEntitiesBuilder<T> {
         self
     }
 
+    /// Language codes to filter labels/descriptions/aliases to, e.g. `["en", "de"]` (`languages`).
     pub fn languages<S: Into<String> + Clone>(mut self, languages: &[S]) -> Self {
         self.data.languages = Some(
             languages
@@ -113,6 +140,7 @@ impl<T> ActionApiWbGetEntitiesBuilder<T> {
         self
     }
 
+    /// Sitelink sites to filter sitelinks to, e.g. `["enwiki", "dewiki"]` (`sitefilter`).
     pub fn sitefilter<S: Into<String> + Clone>(mut self, sitefilter: &[S]) -> Self {
         self.data.sitefilter = Some(
             sitefilter
@@ -123,11 +151,13 @@ impl<T> ActionApiWbGetEntitiesBuilder<T> {
         self
     }
 
+    /// Apply language fallback chains when languages are filtered (`languagefallback`).
     pub fn languagefallback(mut self, languagefallback: bool) -> Self {
         self.data.languagefallback = languagefallback;
         self
     }
 
+    /// Normalise sitelink titles to their canonical form (`normalize`).
     pub fn normalize(mut self, normalize: bool) -> Self {
         self.data.normalize = normalize;
         self
@@ -135,6 +165,7 @@ impl<T> ActionApiWbGetEntitiesBuilder<T> {
 }
 
 impl ActionApiWbGetEntitiesBuilder<NoTitles> {
+    /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self {
             data: ActionApiWbGetEntitiesData::default(),
@@ -142,6 +173,7 @@ impl ActionApiWbGetEntitiesBuilder<NoTitles> {
         }
     }
 
+    /// Fetch entities by their Wikibase IDs (e.g. `["Q42", "P31"]`), advancing to [`Runnable`](crate::action_api::Runnable).
     pub fn ids<S: Into<String> + Clone>(
         self,
         ids: &[S],
@@ -153,6 +185,7 @@ impl ActionApiWbGetEntitiesBuilder<NoTitles> {
         }
     }
 
+    /// Fetch entities by multiple sitelink sites and a single title, advancing to [`Runnable`](crate::action_api::Runnable).
     pub fn sites_title<S, T>(
         self,
         sites: &[S],
@@ -172,6 +205,7 @@ impl ActionApiWbGetEntitiesBuilder<NoTitles> {
         }
     }
 
+    /// Fetch entities by a single sitelink site and multiple titles, advancing to [`Runnable`](crate::action_api::Runnable).
     pub fn site_titles<S, T>(
         self,
         site: S,
