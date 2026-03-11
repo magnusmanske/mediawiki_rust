@@ -88,20 +88,23 @@ async fn check_page(api: &Api) {
 #[tokio::main]
 async fn main() {
     // German Wikipedia
-    let api = Api::new("https://de.wikipedia.org/w/api.php")
+    let mut api = Api::new("https://de.wikipedia.org/w/api.php")
         .await
         .unwrap();
 
-    let token = api.get_edit_token().await.unwrap();
-
-    let result = ActionApi::edit()
-        .title("Benutzer:Magnus Manske/test1")
-        .appendtext("testing...")
-        .run(&api)
-        .await;
-    println!("{:#?}", result);
-
     if false {
+        let csrf_token = api.get_edit_token().await.unwrap();
+
+        let result = ActionApi::edit()
+            .title("Benutzer:Magnus Manske/test1")
+            .appendtext("testing...")
+            .token(csrf_token)
+            .run(&api)
+            .await;
+        println!("{:#?}", result);
+    }
+
+    if true {
         check_namespaces(&api);
         check_page(&api).await;
     }
