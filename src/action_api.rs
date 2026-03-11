@@ -195,12 +195,6 @@ impl ActionApiQueryCommonData {
     }
 }
 
-/// Returns `true` if the API response contains a `continue` object, meaning
-/// more results are available and `continue_from()` can be called.
-pub fn has_more(result: &Value) -> bool {
-    result.get("continue").is_some()
-}
-
 /// Returns `true` if the API response contains `batchcomplete`, signalling
 /// that all prop data for the current generator page batch is complete.
 /// Only relevant when using a generator; the next continuation will advance
@@ -214,6 +208,12 @@ pub fn batch_complete(result: &Value) -> bool {
 /// request that fetches the next page of results.
 pub trait ActionApiContinuable: Sized {
     fn continue_params_mut(&mut self) -> &mut HashMap<String, String>;
+
+    /// Returns `true` if the API response contains a `continue` object, meaning
+    /// more results are available and `continue_from()` can be called.
+    fn has_more(&self, result: &Value) -> bool {
+        result.get("continue").is_some()
+    }
 
     /// Replace the current continuation state with the `continue` object from
     /// `result`. All key-value pairs in `result["continue"]` are stored and

@@ -266,7 +266,7 @@ mod tests {
         let builder = ActionApiList::allpages().apprefix("Albert").aplimit(2);
         let result = builder.run(&api).await.unwrap();
         // If there are more results, verify we can continue
-        if super::super::has_more(&result) {
+        if builder.has_more(&result) {
             let result2 = builder.continue_from(&result).run(&api).await.unwrap();
             assert!(result2["query"]["allpages"].is_array());
         }
