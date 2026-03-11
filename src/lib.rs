@@ -1,3 +1,24 @@
+//! Rust client library for the [MediaWiki Action API](https://www.mediawiki.org/wiki/API:Main_page).
+//!
+//! # Quick start
+//!
+//! ```rust
+//! # tokio::runtime::Runtime::new().unwrap().block_on(async {
+//! use mediawiki::prelude::*;
+//!
+//! let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+//!
+//! // Fetch the first five pages starting with "Albert"
+//! let result = ActionApiList::allpages()
+//!     .apprefix("Albert")
+//!     .aplimit(5)
+//!     .run(&api)
+//!     .await
+//!     .unwrap();
+//! # });
+//! ```
+//!
+//! See [`prelude`] for the full set of re-exported types and traits.
 #![allow(clippy::collapsible_if)]
 #![deny(
     // missing_docs,
@@ -32,7 +53,9 @@ macro_rules! hashmap {
 
 pub use reqwest;
 
+pub mod action_api;
 pub mod api;
+pub mod prelude;
 pub mod api_sync;
 pub mod media_wiki_error;
 pub mod page;

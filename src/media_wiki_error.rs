@@ -3,15 +3,23 @@ use serde_json::Value;
 use std::error::Error;
 use std::fmt;
 
+/// Error type for all MediaWiki API operations.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MediaWikiError {
+    /// JSON serialisation/deserialisation error.
     Serde(serde_json::Error),
+    /// HTTP client error from `reqwest`.
     Reqwest(reqwest::Error),
+    /// Invalid HTTP header value.
     ReqwestHeader(reqwest::header::InvalidHeaderValue),
+    /// Generic string error.
     String(String),
+    /// URL parse error.
     Url(url::ParseError),
+    /// Formatting error.
     Fmt(fmt::Error),
+    /// System time error.
     Time(std::time::SystemTimeError),
 
     /// Error while logging in.
