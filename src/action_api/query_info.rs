@@ -1,16 +1,42 @@
+use super::{ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
+use strum::{Display, EnumString};
 
-use crate::action_api::{ActionApiData, ActionApiRunnable};
+#[derive(EnumString, Display, Debug, Clone, Copy)]
+pub enum IntestactionsDetail {
+    #[strum(to_string = "boolean")]
+    Boolean,
+    #[strum(to_string = "full")]
+    Full,
+    #[strum(to_string = "quick")]
+    Quick,
+}
+
+#[derive(EnumString, Display, Debug, Clone, Copy, Default, PartialEq)]
+pub enum IneditIntroStyle {
+    #[strum(to_string = "lessframes")]
+    LessFrames,
+    #[default]
+    #[strum(to_string = "moreframes")]
+    MoreFrames,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryInfoData {
-    titles: Option<Vec<String>>,
-    pageids: Option<Vec<u64>>,
+    common: ActionApiQueryCommonData,
     inprop: Option<Vec<String>>,
     inlinkcontext: Option<String>,
     intestactions: Option<Vec<String>>,
-    intestactionsdetail: Option<String>,
-    indefaultlinkcaption: Option<bool>,
+    intestactionsdetail: Option<IntestactionsDetail>,
+    indefaultlinkcaption: bool,
+    intestactionsautocreate: bool,
+    inpreloadcustom: Option<String>,
+    inpreloadparams: Option<Vec<String>>,
+    inpreloadnewsection: bool,
+    ineditintrostyle: IneditIntroStyle,
+    ineditintroskip: Option<Vec<String>>,
+    ineditintrocustom: Option<String>,
+    incontinue: Option<String>, // Internal use only, not to be set by user!
 }
 
 impl ActionApiData for ActionApiQueryInfoData {}
@@ -18,11 +44,7 @@ impl ActionApiData for ActionApiQueryInfoData {}
 impl ActionApiQueryInfoData {
     pub(crate) fn params(&self) -> HashMap<String, String> {
         let mut params = HashMap::new();
-        Self::add_vec(&self.titles, "titles", &mut params);
-        if let Some(pageids) = &self.pageids {
-            let pageids: Vec<String> = pageids.iter().map(|id| id.to_string()).collect();
-            params.insert("pageids".to_string(), pageids.join("|"));
-        }
+        self.common.add_to_params(&mut params);
         Self::add_vec(&self.inprop, "inprop", &mut params);
         if let Some(inlinkcontext) = &self.inlinkcontext {
             params.insert("inlinkcontext".to_string(), inlinkcontext.clone());
@@ -31,21 +53,34 @@ impl ActionApiQueryInfoData {
         if let Some(intestactionsdetail) = &self.intestactionsdetail {
             params.insert(
                 "intestactionsdetail".to_string(),
-                intestactionsdetail.clone(),
+                intestactionsdetail.to_string(),
             );
         }
-        if let Some(indefaultlinkcaption) = &self.indefaultlinkcaption {
-            Self::add_boolean(*indefaultlinkcaption, "indefaultlinkcaption", &mut params);
+        Self::add_boolean(
+            self.indefaultlinkcaption,
+            "indefaultlinkcaption",
+            &mut params,
+        );
+        Self::add_boolean(
+            self.intestactionsautocreate,
+            "intestactionsautocreate",
+            &mut params,
+        );
+        Self::add_str(&self.inpreloadcustom, "inpreloadcustom", &mut params);
+        Self::add_vec(&self.inpreloadparams, "inpreloadparams", &mut params);
+        Self::add_boolean(self.inpreloadnewsection, "inpreloadnewsection", &mut params);
+        if self.ineditintrostyle != IneditIntroStyle::default() {
+            params.insert(
+                "ineditintrostyle".to_string(),
+                self.ineditintrostyle.to_string(),
+            );
         }
+        Self::add_vec(&self.ineditintroskip, "ineditintroskip", &mut params);
+        Self::add_str(&self.ineditintrocustom, "ineditintrocustom", &mut params);
+        Self::add_str(&self.incontinue, "incontinue", &mut params);
         params
     }
 }
-
-#[derive(Debug, Copy, Clone)]
-pub struct NoTitlesOrPageids;
-
-#[derive(Debug, Copy, Clone)]
-pub struct Runnable;
 
 #[derive(Debug, Clone, Default)]
 #[repr(transparent)]
@@ -70,33 +105,29 @@ impl<T> ActionApiQueryInfoBuilder<T> {
         self
     }
 
-    pub fn intestactionsdetail<S: AsRef<str>>(mut self, intestactionsdetail: S) -> Self {
-        self.data.intestactionsdetail = Some(intestactionsdetail.as_ref().to_string());
+    pub fn intestactionsdetail(mut self, intestactionsdetail: IntestactionsDetail) -> Self {
+        self.data.intestactionsdetail = Some(intestactionsdetail);
         self
     }
 }
 
-impl<NoTitlesOrPageids> ActionApiQueryInfoBuilder<NoTitlesOrPageids> {
+impl<NoTitlesOrGenerator> ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
     pub(crate) fn new() -> Self {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryInfoData::default(),
         }
     }
+}
 
-    pub fn titles<S: Into<String> + Clone>(
-        mut self,
-        titles: &[S],
-    ) -> ActionApiQueryInfoBuilder<Runnable> {
-        self.data.titles = Some(titles.iter().map(|s| s.clone().into()).collect());
-        ActionApiQueryInfoBuilder {
-            _phantom: PhantomData,
-            data: self.data,
-        }
+impl ActionApiQueryCommonBuilder for ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
+    type Runnable = ActionApiQueryInfoBuilder<Runnable>;
+
+    fn common_mut(&mut self) -> &mut ActionApiQueryCommonData {
+        &mut self.data.common
     }
 
-    pub fn pageids(mut self, pageids: &[u64]) -> ActionApiQueryInfoBuilder<Runnable> {
-        self.data.pageids = Some(pageids.to_vec());
+    fn into_runnable(self) -> Self::Runnable {
         ActionApiQueryInfoBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -116,9 +147,12 @@ impl<Runnable> ActionApiRunnable for ActionApiQueryInfoBuilder<Runnable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Api, action_api::ActionApiQuery};
+    use crate::{
+        Api,
+        action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, NoTitlesOrGenerator},
+    };
 
-    fn new_builder() -> ActionApiQueryInfoBuilder<NoTitlesOrPageids> {
+    fn new_builder() -> ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
         ActionApiQueryInfoBuilder::new()
     }
 
@@ -203,6 +237,32 @@ mod tests {
         assert!(!params.contains_key("titles"));
     }
 
+    // --- revids() ---
+
+    #[test]
+    fn revids_single() {
+        let params = new_builder().revids(&[12345]).data.params();
+        assert_eq!(params["revids"], "12345");
+    }
+
+    #[test]
+    fn revids_multiple() {
+        let params = new_builder().revids(&[1, 2, 3]).data.params();
+        assert_eq!(params["revids"], "1|2|3");
+    }
+
+    #[test]
+    fn revids_does_not_set_titles() {
+        let params = new_builder().revids(&[12345]).data.params();
+        assert!(!params.contains_key("titles"));
+    }
+
+    #[test]
+    fn revids_does_not_set_pageids() {
+        let params = new_builder().revids(&[12345]).data.params();
+        assert!(!params.contains_key("pageids"));
+    }
+
     // --- inprop() ---
 
     #[test]
@@ -271,7 +331,7 @@ mod tests {
     #[test]
     fn intestactionsdetail_boolean() {
         let params = new_builder()
-            .intestactionsdetail("boolean")
+            .intestactionsdetail(IntestactionsDetail::Boolean)
             .titles(&["Foo"])
             .data
             .params();
@@ -281,7 +341,7 @@ mod tests {
     #[test]
     fn intestactionsdetail_full() {
         let params = new_builder()
-            .intestactionsdetail("full")
+            .intestactionsdetail(IntestactionsDetail::Full)
             .titles(&["Foo"])
             .data
             .params();
@@ -313,7 +373,7 @@ mod tests {
             .inprop(&["protection", "url"])
             .inlinkcontext("Main Page")
             .intestactions(&["edit"])
-            .intestactionsdetail("full")
+            .intestactionsdetail(IntestactionsDetail::Full)
             .titles(&["Albert Einstein"]);
         let params = ActionApiRunnable::params(&builder);
         assert_eq!(params["action"], "query");
