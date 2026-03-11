@@ -134,7 +134,7 @@ impl<T> ActionApiWbGetEntitiesBuilder<T> {
     }
 }
 
-impl<NoTitles> ActionApiWbGetEntitiesBuilder<NoTitles> {
+impl ActionApiWbGetEntitiesBuilder<NoTitles> {
     pub fn new() -> Self {
         Self {
             data: ActionApiWbGetEntitiesData::default(),
@@ -192,7 +192,7 @@ impl<NoTitles> ActionApiWbGetEntitiesBuilder<NoTitles> {
     }
 }
 
-impl<Runnable> ActionApiRunnable for ActionApiWbGetEntitiesBuilder<Runnable> {
+impl ActionApiRunnable for ActionApiWbGetEntitiesBuilder<WbGetEntitiesTitles> {
     fn params(&self) -> HashMap<String, String> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "wbgetentities".to_string());

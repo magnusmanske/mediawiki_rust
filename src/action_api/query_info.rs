@@ -82,7 +82,7 @@ impl ActionApiQueryInfoData {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ActionApiQueryInfoBuilder<T> {
     _phantom: PhantomData<T>,
@@ -111,7 +111,7 @@ impl<T> ActionApiQueryInfoBuilder<T> {
     }
 }
 
-impl<NoTitlesOrGenerator> ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
+impl ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
     pub(crate) fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -135,7 +135,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryInfoBuilder<NoTitlesOrGenerat
     }
 }
 
-impl<Runnable> ActionApiRunnable for ActionApiQueryInfoBuilder<Runnable> {
+impl ActionApiRunnable for ActionApiQueryInfoBuilder<Runnable> {
     fn params(&self) -> HashMap<String, String> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());

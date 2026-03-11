@@ -18,28 +18,51 @@ pub struct NoTitlesOrGenerator;
 #[derive(Debug, Copy, Clone)]
 pub struct Runnable;
 
-// pub trait ActionApiGenerator {}
+#[derive(Debug, Clone)]
+pub(crate) enum ActionApiQueryCommonData {
+    None,
+    Titles(Vec<String>),
+    PageIds(Vec<u64>),
+    RevIds(Vec<u64>),
+    Generator(HashMap<String, String>),
+}
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct ActionApiQueryCommonData {
-    pub(crate) titles: Option<Vec<String>>,
-    pub(crate) pageids: Option<Vec<u64>>,
-    pub(crate) revids: Option<Vec<u64>>,
+impl Default for ActionApiQueryCommonData {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl ActionApiQueryCommonData {
     pub(crate) fn add_to_params(&self, params: &mut HashMap<String, String>) {
-        if let Some(titles) = &self.titles {
-            params.insert("titles".to_string(), titles.join("|"));
+        match self {
+            Self::None => {}
+            Self::Titles(titles) => {
+                params.insert("titles".to_string(), titles.join("|"));
+            }
+            Self::PageIds(pageids) => {
+                let s: Vec<String> = pageids.iter().map(|id| id.to_string()).collect();
+                params.insert("pageids".to_string(), s.join("|"));
+            }
+            Self::RevIds(revids) => {
+                let s: Vec<String> = revids.iter().map(|id| id.to_string()).collect();
+                params.insert("revids".to_string(), s.join("|"));
+            }
+            Self::Generator(generator) => {
+                params.extend(generator.clone());
+            }
         }
-        if let Some(pageids) = &self.pageids {
-            let s: Vec<String> = pageids.iter().map(|id| id.to_string()).collect();
-            params.insert("pageids".to_string(), s.join("|"));
-        }
-        if let Some(revids) = &self.revids {
-            let s: Vec<String> = revids.iter().map(|id| id.to_string()).collect();
-            params.insert("revids".to_string(), s.join("|"));
-        }
+    }
+}
+
+pub(crate) trait ActionApiGenerator {
+    fn generator_params(&self) -> HashMap<String, String>;
+
+    fn prefix_params(letter: char, params: HashMap<String, String>) -> HashMap<String, String> {
+        params
+            .into_iter()
+            .map(|(k, v)| (format!("{letter}{k}"), v))
+            .collect()
     }
 }
 
@@ -50,17 +73,24 @@ pub(crate) trait ActionApiQueryCommonBuilder: Sized {
     fn into_runnable(self) -> Self::Runnable;
 
     fn titles<S: Into<String> + Clone>(mut self, titles: &[S]) -> Self::Runnable {
-        self.common_mut().titles = Some(titles.iter().map(|s| s.clone().into()).collect());
+        *self.common_mut() = ActionApiQueryCommonData::Titles(
+            titles.iter().map(|s| s.clone().into()).collect(),
+        );
         self.into_runnable()
     }
 
     fn pageids(mut self, pageids: &[u64]) -> Self::Runnable {
-        self.common_mut().pageids = Some(pageids.to_vec());
+        *self.common_mut() = ActionApiQueryCommonData::PageIds(pageids.to_vec());
         self.into_runnable()
     }
 
     fn revids(mut self, revids: &[u64]) -> Self::Runnable {
-        self.common_mut().revids = Some(revids.to_vec());
+        *self.common_mut() = ActionApiQueryCommonData::RevIds(revids.to_vec());
+        self.into_runnable()
+    }
+
+    fn generator<G: ActionApiGenerator>(mut self, generator: &G) -> Self::Runnable {
+        *self.common_mut() = ActionApiQueryCommonData::Generator(generator.generator_params());
         self.into_runnable()
     }
 }

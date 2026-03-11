@@ -1,7 +1,10 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use crate::{
-    action_api::{ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable},
+    action_api::{
+        ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
+        ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+    },
     api::NamespaceID,
 };
 
@@ -46,11 +49,19 @@ impl ActionApiQueryLinkshereData {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ActionApiQueryLinkshereBuilder<T> {
     _phantom: PhantomData<T>,
     data: ActionApiQueryLinkshereData,
+}
+
+impl ActionApiGenerator for ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
+    fn generator_params(&self) -> HashMap<String, String> {
+        let mut params = Self::prefix_params('g', self.data.params());
+        params.insert("generator".to_string(), "linkshere".to_string());
+        params
+    }
 }
 
 impl<T> ActionApiQueryLinkshereBuilder<T> {
@@ -85,7 +96,7 @@ impl<T> ActionApiQueryLinkshereBuilder<T> {
     }
 }
 
-impl<NoTitlesOrGenerator> ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
+impl ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
     pub(crate) fn new() -> ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLinkshereBuilder {
             _phantom: PhantomData,
@@ -109,7 +120,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryLinkshereBuilder<NoTitlesOrGe
     }
 }
 
-impl<Runnable> ActionApiRunnable for ActionApiQueryLinkshereBuilder<Runnable> {
+impl ActionApiRunnable for ActionApiQueryLinkshereBuilder<Runnable> {
     fn params(&self) -> HashMap<String, String> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
@@ -121,7 +132,10 @@ impl<Runnable> ActionApiRunnable for ActionApiQueryLinkshereBuilder<Runnable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Api, action_api::{ActionApiQuery, ActionApiQueryCommonBuilder}};
+    use crate::{
+        Api,
+        action_api::{ActionApiQuery, ActionApiQueryCommonBuilder},
+    };
 
     fn new_builder() -> ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLinkshereBuilder::new()
