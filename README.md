@@ -8,67 +8,87 @@
 
 ## Get all categories of "Albert Einstein" on English Wikipedia
 ```rust
-let api = mediawiki::api_sync::ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
+use mediawiki::prelude::*;
 
-// Query parameters
-let params = api.params_into(&[
-    ("action", "query"),
-    ("prop", "categories"),
-    ("titles", "Albert Einstein"),
-    ("cllimit", "500"),
-]);
+let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
 
-// Run query; this will automatically continue if more results are available, and merge all results into one
-let res = api.get_query_api_json_all(&params).unwrap();
+let result = ActionApiQuery::categories()
+    .cllimit(500)
+    .titles(&["Albert Einstein"])
+    .run(&api)
+    .await
+    .unwrap();
 
-// Parse result
-let categories: Vec<&str> = res["query"]["pages"]
+let categories: Vec<&str> = result["query"]["pages"]
     .as_object()
     .unwrap()
-    .iter()
-    .flat_map(|(_page_id, page)| {
+    .values()
+    .flat_map(|page| {
         page["categories"]
             .as_array()
-            .unwrap()
+            .unwrap_or(&vec![])
             .iter()
-            .map(|c| c["title"].as_str().unwrap())
+            .filter_map(|c| c["title"].as_str())
     })
     .collect();
 
 dbg!(&categories);
 ```
 
-## Edit the Wikidata Sandbox Item (as a bot)
+## Edit the Wikimedia Sandbox (as a bot)
 ```rust
-let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
-api.login("MY BOT USER NAME", "MY BOT PASSWORD").unwrap();
+use mediawiki::prelude::*;
 
-let token = api.get_edit_token().unwrap();
+let mut api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+api.login("MY BOT USER NAME", "MY BOT PASSWORD").await.unwrap();
 
-let params = api.params_into(&[
-    ("action", "wbeditentity"),
-    ("id", "Q4115189"),
-    ("data", r#"{"claims":[{"mainsnak":{"snaktype":"value","property":"P1810","datavalue":{"value":"ExampleString","type":"string"}},"type":"statement","rank":"normal"}]}"#),
-    ("token", &token),
-]);
+let token = api.get_edit_token().await.unwrap();
 
-let res = api.post_query_api_json(&params).unwrap();
+let res = ActionApi::edit()
+    .title("Wikimedia:Sandbox")
+    .bot(true)
+    .text("Hello from the MediaWiki Rust client!")
+    .summary("test edit")
+    .token(&token)
+    .run(&api)
+    .await
+    .unwrap();
+
 dbg!(res);
 ```
 
 ## Edit via OAuth
 ```rust
-let json = json!({"g_consumer_key":"YOUR_CONSUMER_KEY","g_token_key":"YOUR_TOKEN_KEY"});
+use mediawiki::prelude::*;
+
+let json = serde_json::json!({"g_consumer_key":"YOUR_CONSUMER_KEY","g_token_key":"YOUR_TOKEN_KEY"});
 let oauth = mediawiki::api::OAuthParams::new_from_json(&json);
-let mut api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap();
+let mut api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
 api.set_oauth(Some(oauth));
+
+// Now use ActionApi or ActionApiQuery as normal; OAuth is applied automatically.
+let token = api.get_edit_token().await.unwrap();
+let res = ActionApi::edit()
+    .title("Wikimedia:Sandbox")
+    .text("Hello from the MediaWiki Rust client!")
+    .summary("test edit via OAuth")
+    .token(&token)
+    .run(&api)
+    .await
+    .unwrap();
 ```
 
 ## Query Wikidata using SPARQL
 ```rust
-let api = mediawiki::api::Api::new("https://www.wikidata.org/w/api.php").unwrap(); // Will determine the SPARQL API URL via site info data
-let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
-println!("{}", ::serde_json::to_string_pretty(&res).unwrap());
+use mediawiki::prelude::*;
+
+// Will determine the SPARQL API URL via site info data
+let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+let res = api.sparql_query(
+    "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . \
+     SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }"
+).await.unwrap();
+println!("{}", serde_json::to_string_pretty(&res).unwrap());
 ```
 
 ## License
