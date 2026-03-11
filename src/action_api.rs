@@ -6,6 +6,49 @@ use wbgetentities::{ActionApiWbGetEntitiesBuilder, NoTitles};
 use crate::{
     Api, ApiSync, MediaWikiError,
     action_api::{
+        action_block::ActionApiBlockBuilder,
+        action_delete::ActionApiDeleteBuilder,
+        action_edit::ActionApiEditBuilder,
+        action_emailuser::ActionApiEmailuserBuilder,
+        action_mergehistory::ActionApiMergehistoryBuilder,
+        action_move::ActionApiMoveBuilder,
+        action_options::ActionApiOptionsBuilder,
+        action_patrol::ActionApiPatrolBuilder,
+        action_protect::ActionApiProtectBuilder,
+        action_purge::ActionApiPurgeBuilder,
+        action_rollback::ActionApiRollbackBuilder,
+        action_thank::ActionApiThankBuilder,
+        action_unblock::ActionApiUnblockBuilder,
+        action_upload::ActionApiUploadBuilder,
+        action_userrights::ActionApiUserrightsBuilder,
+        action_watch::ActionApiWatchBuilder,
+        action_wbgetclaims::ActionApiWbgetclaimsBuilder,
+        action_wbsearchentities::{ActionApiWbsearchentitiesBuilder, NoSearch},
+        action_wbformatvalue::{ActionApiWbformatvalueBuilder, NoValue},
+        action_wbparsevalue::{ActionApiWbparsevalueBuilder, NoValues},
+        action_wbeditentity::ActionApiWbeditentityBuilder,
+        action_wbsetlabel::ActionApiWbsetlabelBuilder,
+        action_wbsetdescription::ActionApiWbsetdescriptionBuilder,
+        action_wbsetaliases::ActionApiWbsetaliasesBuilder,
+        action_wbmergeitems::{ActionApiWbmergeitemsBuilder, NoSource as WbmergeitemsNoSource},
+        action_wbcreateredirect::{ActionApiWbcreateredirectBuilder, NoSource as WbcreateredirectNoSource},
+        action_wblinktitles::ActionApiWblinktitlesBuilder,
+        action_wbsetsitelink::ActionApiWbsetsitelinkBuilder,
+        action_wbcreateclaim::ActionApiWbcreateclaimBuilder,
+        action_wbremoveclaims::ActionApiWbremoveclaimsBuilder,
+        action_wbsetclaim::ActionApiWbsetclaimBuilder,
+        action_wbsetclaimvalue::ActionApiWbsetclaimvalueBuilder,
+        action_wbsetqualifier::ActionApiWbsetqualifierBuilder,
+        action_wbremovequalifiers::ActionApiWbremovequalifiersBuilder,
+        action_wbsetreference::ActionApiWbsetreferenceBuilder,
+        action_wbremovereferences::ActionApiWbremovereferencesBuilder,
+        action_login::ActionApiLoginBuilder,
+        action_logout::ActionApiLogoutBuilder,
+        action_opensearch::ActionApiOpensearchBuilder,
+        action_checktoken::ActionApiChecktokenBuilder,
+        action_expandtemplates::ActionApiExpandtemplatesBuilder,
+        action_compare::ActionApiCompareBuilder,
+        action_parse::ActionApiParseBuilder,
         list_allcategories::ActionApiListAllcategoriesBuilder,
         list_allpages::ActionApiListAllpagesBuilder, list_backlinks::ActionApiListBacklinksBuilder,
         list_categorymembers::ActionApiListCategorymembersBuilder,
@@ -61,6 +104,50 @@ mod query_revisions;
 mod query_templates;
 mod query_transcludedin;
 mod wbgetentities;
+
+mod action_block;
+mod action_delete;
+mod action_edit;
+mod action_emailuser;
+mod action_mergehistory;
+mod action_move;
+mod action_options;
+mod action_patrol;
+mod action_protect;
+mod action_purge;
+mod action_rollback;
+mod action_thank;
+mod action_unblock;
+mod action_upload;
+mod action_userrights;
+mod action_watch;
+mod action_wbgetclaims;
+mod action_login;
+mod action_logout;
+mod action_opensearch;
+mod action_checktoken;
+mod action_expandtemplates;
+mod action_compare;
+mod action_parse;
+mod action_wbcreateclaim;
+mod action_wbremoveclaims;
+mod action_wbremovequalifiers;
+mod action_wbremovereferences;
+mod action_wbsetclaim;
+mod action_wbsetclaimvalue;
+mod action_wbsetqualifier;
+mod action_wbsetreference;
+mod action_wbsetsitelink;
+mod action_wbsearchentities;
+mod action_wbformatvalue;
+mod action_wbparsevalue;
+mod action_wbeditentity;
+mod action_wbsetlabel;
+mod action_wbsetdescription;
+mod action_wbsetaliases;
+mod action_wbmergeitems;
+mod action_wbcreateredirect;
+mod action_wblinktitles;
 
 #[derive(Debug, Copy, Clone)]
 pub struct NoTitlesOrGenerator;
@@ -163,10 +250,14 @@ pub(crate) trait ActionApiData {
 pub trait ActionApiRunnable {
     fn params(&self) -> HashMap<String, String>;
 
+    fn http_method(&self) -> &'static str {
+        "GET"
+    }
+
     async fn run(&self, api: &Api) -> Result<Value, MediaWikiError> {
         let params = self.params();
         println!("{:#?}", params);
-        let ret = api.query_api_json(&params, "GET").await?;
+        let ret = api.query_api_json(&params, self.http_method()).await?;
         if let Some(_continue) = ret.get("continue") {
             // TODO use continue["continue"] and e.g. continue["lhcontinue"]
             // watch out for generator continue parameters
@@ -178,7 +269,7 @@ pub trait ActionApiRunnable {
     fn run_sync(&self, api: &ApiSync) -> Result<Value, MediaWikiError> {
         let params = self.params();
         println!("{:#?}", params);
-        api.query_api_json(&params, "GET")
+        api.query_api_json(&params, self.http_method())
     }
 }
 
@@ -188,6 +279,180 @@ pub struct ActionApi;
 impl ActionApi {
     pub fn wbgetentities() -> ActionApiWbGetEntitiesBuilder<NoTitles> {
         ActionApiWbGetEntitiesBuilder::new()
+    }
+
+    pub fn edit() -> ActionApiEditBuilder<NoTitlesOrGenerator> {
+        ActionApiEditBuilder::new()
+    }
+
+    pub fn delete() -> ActionApiDeleteBuilder<NoTitlesOrGenerator> {
+        ActionApiDeleteBuilder::new()
+    }
+
+    pub fn move_page() -> ActionApiMoveBuilder<NoTitlesOrGenerator> {
+        ActionApiMoveBuilder::new()
+    }
+
+    pub fn patrol() -> ActionApiPatrolBuilder<NoTitlesOrGenerator> {
+        ActionApiPatrolBuilder::new()
+    }
+
+    pub fn protect() -> ActionApiProtectBuilder<NoTitlesOrGenerator> {
+        ActionApiProtectBuilder::new()
+    }
+
+    pub fn purge() -> ActionApiPurgeBuilder<NoTitlesOrGenerator> {
+        ActionApiPurgeBuilder::new()
+    }
+
+    pub fn rollback() -> ActionApiRollbackBuilder<NoTitlesOrGenerator> {
+        ActionApiRollbackBuilder::new()
+    }
+
+    pub fn watch() -> ActionApiWatchBuilder<NoTitlesOrGenerator> {
+        ActionApiWatchBuilder::new()
+    }
+
+    pub fn block() -> ActionApiBlockBuilder<NoTitlesOrGenerator> {
+        ActionApiBlockBuilder::new()
+    }
+
+    pub fn unblock() -> ActionApiUnblockBuilder<NoTitlesOrGenerator> {
+        ActionApiUnblockBuilder::new()
+    }
+
+    pub fn thank() -> ActionApiThankBuilder<NoTitlesOrGenerator> {
+        ActionApiThankBuilder::new()
+    }
+
+    pub fn emailuser() -> ActionApiEmailuserBuilder<NoTitlesOrGenerator> {
+        ActionApiEmailuserBuilder::new()
+    }
+
+    pub fn userrights() -> ActionApiUserrightsBuilder<NoTitlesOrGenerator> {
+        ActionApiUserrightsBuilder::new()
+    }
+
+    pub fn upload() -> ActionApiUploadBuilder<NoTitlesOrGenerator> {
+        ActionApiUploadBuilder::new()
+    }
+
+    pub fn options() -> ActionApiOptionsBuilder<NoTitlesOrGenerator> {
+        ActionApiOptionsBuilder::new()
+    }
+
+    pub fn mergehistory() -> ActionApiMergehistoryBuilder<NoTitlesOrGenerator> {
+        ActionApiMergehistoryBuilder::new()
+    }
+
+    pub fn wbgetclaims() -> ActionApiWbgetclaimsBuilder<NoTitlesOrGenerator> {
+        ActionApiWbgetclaimsBuilder::new()
+    }
+
+    pub fn wbsearchentities() -> ActionApiWbsearchentitiesBuilder<NoSearch> {
+        ActionApiWbsearchentitiesBuilder::new()
+    }
+
+    pub fn wbformatvalue() -> ActionApiWbformatvalueBuilder<NoValue> {
+        ActionApiWbformatvalueBuilder::new()
+    }
+
+    pub fn wbparsevalue() -> ActionApiWbparsevalueBuilder<NoValues> {
+        ActionApiWbparsevalueBuilder::new()
+    }
+
+    pub fn wbeditentity() -> ActionApiWbeditentityBuilder<NoTitlesOrGenerator> {
+        ActionApiWbeditentityBuilder::new()
+    }
+
+    pub fn wbsetlabel() -> ActionApiWbsetlabelBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetlabelBuilder::new()
+    }
+
+    pub fn wbsetdescription() -> ActionApiWbsetdescriptionBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetdescriptionBuilder::new()
+    }
+
+    pub fn wbsetaliases() -> ActionApiWbsetaliasesBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetaliasesBuilder::new()
+    }
+
+    pub fn wbmergeitems() -> ActionApiWbmergeitemsBuilder<NoTitlesOrGenerator> {
+        ActionApiWbmergeitemsBuilder::new()
+    }
+
+    pub fn wbcreateredirect() -> ActionApiWbcreateredirectBuilder<NoTitlesOrGenerator> {
+        ActionApiWbcreateredirectBuilder::new()
+    }
+
+    pub fn wblinktitles() -> ActionApiWblinktitlesBuilder<NoTitlesOrGenerator> {
+        ActionApiWblinktitlesBuilder::new()
+    }
+
+    pub fn wbsetsitelink() -> ActionApiWbsetsitelinkBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetsitelinkBuilder::new()
+    }
+
+    pub fn wbcreateclaim() -> ActionApiWbcreateclaimBuilder<NoTitlesOrGenerator> {
+        ActionApiWbcreateclaimBuilder::new()
+    }
+
+    pub fn wbremoveclaims() -> ActionApiWbremoveclaimsBuilder<NoTitlesOrGenerator> {
+        ActionApiWbremoveclaimsBuilder::new()
+    }
+
+    pub fn wbsetclaim() -> ActionApiWbsetclaimBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetclaimBuilder::new()
+    }
+
+    pub fn wbsetclaimvalue() -> ActionApiWbsetclaimvalueBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetclaimvalueBuilder::new()
+    }
+
+    pub fn wbsetqualifier() -> ActionApiWbsetqualifierBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetqualifierBuilder::new()
+    }
+
+    pub fn wbremovequalifiers(
+    ) -> ActionApiWbremovequalifiersBuilder<NoTitlesOrGenerator> {
+        ActionApiWbremovequalifiersBuilder::new()
+    }
+
+    pub fn wbsetreference() -> ActionApiWbsetreferenceBuilder<NoTitlesOrGenerator> {
+        ActionApiWbsetreferenceBuilder::new()
+    }
+
+    pub fn wbremovereferences(
+    ) -> ActionApiWbremovereferencesBuilder<NoTitlesOrGenerator> {
+        ActionApiWbremovereferencesBuilder::new()
+    }
+
+    pub fn login() -> ActionApiLoginBuilder<NoTitlesOrGenerator> {
+        ActionApiLoginBuilder::new()
+    }
+
+    pub fn logout() -> ActionApiLogoutBuilder<NoTitlesOrGenerator> {
+        ActionApiLogoutBuilder::new()
+    }
+
+    pub fn opensearch() -> ActionApiOpensearchBuilder<NoTitlesOrGenerator> {
+        ActionApiOpensearchBuilder::new()
+    }
+
+    pub fn checktoken() -> ActionApiChecktokenBuilder<NoTitlesOrGenerator> {
+        ActionApiChecktokenBuilder::new()
+    }
+
+    pub fn expandtemplates() -> ActionApiExpandtemplatesBuilder<NoTitlesOrGenerator> {
+        ActionApiExpandtemplatesBuilder::new()
+    }
+
+    pub fn compare() -> ActionApiCompareBuilder {
+        ActionApiCompareBuilder::new()
+    }
+
+    pub fn parse() -> ActionApiParseBuilder {
+        ActionApiParseBuilder::new()
     }
 }
 
