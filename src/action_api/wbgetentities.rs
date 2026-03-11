@@ -223,25 +223,25 @@ mod tests {
     #[test]
     fn default_redirects_is_true() {
         let params = new_builder().ids(&["Q1"]).data.params();
-        assert_eq!(params["redirects"], "true");
+        assert!(!params.contains_key("redirects"));
     }
 
     #[test]
     fn default_props_is_empty() {
         let params = new_builder().ids(&["Q1"]).data.params();
-        assert_eq!(params["props"], "");
+        assert!(!params.contains_key("props"));
     }
 
     #[test]
     fn default_languages_is_empty() {
         let params = new_builder().ids(&["Q1"]).data.params();
-        assert_eq!(params["languages"], "");
+        assert!(!params.contains_key("languages"));
     }
 
     #[test]
     fn default_sitefilter_is_empty() {
         let params = new_builder().ids(&["Q1"]).data.params();
-        assert_eq!(params["sitefilter"], "");
+        assert!(!params.contains_key("sitefilter"));
     }
 
     // --- ids() ---
@@ -326,13 +326,13 @@ mod tests {
     #[test]
     fn redirects_false() {
         let params = new_builder().redirects(false).ids(&["Q1"]).data.params();
-        assert_eq!(params["redirects"], "false");
+        assert_eq!(params["redirects"], "no");
     }
 
     #[test]
     fn redirects_true_explicit() {
         let params = new_builder().redirects(true).ids(&["Q1"]).data.params();
-        assert_eq!(params["redirects"], "true");
+        assert!(!params.contains_key("redirects"));
     }
 
     // --- props() ---
@@ -477,7 +477,7 @@ mod tests {
             .ids(&["Q42"])
             .data
             .params();
-        assert_eq!(params["redirects"], "false");
+        assert_eq!(params["redirects"], "no");
         assert_eq!(params["props"], "labels|descriptions");
         assert_eq!(params["languages"], "en|de");
         assert_eq!(params["sitefilter"], "enwiki");
