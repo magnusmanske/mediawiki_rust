@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable,
-    NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
+    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -46,10 +46,10 @@ impl ActionApiQueryIwlinksData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryIwlinksBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryIwlinksData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryIwlinksBuilder<T> {
@@ -84,6 +84,7 @@ impl ActionApiQueryIwlinksBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryIwlinksData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -99,6 +100,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryIwlinksBuilder<NoTitlesOrGene
         ActionApiQueryIwlinksBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -108,7 +110,14 @@ impl ActionApiRunnable for ActionApiQueryIwlinksBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "iwlinks".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryIwlinksBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -52,6 +52,7 @@ impl ActionApiListEmbeddedinData {
 pub struct ActionApiListEmbeddedinBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiListEmbeddedinData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiListEmbeddedinBuilder<T> {
@@ -81,6 +82,7 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiListEmbeddedinData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -89,6 +91,7 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         ActionApiListEmbeddedinBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -97,6 +100,7 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
         ActionApiListEmbeddedinBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -114,7 +118,14 @@ impl ActionApiRunnable for ActionApiListEmbeddedinBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "embeddedin".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListEmbeddedinBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

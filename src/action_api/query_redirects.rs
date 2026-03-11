@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
-    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder,
+    ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
@@ -47,10 +47,10 @@ impl ActionApiQueryRedirectsData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryRedirectsBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryRedirectsData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryRedirectsBuilder<T> {
@@ -80,6 +80,7 @@ impl ActionApiQueryRedirectsBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryRedirectsData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -103,6 +104,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryRedirectsBuilder<NoTitlesOrGe
         ActionApiQueryRedirectsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -112,7 +114,14 @@ impl ActionApiRunnable for ActionApiQueryRedirectsBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "redirects".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryRedirectsBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

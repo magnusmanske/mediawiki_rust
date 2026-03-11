@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
-    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder,
+    ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
@@ -53,10 +53,10 @@ impl ActionApiQueryCategoriesData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryCategoriesBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryCategoriesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryCategoriesBuilder<T> {
@@ -96,6 +96,7 @@ impl ActionApiQueryCategoriesBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryCategoriesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -119,6 +120,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryCategoriesBuilder<NoTitlesOrG
         ActionApiQueryCategoriesBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -128,7 +130,14 @@ impl ActionApiRunnable for ActionApiQueryCategoriesBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "categories".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryCategoriesBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable,
-    NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
+    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -24,10 +24,10 @@ impl ActionApiQueryPagepropsData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryPagepropsBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryPagepropsData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryPagepropsBuilder<T> {
@@ -42,6 +42,7 @@ impl ActionApiQueryPagepropsBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryPagepropsData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -57,6 +58,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryPagepropsBuilder<NoTitlesOrGe
         ActionApiQueryPagepropsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -66,7 +68,14 @@ impl ActionApiRunnable for ActionApiQueryPagepropsBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "pageprops".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryPagepropsBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

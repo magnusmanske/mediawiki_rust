@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable,
-    NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
+    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -49,10 +49,10 @@ impl ActionApiQueryLanglinksData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryLanglinksBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryLanglinksData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryLanglinksBuilder<T> {
@@ -92,6 +92,7 @@ impl ActionApiQueryLanglinksBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryLanglinksData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -107,6 +108,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryLanglinksBuilder<NoTitlesOrGe
         ActionApiQueryLanglinksBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -116,7 +118,14 @@ impl ActionApiRunnable for ActionApiQueryLanglinksBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "langlinks".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryLanglinksBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

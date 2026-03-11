@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -55,6 +55,7 @@ impl ActionApiListImageusageData {
 pub struct ActionApiListImageusageBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiListImageusageData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiListImageusageBuilder<T> {
@@ -89,6 +90,7 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiListImageusageData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -97,6 +99,7 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         ActionApiListImageusageBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -105,6 +108,7 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
         ActionApiListImageusageBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -122,7 +126,14 @@ impl ActionApiRunnable for ActionApiListImageusageBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "imageusage".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListImageusageBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

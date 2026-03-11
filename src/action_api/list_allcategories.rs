@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -55,12 +55,14 @@ impl ActionApiListAllcategoriesData {
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllcategoriesBuilder {
     pub(crate) data: ActionApiListAllcategoriesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl ActionApiListAllcategoriesBuilder {
     pub fn new() -> Self {
         Self {
             data: ActionApiListAllcategoriesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -110,7 +112,14 @@ impl ActionApiRunnable for ActionApiListAllcategoriesBuilder {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "allcategories".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListAllcategoriesBuilder {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

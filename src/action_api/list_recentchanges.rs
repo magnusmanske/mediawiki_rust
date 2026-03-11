@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use crate::api::NamespaceID;
 use std::collections::HashMap;
 
@@ -70,12 +70,14 @@ impl ActionApiListRecentchangesData {
 #[derive(Debug, Clone)]
 pub struct ActionApiListRecentchangesBuilder {
     pub(crate) data: ActionApiListRecentchangesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl ActionApiListRecentchangesBuilder {
     pub fn new() -> Self {
         Self {
             data: ActionApiListRecentchangesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -150,7 +152,14 @@ impl ActionApiRunnable for ActionApiListRecentchangesBuilder {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "recentchanges".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListRecentchangesBuilder {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

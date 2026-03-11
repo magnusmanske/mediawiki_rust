@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable};
 use crate::api::NamespaceID;
 use std::collections::HashMap;
 
@@ -74,12 +74,14 @@ impl ActionApiListAllpagesData {
 #[derive(Debug, Clone)]
 pub struct ActionApiListAllpagesBuilder {
     pub(crate) data: ActionApiListAllpagesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl ActionApiListAllpagesBuilder {
     pub fn new() -> Self {
         Self {
             data: ActionApiListAllpagesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -159,7 +161,14 @@ impl ActionApiRunnable for ActionApiListAllpagesBuilder {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "allpages".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListAllpagesBuilder {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 
@@ -249,5 +258,17 @@ mod tests {
             .await
             .unwrap();
         assert!(result["query"]["allpages"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_allpages_continue() {
+        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        let builder = ActionApiList::allpages().apprefix("Albert").aplimit(2);
+        let result = builder.run(&api).await.unwrap();
+        // If there are more results, verify we can continue
+        if super::super::has_more(&result) {
+            let result2 = builder.continue_from(&result).run(&api).await.unwrap();
+            assert!(result2["query"]["allpages"].is_array());
+        }
     }
 }

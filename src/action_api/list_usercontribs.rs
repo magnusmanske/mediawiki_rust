@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -71,6 +71,7 @@ impl ActionApiListUsercontribsData {
 pub struct ActionApiListUsercontribsBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiListUsercontribsData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiListUsercontribsBuilder<T> {
@@ -120,6 +121,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiListUsercontribsData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -131,6 +133,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         ActionApiListUsercontribsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -142,6 +145,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         ActionApiListUsercontribsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -153,6 +157,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         ActionApiListUsercontribsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -164,6 +169,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
         ActionApiListUsercontribsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -173,7 +179,14 @@ impl ActionApiRunnable for ActionApiListUsercontribsBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "usercontribs".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListUsercontribsBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

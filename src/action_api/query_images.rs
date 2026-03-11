@@ -1,6 +1,6 @@
 use super::{
-    ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
-    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiQueryCommonBuilder,
+    ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -40,10 +40,10 @@ impl ActionApiQueryImagesData {
 }
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
 pub struct ActionApiQueryImagesBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiQueryImagesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiQueryImagesBuilder<T> {
@@ -68,6 +68,7 @@ impl ActionApiQueryImagesBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiQueryImagesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -91,6 +92,7 @@ impl ActionApiQueryCommonBuilder for ActionApiQueryImagesBuilder<NoTitlesOrGener
         ActionApiQueryImagesBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: self.continue_params,
         }
     }
 }
@@ -100,7 +102,14 @@ impl ActionApiRunnable for ActionApiQueryImagesBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("prop".to_string(), "images".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiQueryImagesBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

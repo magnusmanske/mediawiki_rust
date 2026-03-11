@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -31,6 +31,7 @@ impl ActionApiWbgetclaimsData {
 pub struct ActionApiWbgetclaimsBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiWbgetclaimsData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiWbgetclaimsBuilder<T> {
@@ -55,6 +56,7 @@ impl ActionApiWbgetclaimsBuilder<NoTarget> {
         Self {
             _phantom: PhantomData,
             data: ActionApiWbgetclaimsData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -63,6 +65,7 @@ impl ActionApiWbgetclaimsBuilder<NoTarget> {
         ActionApiWbgetclaimsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -71,13 +74,22 @@ impl ActionApiWbgetclaimsBuilder<NoTarget> {
         ActionApiWbgetclaimsBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
 
 impl ActionApiRunnable for ActionApiWbgetclaimsBuilder<Runnable> {
     fn params(&self) -> HashMap<String, String> {
-        self.data.params()
+        let mut ret = self.data.params();
+        ret.extend(self.continue_params.clone());
+        ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiWbgetclaimsBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoSearch = super::NoTitlesOrGenerator;
@@ -54,6 +54,7 @@ impl ActionApiWbsearchentitiesData {
 pub struct ActionApiWbsearchentitiesBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiWbsearchentitiesData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiWbsearchentitiesBuilder<T> {
@@ -98,6 +99,7 @@ impl ActionApiWbsearchentitiesBuilder<NoSearch> {
         Self {
             _phantom: PhantomData,
             data: ActionApiWbsearchentitiesData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -109,13 +111,22 @@ impl ActionApiWbsearchentitiesBuilder<NoSearch> {
         ActionApiWbsearchentitiesBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
 
 impl ActionApiRunnable for ActionApiWbsearchentitiesBuilder<Runnable> {
     fn params(&self) -> HashMap<String, String> {
-        self.data.params()
+        let mut ret = self.data.params();
+        ret.extend(self.continue_params.clone());
+        ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiWbsearchentitiesBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 

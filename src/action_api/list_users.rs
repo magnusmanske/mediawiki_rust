@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Debug, Clone, Default)]
@@ -29,6 +29,7 @@ impl ActionApiListUsersData {
 pub struct ActionApiListUsersBuilder<T> {
     _phantom: PhantomData<T>,
     pub(crate) data: ActionApiListUsersData,
+    pub(crate) continue_params: HashMap<String, String>,
 }
 
 impl<T> ActionApiListUsersBuilder<T> {
@@ -48,6 +49,7 @@ impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         Self {
             _phantom: PhantomData,
             data: ActionApiListUsersData::default(),
+            continue_params: HashMap::new(),
         }
     }
 
@@ -59,6 +61,7 @@ impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         ActionApiListUsersBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 
@@ -67,6 +70,7 @@ impl ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         ActionApiListUsersBuilder {
             _phantom: PhantomData,
             data: self.data,
+            continue_params: HashMap::new(),
         }
     }
 }
@@ -76,7 +80,14 @@ impl ActionApiRunnable for ActionApiListUsersBuilder<Runnable> {
         let mut ret = self.data.params();
         ret.insert("action".to_string(), "query".to_string());
         ret.insert("list".to_string(), "users".to_string());
+        ret.extend(self.continue_params.clone());
         ret
+    }
+}
+
+impl ActionApiContinuable for ActionApiListUsersBuilder<Runnable> {
+    fn continue_params_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.continue_params
     }
 }
 
