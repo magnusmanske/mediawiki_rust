@@ -1,6 +1,6 @@
 use config::*;
-use mediawiki::page::Page;
 use mediawiki::Title;
+use mediawiki::page::Page;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
