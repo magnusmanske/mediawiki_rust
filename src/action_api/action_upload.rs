@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoFilename = NoTitlesOrGenerator;
@@ -123,10 +123,6 @@ impl<T> ActionApiUploadBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiUploadBuilder<NoFilename> {
@@ -137,8 +133,18 @@ impl ActionApiUploadBuilder<NoFilename> {
         }
     }
 
-    pub fn filename<S: AsRef<str>>(mut self, filename: S) -> ActionApiUploadBuilder<Runnable> {
+    pub fn filename<S: AsRef<str>>(mut self, filename: S) -> ActionApiUploadBuilder<NoToken> {
         self.data.filename = Some(filename.as_ref().to_string());
+        ActionApiUploadBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiUploadBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiUploadBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiUploadBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -224,7 +230,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().filename("Example.png");
+        let builder = new_builder().filename("Example.png").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

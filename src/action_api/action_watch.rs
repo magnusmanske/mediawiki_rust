@@ -1,6 +1,6 @@
 use super::{
     ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable,
-    NoTitlesOrGenerator, Runnable,
+    NoTitlesOrGenerator, NoToken, Runnable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -43,10 +43,6 @@ impl<T> ActionApiWatchBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiWatchBuilder<NoTitlesOrGenerator> {
@@ -59,13 +55,23 @@ impl ActionApiWatchBuilder<NoTitlesOrGenerator> {
 }
 
 impl ActionApiQueryCommonBuilder for ActionApiWatchBuilder<NoTitlesOrGenerator> {
-    type Runnable = ActionApiWatchBuilder<Runnable>;
+    type Runnable = ActionApiWatchBuilder<NoToken>;
 
     fn common_mut(&mut self) -> &mut ActionApiQueryCommonData {
         &mut self.data.common
     }
 
     fn into_runnable(self) -> Self::Runnable {
+        ActionApiWatchBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWatchBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWatchBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWatchBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -119,8 +125,8 @@ mod tests {
     #[test]
     fn token_set() {
         let params = new_builder()
-            .token("watch+\\")
             .titles(&["Foo"])
+            .token("watch+\\")
             .data
             .params();
         assert_eq!(params["token"], "watch+\\");
@@ -134,14 +140,14 @@ mod tests {
 
     #[test]
     fn action_is_watch() {
-        let builder = new_builder().titles(&["Foo"]);
+        let builder = new_builder().titles(&["Foo"]).token("csrf");
         let params = ActionApiRunnable::params(&builder);
         assert_eq!(params["action"], "watch");
     }
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().titles(&["Foo"]);
+        let builder = new_builder().titles(&["Foo"]).token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

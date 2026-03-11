@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -60,10 +60,6 @@ impl<T> ActionApiUnblockBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiUnblockBuilder<NoTarget> {
@@ -74,7 +70,7 @@ impl ActionApiUnblockBuilder<NoTarget> {
         }
     }
 
-    pub fn id(mut self, id: u64) -> ActionApiUnblockBuilder<Runnable> {
+    pub fn id(mut self, id: u64) -> ActionApiUnblockBuilder<NoToken> {
         self.data.id = Some(id);
         ActionApiUnblockBuilder {
             _phantom: PhantomData,
@@ -82,8 +78,18 @@ impl ActionApiUnblockBuilder<NoTarget> {
         }
     }
 
-    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiUnblockBuilder<Runnable> {
+    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiUnblockBuilder<NoToken> {
         self.data.user = Some(user.as_ref().to_string());
+        ActionApiUnblockBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiUnblockBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiUnblockBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiUnblockBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -141,7 +147,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().id(1);
+        let builder = new_builder().id(1).token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

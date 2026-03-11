@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
@@ -71,11 +71,6 @@ impl<T> ActionApiWbsetdescriptionBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -90,7 +85,7 @@ impl ActionApiWbsetdescriptionBuilder<NoTarget> {
         }
     }
 
-    pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetdescriptionBuilder<Runnable> {
+    pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetdescriptionBuilder<NoToken> {
         self.data.id = Some(id.as_ref().to_string());
         ActionApiWbsetdescriptionBuilder {
             _phantom: PhantomData,
@@ -102,9 +97,19 @@ impl ActionApiWbsetdescriptionBuilder<NoTarget> {
         mut self,
         site: S,
         title: S,
-    ) -> ActionApiWbsetdescriptionBuilder<Runnable> {
+    ) -> ActionApiWbsetdescriptionBuilder<NoToken> {
         self.data.site = Some(site.as_ref().to_string());
         self.data.title = Some(title.as_ref().to_string());
+        ActionApiWbsetdescriptionBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWbsetdescriptionBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetdescriptionBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetdescriptionBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -166,7 +171,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().id("Q42");
+        let builder = new_builder().id("Q42").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

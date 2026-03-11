@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -49,10 +49,6 @@ impl<T> ActionApiEmailuserBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiEmailuserBuilder<NoTarget> {
@@ -63,8 +59,18 @@ impl ActionApiEmailuserBuilder<NoTarget> {
         }
     }
 
-    pub fn target<S: AsRef<str>>(mut self, target: S) -> ActionApiEmailuserBuilder<Runnable> {
+    pub fn target<S: AsRef<str>>(mut self, target: S) -> ActionApiEmailuserBuilder<NoToken> {
         self.data.target = Some(target.as_ref().to_string());
+        ActionApiEmailuserBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiEmailuserBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiEmailuserBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiEmailuserBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -146,7 +152,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().target("SomeUser");
+        let builder = new_builder().target("SomeUser").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

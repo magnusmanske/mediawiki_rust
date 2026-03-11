@@ -1,12 +1,8 @@
 use config::*;
-use mediawiki::Title;
-use mediawiki::page::Page;
+use mediawiki::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
-
-use mediawiki::Api;
-use mediawiki::MediaWikiError;
 
 async fn edit_sandbox_item(api: &mut Api) -> Result<Value, MediaWikiError> {
     let q = "Q13406268"; // Second sandbox item
@@ -96,8 +92,19 @@ async fn main() {
         .await
         .unwrap();
 
-    check_namespaces(&api);
-    check_page(&api).await;
+    let token = api.get_edit_token().await.unwrap();
+
+    let result = ActionApi::edit()
+        .title("Benutzer:Magnus Manske/test1")
+        .appendtext("testing...")
+        .run(&api)
+        .await;
+    println!("{:#?}", result);
+
+    if false {
+        check_namespaces(&api);
+        check_page(&api).await;
+    }
 
     // Wikidata
     // Deactivated, because editing...

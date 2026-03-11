@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
@@ -85,11 +85,6 @@ impl<T> ActionApiWbsetaliasesBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -104,7 +99,7 @@ impl ActionApiWbsetaliasesBuilder<NoTarget> {
         }
     }
 
-    pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetaliasesBuilder<Runnable> {
+    pub fn id<S: AsRef<str>>(mut self, id: S) -> ActionApiWbsetaliasesBuilder<NoToken> {
         self.data.id = Some(id.as_ref().to_string());
         ActionApiWbsetaliasesBuilder {
             _phantom: PhantomData,
@@ -116,9 +111,19 @@ impl ActionApiWbsetaliasesBuilder<NoTarget> {
         mut self,
         site: S,
         title: S,
-    ) -> ActionApiWbsetaliasesBuilder<Runnable> {
+    ) -> ActionApiWbsetaliasesBuilder<NoToken> {
         self.data.site = Some(site.as_ref().to_string());
         self.data.title = Some(title.as_ref().to_string());
+        ActionApiWbsetaliasesBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWbsetaliasesBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetaliasesBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetaliasesBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -192,7 +197,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().id("Q42");
+        let builder = new_builder().id("Q42").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

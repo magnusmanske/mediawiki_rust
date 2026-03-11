@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -206,10 +206,6 @@ impl<T> ActionApiEditBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiEditBuilder<NoTarget> {
@@ -220,7 +216,7 @@ impl ActionApiEditBuilder<NoTarget> {
         }
     }
 
-    pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiEditBuilder<Runnable> {
+    pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiEditBuilder<NoToken> {
         self.data.title = Some(title.as_ref().to_string());
         ActionApiEditBuilder {
             _phantom: PhantomData,
@@ -228,8 +224,18 @@ impl ActionApiEditBuilder<NoTarget> {
         }
     }
 
-    pub fn pageid(mut self, pageid: u64) -> ActionApiEditBuilder<Runnable> {
+    pub fn pageid(mut self, pageid: u64) -> ActionApiEditBuilder<NoToken> {
         self.data.pageid = Some(pageid);
+        ActionApiEditBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiEditBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiEditBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiEditBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -305,7 +311,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().title("Foo");
+        let builder = new_builder().title("Foo").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

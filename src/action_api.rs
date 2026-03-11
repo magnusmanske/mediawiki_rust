@@ -7,12 +7,19 @@ use crate::{
     Api, ApiSync, MediaWikiError,
     action_api::{
         action_block::ActionApiBlockBuilder,
+        action_checktoken::ActionApiChecktokenBuilder,
+        action_compare::ActionApiCompareBuilder,
         action_delete::ActionApiDeleteBuilder,
         action_edit::ActionApiEditBuilder,
         action_emailuser::ActionApiEmailuserBuilder,
+        action_expandtemplates::ActionApiExpandtemplatesBuilder,
+        action_login::ActionApiLoginBuilder,
+        action_logout::ActionApiLogoutBuilder,
         action_mergehistory::ActionApiMergehistoryBuilder,
         action_move::ActionApiMoveBuilder,
+        action_opensearch::ActionApiOpensearchBuilder,
         action_options::ActionApiOptionsBuilder,
+        action_parse::ActionApiParseBuilder,
         action_patrol::ActionApiPatrolBuilder,
         action_protect::ActionApiProtectBuilder,
         action_purge::ActionApiPurgeBuilder,
@@ -22,35 +29,29 @@ use crate::{
         action_upload::ActionApiUploadBuilder,
         action_userrights::ActionApiUserrightsBuilder,
         action_watch::ActionApiWatchBuilder,
-        action_wbgetclaims::ActionApiWbgetclaimsBuilder,
-        action_wbsearchentities::{ActionApiWbsearchentitiesBuilder, NoSearch},
-        action_wbformatvalue::{ActionApiWbformatvalueBuilder, NoValue},
-        action_wbparsevalue::{ActionApiWbparsevalueBuilder, NoValues},
-        action_wbeditentity::ActionApiWbeditentityBuilder,
-        action_wbsetlabel::ActionApiWbsetlabelBuilder,
-        action_wbsetdescription::ActionApiWbsetdescriptionBuilder,
-        action_wbsetaliases::ActionApiWbsetaliasesBuilder,
-        action_wbmergeitems::{ActionApiWbmergeitemsBuilder, NoSource as WbmergeitemsNoSource},
-        action_wbcreateredirect::{ActionApiWbcreateredirectBuilder, NoSource as WbcreateredirectNoSource},
-        action_wblinktitles::ActionApiWblinktitlesBuilder,
-        action_wbsetsitelink::ActionApiWbsetsitelinkBuilder,
         action_wbcreateclaim::ActionApiWbcreateclaimBuilder,
+        action_wbcreateredirect::ActionApiWbcreateredirectBuilder,
+        action_wbeditentity::ActionApiWbeditentityBuilder,
+        action_wbformatvalue::{ActionApiWbformatvalueBuilder, NoValue},
+        action_wbgetclaims::ActionApiWbgetclaimsBuilder,
+        action_wblinktitles::ActionApiWblinktitlesBuilder,
+        action_wbmergeitems::ActionApiWbmergeitemsBuilder,
+        action_wbparsevalue::{ActionApiWbparsevalueBuilder, NoValues},
         action_wbremoveclaims::ActionApiWbremoveclaimsBuilder,
+        action_wbremovequalifiers::ActionApiWbremovequalifiersBuilder,
+        action_wbremovereferences::ActionApiWbremovereferencesBuilder,
+        action_wbsearchentities::{ActionApiWbsearchentitiesBuilder, NoSearch},
+        action_wbsetaliases::ActionApiWbsetaliasesBuilder,
         action_wbsetclaim::ActionApiWbsetclaimBuilder,
         action_wbsetclaimvalue::ActionApiWbsetclaimvalueBuilder,
+        action_wbsetdescription::ActionApiWbsetdescriptionBuilder,
+        action_wbsetlabel::ActionApiWbsetlabelBuilder,
         action_wbsetqualifier::ActionApiWbsetqualifierBuilder,
-        action_wbremovequalifiers::ActionApiWbremovequalifiersBuilder,
         action_wbsetreference::ActionApiWbsetreferenceBuilder,
-        action_wbremovereferences::ActionApiWbremovereferencesBuilder,
-        action_login::ActionApiLoginBuilder,
-        action_logout::ActionApiLogoutBuilder,
-        action_opensearch::ActionApiOpensearchBuilder,
-        action_checktoken::ActionApiChecktokenBuilder,
-        action_expandtemplates::ActionApiExpandtemplatesBuilder,
-        action_compare::ActionApiCompareBuilder,
-        action_parse::ActionApiParseBuilder,
+        action_wbsetsitelink::ActionApiWbsetsitelinkBuilder,
         list_allcategories::ActionApiListAllcategoriesBuilder,
-        list_allpages::ActionApiListAllpagesBuilder, list_backlinks::ActionApiListBacklinksBuilder,
+        list_allpages::ActionApiListAllpagesBuilder,
+        list_backlinks::ActionApiListBacklinksBuilder,
         list_categorymembers::ActionApiListCategorymembersBuilder,
         list_embeddedin::ActionApiListEmbeddedinBuilder,
         list_imageusage::ActionApiListImageusageBuilder,
@@ -58,14 +59,18 @@ use crate::{
         list_prefixsearch::ActionApiListPrefixsearchBuilder,
         list_recentchanges::ActionApiListRecentchangesBuilder,
         list_search::ActionApiListSearchBuilder,
-        list_usercontribs::ActionApiListUsercontribsBuilder, list_users::ActionApiListUsersBuilder,
+        list_usercontribs::ActionApiListUsercontribsBuilder,
+        list_users::ActionApiListUsersBuilder,
         query_categories::ActionApiQueryCategoriesBuilder,
         query_categoryinfo::ActionApiQueryCategoryinfoBuilder,
         query_contributors::ActionApiQueryContributorsBuilder,
         query_extlinks::ActionApiQueryExtlinksBuilder,
-        query_fileusage::ActionApiQueryFileusageBuilder, query_images::ActionApiQueryImagesBuilder,
-        query_info::ActionApiQueryInfoBuilder, query_iwlinks::ActionApiQueryIwlinksBuilder,
-        query_langlinks::ActionApiQueryLanglinksBuilder, query_links::ActionApiQueryLinksBuilder,
+        query_fileusage::ActionApiQueryFileusageBuilder,
+        query_images::ActionApiQueryImagesBuilder,
+        query_info::ActionApiQueryInfoBuilder,
+        query_iwlinks::ActionApiQueryIwlinksBuilder,
+        query_langlinks::ActionApiQueryLanglinksBuilder,
+        query_links::ActionApiQueryLinksBuilder,
         query_linkshere::ActionApiQueryLinkshereBuilder,
         query_pageprops::ActionApiQueryPagepropsBuilder,
         query_redirects::ActionApiQueryRedirectsBuilder,
@@ -106,12 +111,19 @@ mod query_transcludedin;
 mod wbgetentities;
 
 mod action_block;
+mod action_checktoken;
+mod action_compare;
 mod action_delete;
 mod action_edit;
 mod action_emailuser;
+mod action_expandtemplates;
+mod action_login;
+mod action_logout;
 mod action_mergehistory;
 mod action_move;
+mod action_opensearch;
 mod action_options;
+mod action_parse;
 mod action_patrol;
 mod action_protect;
 mod action_purge;
@@ -121,39 +133,35 @@ mod action_unblock;
 mod action_upload;
 mod action_userrights;
 mod action_watch;
-mod action_wbgetclaims;
-mod action_login;
-mod action_logout;
-mod action_opensearch;
-mod action_checktoken;
-mod action_expandtemplates;
-mod action_compare;
-mod action_parse;
 mod action_wbcreateclaim;
+mod action_wbcreateredirect;
+mod action_wbeditentity;
+mod action_wbformatvalue;
+mod action_wbgetclaims;
+mod action_wblinktitles;
+mod action_wbmergeitems;
+mod action_wbparsevalue;
 mod action_wbremoveclaims;
 mod action_wbremovequalifiers;
 mod action_wbremovereferences;
+mod action_wbsearchentities;
+mod action_wbsetaliases;
 mod action_wbsetclaim;
 mod action_wbsetclaimvalue;
+mod action_wbsetdescription;
+mod action_wbsetlabel;
 mod action_wbsetqualifier;
 mod action_wbsetreference;
 mod action_wbsetsitelink;
-mod action_wbsearchentities;
-mod action_wbformatvalue;
-mod action_wbparsevalue;
-mod action_wbeditentity;
-mod action_wbsetlabel;
-mod action_wbsetdescription;
-mod action_wbsetaliases;
-mod action_wbmergeitems;
-mod action_wbcreateredirect;
-mod action_wblinktitles;
 
 #[derive(Debug, Copy, Clone)]
 pub struct NoTitlesOrGenerator;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Runnable;
+
+#[derive(Debug, Copy, Clone)]
+pub struct NoToken;
 
 #[derive(Debug, Clone, Default)]
 pub enum ActionApiQueryCommonData {
@@ -413,8 +421,7 @@ impl ActionApi {
         ActionApiWbsetqualifierBuilder::new()
     }
 
-    pub fn wbremovequalifiers(
-    ) -> ActionApiWbremovequalifiersBuilder<NoTitlesOrGenerator> {
+    pub fn wbremovequalifiers() -> ActionApiWbremovequalifiersBuilder<NoTitlesOrGenerator> {
         ActionApiWbremovequalifiersBuilder::new()
     }
 
@@ -422,8 +429,7 @@ impl ActionApi {
         ActionApiWbsetreferenceBuilder::new()
     }
 
-    pub fn wbremovereferences(
-    ) -> ActionApiWbremovereferencesBuilder<NoTitlesOrGenerator> {
+    pub fn wbremovereferences() -> ActionApiWbremovereferencesBuilder<NoTitlesOrGenerator> {
         ActionApiWbremovereferencesBuilder::new()
     }
 

@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, Runnable};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -121,7 +121,11 @@ mod tests {
 
     #[test]
     fn redirects_set() {
-        let params = new_builder().redirects("resolve").search("foo").data.params();
+        let params = new_builder()
+            .redirects("resolve")
+            .search("foo")
+            .data
+            .params();
         assert_eq!(params["redirects"], "resolve");
     }
 
@@ -139,7 +143,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_opensearch() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        let api = Api::new("https://en.wikipedia.org/w/api.php")
+            .await
+            .unwrap();
         let result = ActionApi::opensearch()
             .search("Albert Einstein")
             .limit(3)

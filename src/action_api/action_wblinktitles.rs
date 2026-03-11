@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoTarget = super::NoTitlesOrGenerator;
@@ -56,11 +56,6 @@ impl<T> ActionApiWblinktitlesBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn bot(mut self, bot: bool) -> Self {
         self.data.bot = bot;
         self
@@ -81,11 +76,21 @@ impl ActionApiWblinktitlesBuilder<NoTarget> {
         totitle: S,
         fromsite: S,
         fromtitle: S,
-    ) -> ActionApiWblinktitlesBuilder<Runnable> {
+    ) -> ActionApiWblinktitlesBuilder<NoToken> {
         self.data.tosite = Some(tosite.as_ref().to_string());
         self.data.totitle = Some(totitle.as_ref().to_string());
         self.data.fromsite = Some(fromsite.as_ref().to_string());
         self.data.fromtitle = Some(fromtitle.as_ref().to_string());
+        ActionApiWblinktitlesBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWblinktitlesBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWblinktitlesBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWblinktitlesBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -154,7 +159,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().link("enwiki", "Foo", "dewiki", "Foo");
+        let builder = new_builder().link("enwiki", "Foo", "dewiki", "Foo").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

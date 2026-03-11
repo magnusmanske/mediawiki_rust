@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -36,11 +36,6 @@ pub struct ActionApiThankBuilder<T> {
 }
 
 impl<T> ActionApiThankBuilder<T> {
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn source<S: AsRef<str>>(mut self, source: S) -> Self {
         self.data.source = Some(source.as_ref().to_string());
         self
@@ -55,7 +50,7 @@ impl ActionApiThankBuilder<NoTarget> {
         }
     }
 
-    pub fn rev(mut self, rev: u64) -> ActionApiThankBuilder<Runnable> {
+    pub fn rev(mut self, rev: u64) -> ActionApiThankBuilder<NoToken> {
         self.data.rev = Some(rev);
         ActionApiThankBuilder {
             _phantom: PhantomData,
@@ -63,8 +58,18 @@ impl ActionApiThankBuilder<NoTarget> {
         }
     }
 
-    pub fn log(mut self, log: u64) -> ActionApiThankBuilder<Runnable> {
+    pub fn log(mut self, log: u64) -> ActionApiThankBuilder<NoToken> {
         self.data.log = Some(log);
+        ActionApiThankBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiThankBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiThankBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiThankBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -122,7 +127,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().rev(1);
+        let builder = new_builder().rev(1).token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

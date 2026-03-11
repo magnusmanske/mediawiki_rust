@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -155,10 +155,6 @@ impl<T> ActionApiBlockBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiBlockBuilder<NoTarget> {
@@ -169,8 +165,18 @@ impl ActionApiBlockBuilder<NoTarget> {
         }
     }
 
-    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiBlockBuilder<Runnable> {
+    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiBlockBuilder<NoToken> {
         self.data.user = Some(user.as_ref().to_string());
+        ActionApiBlockBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiBlockBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiBlockBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiBlockBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -238,7 +244,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().user("SomeUser");
+        let builder = new_builder().user("SomeUser").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

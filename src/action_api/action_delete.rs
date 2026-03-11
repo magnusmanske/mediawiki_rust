@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -74,10 +74,6 @@ impl<T> ActionApiDeleteBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiDeleteBuilder<NoTarget> {
@@ -88,7 +84,7 @@ impl ActionApiDeleteBuilder<NoTarget> {
         }
     }
 
-    pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiDeleteBuilder<Runnable> {
+    pub fn title<S: AsRef<str>>(mut self, title: S) -> ActionApiDeleteBuilder<NoToken> {
         self.data.title = Some(title.as_ref().to_string());
         ActionApiDeleteBuilder {
             _phantom: PhantomData,
@@ -96,8 +92,18 @@ impl ActionApiDeleteBuilder<NoTarget> {
         }
     }
 
-    pub fn pageid(mut self, pageid: u64) -> ActionApiDeleteBuilder<Runnable> {
+    pub fn pageid(mut self, pageid: u64) -> ActionApiDeleteBuilder<NoToken> {
         self.data.pageid = Some(pageid);
+        ActionApiDeleteBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiDeleteBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiDeleteBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiDeleteBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -167,7 +173,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().title("Foo");
+        let builder = new_builder().title("Foo").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

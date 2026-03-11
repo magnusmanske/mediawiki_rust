@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoType = super::NoTitlesOrGenerator;
@@ -74,7 +74,6 @@ impl ActionApiRunnable for ActionApiChecktokenBuilder<Runnable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action_api::ActionApi;
 
     fn new_builder() -> ActionApiChecktokenBuilder<NoType> {
         ActionApiChecktokenBuilder::new()
@@ -88,13 +87,21 @@ mod tests {
 
     #[test]
     fn token_set() {
-        let params = new_builder().token("abc+\\").token_type("csrf").data.params();
+        let params = new_builder()
+            .token("abc+\\")
+            .token_type("csrf")
+            .data
+            .params();
         assert_eq!(params["token"], "abc+\\");
     }
 
     #[test]
     fn maxtokenage_set() {
-        let params = new_builder().maxtokenage(3600).token_type("csrf").data.params();
+        let params = new_builder()
+            .maxtokenage(3600)
+            .token_type("csrf")
+            .data
+            .params();
         assert_eq!(params["maxtokenage"], "3600");
     }
 

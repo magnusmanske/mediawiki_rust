@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoSource = NoTitlesOrGenerator;
@@ -95,10 +95,6 @@ impl<T> ActionApiMoveBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiMoveBuilder<NoSource> {
@@ -109,7 +105,7 @@ impl ActionApiMoveBuilder<NoSource> {
         }
     }
 
-    pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiMoveBuilder<Runnable> {
+    pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiMoveBuilder<NoToken> {
         self.data.from = Some(from.as_ref().to_string());
         ActionApiMoveBuilder {
             _phantom: PhantomData,
@@ -117,8 +113,18 @@ impl ActionApiMoveBuilder<NoSource> {
         }
     }
 
-    pub fn fromid(mut self, fromid: u64) -> ActionApiMoveBuilder<Runnable> {
+    pub fn fromid(mut self, fromid: u64) -> ActionApiMoveBuilder<NoToken> {
         self.data.fromid = Some(fromid);
+        ActionApiMoveBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiMoveBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiMoveBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiMoveBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -194,7 +200,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().from("Old");
+        let builder = new_builder().from("Old").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

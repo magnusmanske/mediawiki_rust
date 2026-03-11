@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;
@@ -66,11 +66,6 @@ impl<T> ActionApiUserrightsBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn tags<S: Into<String> + Clone>(mut self, tags: &[S]) -> Self {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
@@ -95,7 +90,7 @@ impl ActionApiUserrightsBuilder<NoTarget> {
         }
     }
 
-    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiUserrightsBuilder<Runnable> {
+    pub fn user<S: AsRef<str>>(mut self, user: S) -> ActionApiUserrightsBuilder<NoToken> {
         self.data.user = Some(user.as_ref().to_string());
         ActionApiUserrightsBuilder {
             _phantom: PhantomData,
@@ -103,8 +98,18 @@ impl ActionApiUserrightsBuilder<NoTarget> {
         }
     }
 
-    pub fn userid(mut self, userid: u64) -> ActionApiUserrightsBuilder<Runnable> {
+    pub fn userid(mut self, userid: u64) -> ActionApiUserrightsBuilder<NoToken> {
         self.data.userid = Some(userid);
+        ActionApiUserrightsBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiUserrightsBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiUserrightsBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiUserrightsBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -186,7 +191,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().user("SomeUser");
+        let builder = new_builder().user("SomeUser").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

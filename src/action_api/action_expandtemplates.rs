@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoText = super::NoTitlesOrGenerator;
@@ -30,10 +30,26 @@ impl ActionApiExpandtemplatesData {
         }
         Self::add_vec(&self.prop, "prop", &mut params);
         Self::add_boolean(self.includecomments, "includecomments", &mut params);
-        Self::add_vec(&self.templatesandboxprefix, "templatesandboxprefix", &mut params);
-        Self::add_str(&self.templatesandboxtitle, "templatesandboxtitle", &mut params);
-        Self::add_str(&self.templatesandboxtext, "templatesandboxtext", &mut params);
-        Self::add_str(&self.templatesandboxcontentmodel, "templatesandboxcontentmodel", &mut params);
+        Self::add_vec(
+            &self.templatesandboxprefix,
+            "templatesandboxprefix",
+            &mut params,
+        );
+        Self::add_str(
+            &self.templatesandboxtitle,
+            "templatesandboxtitle",
+            &mut params,
+        );
+        Self::add_str(
+            &self.templatesandboxtext,
+            "templatesandboxtext",
+            &mut params,
+        );
+        Self::add_str(
+            &self.templatesandboxcontentmodel,
+            "templatesandboxcontentmodel",
+            &mut params,
+        );
         Self::add_str(
             &self.templatesandboxcontentformat,
             "templatesandboxcontentformat",
@@ -117,13 +133,21 @@ mod tests {
 
     #[test]
     fn prop_set() {
-        let params = new_builder().prop(&["wikitext"]).text("{{foo}}").data.params();
+        let params = new_builder()
+            .prop(&["wikitext"])
+            .text("{{foo}}")
+            .data
+            .params();
         assert_eq!(params["prop"], "wikitext");
     }
 
     #[test]
     fn includecomments_set() {
-        let params = new_builder().includecomments(true).text("{{foo}}").data.params();
+        let params = new_builder()
+            .includecomments(true)
+            .text("{{foo}}")
+            .data
+            .params();
         assert!(params.contains_key("includecomments"));
     }
 
@@ -135,7 +159,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_expandtemplates() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        let api = Api::new("https://en.wikipedia.org/w/api.php")
+            .await
+            .unwrap();
         let result = ActionApi::expandtemplates()
             .text("{{SITENAME}}")
             .prop(&["wikitext"])

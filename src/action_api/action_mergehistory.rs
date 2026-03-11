@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoSource = NoTitlesOrGenerator;
@@ -69,10 +69,6 @@ impl<T> ActionApiMergehistoryBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiMergehistoryBuilder<NoSource> {
@@ -83,7 +79,7 @@ impl ActionApiMergehistoryBuilder<NoSource> {
         }
     }
 
-    pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiMergehistoryBuilder<Runnable> {
+    pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiMergehistoryBuilder<NoToken> {
         self.data.from = Some(from.as_ref().to_string());
         ActionApiMergehistoryBuilder {
             _phantom: PhantomData,
@@ -91,8 +87,18 @@ impl ActionApiMergehistoryBuilder<NoSource> {
         }
     }
 
-    pub fn fromid(mut self, fromid: u64) -> ActionApiMergehistoryBuilder<Runnable> {
+    pub fn fromid(mut self, fromid: u64) -> ActionApiMergehistoryBuilder<NoToken> {
         self.data.fromid = Some(fromid);
+        ActionApiMergehistoryBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiMergehistoryBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiMergehistoryBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiMergehistoryBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -168,7 +174,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().from("Source Page");
+        let builder = new_builder().from("Source Page").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

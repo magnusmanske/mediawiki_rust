@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub type NoSource = super::NoTitlesOrGenerator;
@@ -64,10 +64,6 @@ impl<T> ActionApiWbmergeitemsBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
 }
 
 impl ActionApiWbmergeitemsBuilder<NoSource> {
@@ -78,8 +74,18 @@ impl ActionApiWbmergeitemsBuilder<NoSource> {
         }
     }
 
-    pub fn fromid<S: AsRef<str>>(mut self, fromid: S) -> ActionApiWbmergeitemsBuilder<Runnable> {
+    pub fn fromid<S: AsRef<str>>(mut self, fromid: S) -> ActionApiWbmergeitemsBuilder<NoToken> {
         self.data.fromid = Some(fromid.as_ref().to_string());
+        ActionApiWbmergeitemsBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWbmergeitemsBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbmergeitemsBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWbmergeitemsBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -147,7 +153,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().fromid("Q1");
+        let builder = new_builder().fromid("Q1").token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

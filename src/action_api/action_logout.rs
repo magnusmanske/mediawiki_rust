@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub(crate) type NoToken = super::NoTitlesOrGenerator;

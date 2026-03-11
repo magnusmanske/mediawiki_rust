@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, NoToken, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoClaim = NoTitlesOrGenerator;
@@ -63,11 +63,6 @@ impl<T> ActionApiWbsetclaimBuilder<T> {
         self
     }
 
-    pub fn token<S: AsRef<str>>(mut self, token: S) -> Self {
-        self.data.token = Some(token.as_ref().to_string());
-        self
-    }
-
     pub fn baserevid(mut self, baserevid: u64) -> Self {
         self.data.baserevid = Some(baserevid);
         self
@@ -92,8 +87,18 @@ impl ActionApiWbsetclaimBuilder<NoClaim> {
         }
     }
 
-    pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbsetclaimBuilder<Runnable> {
+    pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbsetclaimBuilder<NoToken> {
         self.data.claim = Some(claim.as_ref().to_string());
+        ActionApiWbsetclaimBuilder {
+            _phantom: PhantomData,
+            data: self.data,
+        }
+    }
+}
+
+impl ActionApiWbsetclaimBuilder<NoToken> {
+    pub fn token<S: AsRef<str>>(mut self, token: S) -> ActionApiWbsetclaimBuilder<Runnable> {
+        self.data.token = Some(token.as_ref().to_string());
         ActionApiWbsetclaimBuilder {
             _phantom: PhantomData,
             data: self.data,
@@ -159,7 +164,7 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().claim(r#"{"type":"statement","mainsnak":{}}"#);
+        let builder = new_builder().claim(r#"{"type":"statement","mainsnak":{}}"#).token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

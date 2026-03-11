@@ -1,4 +1,4 @@
-use super::{ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{ActionApiData, ActionApiRunnable, Runnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 /// State: lgtoken not yet set
@@ -79,7 +79,6 @@ impl ActionApiRunnable for ActionApiLoginBuilder<Runnable> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action_api::ActionApi;
 
     fn new_builder() -> ActionApiLoginBuilder<NoToken> {
         ActionApiLoginBuilder::new()
@@ -99,7 +98,11 @@ mod tests {
 
     #[test]
     fn lgpassword_set() {
-        let params = new_builder().lgpassword("secret").lgtoken("tok").data.params();
+        let params = new_builder()
+            .lgpassword("secret")
+            .lgtoken("tok")
+            .data
+            .params();
         assert_eq!(params["lgpassword"], "secret");
     }
 
@@ -111,7 +114,11 @@ mod tests {
 
     #[test]
     fn lgdomain_set() {
-        let params = new_builder().lgdomain("example.org").lgtoken("tok").data.params();
+        let params = new_builder()
+            .lgdomain("example.org")
+            .lgtoken("tok")
+            .data
+            .params();
         assert_eq!(params["lgdomain"], "example.org");
     }
 
@@ -129,7 +136,10 @@ mod tests {
 
     #[test]
     fn runnable_params_via_trait() {
-        let builder = new_builder().lgname("Bot").lgpassword("pass").lgtoken("tok");
+        let builder = new_builder()
+            .lgname("Bot")
+            .lgpassword("pass")
+            .lgtoken("tok");
         let params = ActionApiRunnable::params(&builder);
         assert_eq!(params["action"], "login");
         assert_eq!(params["lgname"], "Bot");
