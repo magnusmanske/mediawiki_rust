@@ -7,8 +7,7 @@ use crate::{
     Api, ApiSync, MediaWikiError,
     action_api::{
         list_allcategories::ActionApiListAllcategoriesBuilder,
-        list_allpages::ActionApiListAllpagesBuilder,
-        list_backlinks::ActionApiListBacklinksBuilder,
+        list_allpages::ActionApiListAllpagesBuilder, list_backlinks::ActionApiListBacklinksBuilder,
         list_categorymembers::ActionApiListCategorymembersBuilder,
         list_embeddedin::ActionApiListEmbeddedinBuilder,
         list_imageusage::ActionApiListImageusageBuilder,
@@ -16,19 +15,15 @@ use crate::{
         list_prefixsearch::ActionApiListPrefixsearchBuilder,
         list_recentchanges::ActionApiListRecentchangesBuilder,
         list_search::ActionApiListSearchBuilder,
-        list_usercontribs::ActionApiListUsercontribsBuilder,
-        list_users::ActionApiListUsersBuilder,
+        list_usercontribs::ActionApiListUsercontribsBuilder, list_users::ActionApiListUsersBuilder,
         query_categories::ActionApiQueryCategoriesBuilder,
         query_categoryinfo::ActionApiQueryCategoryinfoBuilder,
         query_contributors::ActionApiQueryContributorsBuilder,
         query_extlinks::ActionApiQueryExtlinksBuilder,
-        query_fileusage::ActionApiQueryFileusageBuilder,
-        query_images::ActionApiQueryImagesBuilder,
-        query_info::ActionApiQueryInfoBuilder,
-        query_iwlinks::ActionApiQueryIwlinksBuilder,
-        query_langlinks::ActionApiQueryLanglinksBuilder,
+        query_fileusage::ActionApiQueryFileusageBuilder, query_images::ActionApiQueryImagesBuilder,
+        query_info::ActionApiQueryInfoBuilder, query_iwlinks::ActionApiQueryIwlinksBuilder,
+        query_langlinks::ActionApiQueryLanglinksBuilder, query_links::ActionApiQueryLinksBuilder,
         query_linkshere::ActionApiQueryLinkshereBuilder,
-        query_links::ActionApiQueryLinksBuilder,
         query_pageprops::ActionApiQueryPagepropsBuilder,
         query_redirects::ActionApiQueryRedirectsBuilder,
         query_revisions::ActionApiQueryRevisionsBuilder,
@@ -58,8 +53,8 @@ mod query_images;
 mod query_info;
 mod query_iwlinks;
 mod query_langlinks;
-mod query_linkshere;
 mod query_links;
+mod query_linkshere;
 mod query_pageprops;
 mod query_redirects;
 mod query_revisions;
@@ -73,19 +68,14 @@ pub struct NoTitlesOrGenerator;
 #[derive(Debug, Copy, Clone)]
 pub struct Runnable;
 
-#[derive(Debug, Clone)]
-pub(crate) enum ActionApiQueryCommonData {
+#[derive(Debug, Clone, Default)]
+pub enum ActionApiQueryCommonData {
+    #[default]
     None,
     Titles(Vec<String>),
     PageIds(Vec<u64>),
     RevIds(Vec<u64>),
     Generator(HashMap<String, String>),
-}
-
-impl Default for ActionApiQueryCommonData {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl ActionApiQueryCommonData {
@@ -110,7 +100,7 @@ impl ActionApiQueryCommonData {
     }
 }
 
-pub(crate) trait ActionApiGenerator {
+pub trait ActionApiGenerator {
     fn generator_params(&self) -> HashMap<String, String>;
 
     fn prefix_params(letter: char, params: HashMap<String, String>) -> HashMap<String, String> {
@@ -121,16 +111,15 @@ pub(crate) trait ActionApiGenerator {
     }
 }
 
-pub(crate) trait ActionApiQueryCommonBuilder: Sized {
+pub trait ActionApiQueryCommonBuilder: Sized {
     type Runnable;
 
     fn common_mut(&mut self) -> &mut ActionApiQueryCommonData;
     fn into_runnable(self) -> Self::Runnable;
 
     fn titles<S: Into<String> + Clone>(mut self, titles: &[S]) -> Self::Runnable {
-        *self.common_mut() = ActionApiQueryCommonData::Titles(
-            titles.iter().map(|s| s.clone().into()).collect(),
-        );
+        *self.common_mut() =
+            ActionApiQueryCommonData::Titles(titles.iter().map(|s| s.clone().into()).collect());
         self.into_runnable()
     }
 

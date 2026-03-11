@@ -4,7 +4,7 @@ use super::{
 };
 use std::{collections::HashMap, marker::PhantomData};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ActionApiQueryRevisionsData {
     common: ActionApiQueryCommonData,
     rvprop: Option<Vec<String>>,
@@ -23,27 +23,6 @@ pub struct ActionApiQueryRevisionsData {
 }
 
 impl ActionApiData for ActionApiQueryRevisionsData {}
-
-impl Default for ActionApiQueryRevisionsData {
-    fn default() -> Self {
-        Self {
-            common: ActionApiQueryCommonData::default(),
-            rvprop: None,
-            rvslots: None,
-            rvlimit: None,
-            rvsection: None,
-            rvstartid: None,
-            rvendid: None,
-            rvstart: None,
-            rvend: None,
-            rvdir: None,
-            rvuser: None,
-            rvexcludeuser: None,
-            rvtag: None,
-            rvcontinue: None,
-        }
-    }
-}
 
 impl ActionApiQueryRevisionsData {
     pub(crate) fn params(&self) -> HashMap<String, String> {
@@ -210,7 +189,11 @@ mod tests {
 
     #[test]
     fn rvslots_set() {
-        let params = new_builder().rvslots(&["main"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rvslots(&["main"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rvslots"], "main");
     }
 
@@ -228,19 +211,31 @@ mod tests {
 
     #[test]
     fn rvuser_set() {
-        let params = new_builder().rvuser("ExampleUser").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rvuser("ExampleUser")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rvuser"], "ExampleUser");
     }
 
     #[test]
     fn rvexcludeuser_set() {
-        let params = new_builder().rvexcludeuser("Bot").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rvexcludeuser("Bot")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rvexcludeuser"], "Bot");
     }
 
     #[test]
     fn rvstartid_set() {
-        let params = new_builder().rvstartid(12345).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rvstartid(12345)
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rvstartid"], "12345");
     }
 
@@ -252,7 +247,11 @@ mod tests {
 
     #[test]
     fn rvtag_set() {
-        let params = new_builder().rvtag("mobile edit").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rvtag("mobile edit")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rvtag"], "mobile edit");
     }
 
@@ -266,7 +265,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_revisions() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        let api = Api::new("https://en.wikipedia.org/w/api.php")
+            .await
+            .unwrap();
         let result = ActionApiQuery::revisions()
             .titles(&["Albert Einstein"])
             .rvprop(&["ids", "timestamp", "user"])
