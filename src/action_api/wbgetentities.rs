@@ -1,4 +1,4 @@
-use crate::action_api::ActionApiRunnable;
+use crate::action_api::{ActionApiData, ActionApiRunnable};
 use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,8 @@ impl Default for ActionApiWbGetEntitiesData {
     }
 }
 
+impl ActionApiData for ActionApiWbGetEntitiesData {}
+
 impl ActionApiWbGetEntitiesData {
     pub(crate) fn params(&self) -> HashMap<String, String> {
         let mut params = HashMap::new();
@@ -36,21 +38,11 @@ impl ActionApiWbGetEntitiesData {
             // Default: true=yes
             params.insert("redirects".to_string(), "no".to_string());
         }
-        if let Some(props) = &self.props {
-            params.insert("props".to_string(), props.join("|"));
-        }
-        if let Some(languages) = &self.languages {
-            params.insert("languages".to_string(), languages.join("|"));
-        }
-        if self.languagefallback {
-            params.insert("languagefallback".to_string(), String::new());
-        }
-        if self.normalize {
-            params.insert("normalize".to_string(), String::new());
-        }
-        if let Some(sitefilter) = &self.sitefilter {
-            params.insert("sitefilter".to_string(), sitefilter.join("|"));
-        }
+        Self::add_vec(&self.props, "props", &mut params);
+        Self::add_vec(&self.languages, "languages", &mut params);
+        Self::add_vec(&self.sitefilter, "sitefilter", &mut params);
+        Self::add_boolean(self.languagefallback, "languagefallback", &mut params);
+        Self::add_boolean(self.normalize, "normalize", &mut params);
         params
     }
 
