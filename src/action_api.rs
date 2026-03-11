@@ -4,12 +4,67 @@ use std::{collections::HashMap, marker::PhantomData};
 use wbgetentities::{ActionApiWbGetEntitiesBuilder, NoTitles};
 
 use crate::{
-    Api, ApiSync, MediaWikiError, action_api::query_info::ActionApiQueryInfoBuilder,
-    action_api::query_linkshere::ActionApiQueryLinkshereBuilder,
+    Api, ApiSync, MediaWikiError,
+    action_api::{
+        list_allcategories::ActionApiListAllcategoriesBuilder,
+        list_allpages::ActionApiListAllpagesBuilder,
+        list_backlinks::ActionApiListBacklinksBuilder,
+        list_categorymembers::ActionApiListCategorymembersBuilder,
+        list_embeddedin::ActionApiListEmbeddedinBuilder,
+        list_imageusage::ActionApiListImageusageBuilder,
+        list_logevents::ActionApiListLogeventsBuilder,
+        list_prefixsearch::ActionApiListPrefixsearchBuilder,
+        list_recentchanges::ActionApiListRecentchangesBuilder,
+        list_search::ActionApiListSearchBuilder,
+        list_usercontribs::ActionApiListUsercontribsBuilder,
+        list_users::ActionApiListUsersBuilder,
+        query_categories::ActionApiQueryCategoriesBuilder,
+        query_categoryinfo::ActionApiQueryCategoryinfoBuilder,
+        query_contributors::ActionApiQueryContributorsBuilder,
+        query_extlinks::ActionApiQueryExtlinksBuilder,
+        query_fileusage::ActionApiQueryFileusageBuilder,
+        query_images::ActionApiQueryImagesBuilder,
+        query_info::ActionApiQueryInfoBuilder,
+        query_iwlinks::ActionApiQueryIwlinksBuilder,
+        query_langlinks::ActionApiQueryLanglinksBuilder,
+        query_linkshere::ActionApiQueryLinkshereBuilder,
+        query_links::ActionApiQueryLinksBuilder,
+        query_pageprops::ActionApiQueryPagepropsBuilder,
+        query_redirects::ActionApiQueryRedirectsBuilder,
+        query_revisions::ActionApiQueryRevisionsBuilder,
+        query_templates::ActionApiQueryTemplatesBuilder,
+        query_transcludedin::ActionApiQueryTranscludedinBuilder,
+    },
 };
 
+mod list_allcategories;
+mod list_allpages;
+mod list_backlinks;
+mod list_categorymembers;
+mod list_embeddedin;
+mod list_imageusage;
+mod list_logevents;
+mod list_prefixsearch;
+mod list_recentchanges;
+mod list_search;
+mod list_usercontribs;
+mod list_users;
+mod query_categories;
+mod query_categoryinfo;
+mod query_contributors;
+mod query_extlinks;
+mod query_fileusage;
+mod query_images;
 mod query_info;
+mod query_iwlinks;
+mod query_langlinks;
 mod query_linkshere;
+mod query_links;
+mod query_pageprops;
+mod query_redirects;
+mod query_revisions;
+mod query_templates;
+mod query_transcludedin;
 mod wbgetentities;
 
 #[derive(Debug, Copy, Clone)]
@@ -153,11 +208,122 @@ pub struct ActionApiQuery {
 }
 
 impl ActionApiQuery {
+    pub fn categories() -> ActionApiQueryCategoriesBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryCategoriesBuilder::new()
+    }
+
+    pub fn categoryinfo() -> ActionApiQueryCategoryinfoBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryCategoryinfoBuilder::new()
+    }
+
+    pub fn contributors() -> ActionApiQueryContributorsBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryContributorsBuilder::new()
+    }
+
+    pub fn extlinks() -> ActionApiQueryExtlinksBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryExtlinksBuilder::new()
+    }
+
+    pub fn fileusage() -> ActionApiQueryFileusageBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryFileusageBuilder::new()
+    }
+
+    pub fn images() -> ActionApiQueryImagesBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryImagesBuilder::new()
+    }
+
     pub fn info() -> ActionApiQueryInfoBuilder<NoTitlesOrGenerator> {
         ActionApiQueryInfoBuilder::new()
     }
 
+    pub fn iwlinks() -> ActionApiQueryIwlinksBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryIwlinksBuilder::new()
+    }
+
+    pub fn langlinks() -> ActionApiQueryLanglinksBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryLanglinksBuilder::new()
+    }
+
     pub fn linkshere() -> ActionApiQueryLinkshereBuilder<NoTitlesOrGenerator> {
         ActionApiQueryLinkshereBuilder::new()
+    }
+
+    pub fn links() -> ActionApiQueryLinksBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryLinksBuilder::new()
+    }
+
+    pub fn pageprops() -> ActionApiQueryPagepropsBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryPagepropsBuilder::new()
+    }
+
+    pub fn redirects() -> ActionApiQueryRedirectsBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryRedirectsBuilder::new()
+    }
+
+    pub fn revisions() -> ActionApiQueryRevisionsBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryRevisionsBuilder::new()
+    }
+
+    pub fn templates() -> ActionApiQueryTemplatesBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryTemplatesBuilder::new()
+    }
+
+    pub fn transcludedin() -> ActionApiQueryTranscludedinBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryTranscludedinBuilder::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ActionApiList {
+    _phantom: PhantomData<bool>,
+}
+
+impl ActionApiList {
+    pub fn allcategories() -> ActionApiListAllcategoriesBuilder {
+        ActionApiListAllcategoriesBuilder::new()
+    }
+
+    pub fn allpages() -> ActionApiListAllpagesBuilder {
+        ActionApiListAllpagesBuilder::new()
+    }
+
+    pub fn backlinks() -> ActionApiListBacklinksBuilder<NoTitlesOrGenerator> {
+        ActionApiListBacklinksBuilder::new()
+    }
+
+    pub fn categorymembers() -> ActionApiListCategorymembersBuilder<NoTitlesOrGenerator> {
+        ActionApiListCategorymembersBuilder::new()
+    }
+
+    pub fn embeddedin() -> ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
+        ActionApiListEmbeddedinBuilder::new()
+    }
+
+    pub fn imageusage() -> ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
+        ActionApiListImageusageBuilder::new()
+    }
+
+    pub fn logevents() -> ActionApiListLogeventsBuilder {
+        ActionApiListLogeventsBuilder::new()
+    }
+
+    pub fn prefixsearch() -> ActionApiListPrefixsearchBuilder<NoTitlesOrGenerator> {
+        ActionApiListPrefixsearchBuilder::new()
+    }
+
+    pub fn recentchanges() -> ActionApiListRecentchangesBuilder {
+        ActionApiListRecentchangesBuilder::new()
+    }
+
+    pub fn search() -> ActionApiListSearchBuilder<NoTitlesOrGenerator> {
+        ActionApiListSearchBuilder::new()
+    }
+
+    pub fn usercontribs() -> ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
+        ActionApiListUsercontribsBuilder::new()
+    }
+
+    pub fn users() -> ActionApiListUsersBuilder<NoTitlesOrGenerator> {
+        ActionApiListUsersBuilder::new()
     }
 }
