@@ -30,7 +30,7 @@ use crate::{Api, ApiSync, MediaWikiError};
 ///
 /// Included in sub-array item types so each item retains context about which
 /// page it belongs to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageContext {
     /// Page ID. `None` for missing pages.
     pub pageid: Option<u64>,

@@ -12,6 +12,15 @@ pub use crate::{
         ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiQuery,
         ActionApiQueryCommonBuilder, ActionApiRunnable,
     },
+    page_categories::{PageCategoryEntry, PageCategoryList},
     page_info::{PageInfo, PageInfoList},
+    page_links::{
+        PageContributorEntry, PageContributorList, PageExtLinkEntry, PageExtLinkList,
+        PageFileUsageEntry, PageFileUsageList, PageImageEntry, PageImageList, PageIwLinkEntry,
+        PageIwLinkList, PageLangLinkEntry, PageLangLinkList, PageLinkEntry, PageLinkList,
+        PageLinksHereEntry, PageLinksHereList, PageRedirectEntry, PageRedirectList,
+        PageTemplateEntry, PageTemplateList, PageTranscludedInEntry, PageTranscludedInList,
+    },
     page_query::{PageContext, PageQueryResult, PageQueryResultList},
+    page_revisions::{PageRevisionEntry, PageRevisionList},
 };
