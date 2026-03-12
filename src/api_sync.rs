@@ -41,6 +41,7 @@ pub struct ApiSync {
     edit_delay_ms: Option<u64>,
     max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
+    oauth2: Option<String>,
 }
 
 impl ApiSync {
@@ -73,6 +74,7 @@ impl ApiSync {
             max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
             oauth: None,
+            oauth2: None,
         };
         ret.load_site_info()?;
         Ok(ret)
@@ -86,6 +88,11 @@ impl ApiSync {
     /// Sets the OAuth parameters
     pub fn set_oauth(&mut self, oauth: Option<OAuthParams>) {
         self.oauth = oauth;
+    }
+
+    /// Set an OAuth 2 access token
+    pub fn set_oauth2(&mut self, oauth2: &str) {
+        self.oauth2 = Some(oauth2.to_string());
     }
 
     /// Returns a reference to the current OAuth parameters
@@ -142,10 +149,17 @@ impl ApiSync {
     }
 
     /// Returns a String from the site info, matching `["query"][k1][k2]`
-    pub fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, String> {
+    pub fn get_site_info_string<'a>(
+        &'a self,
+        k1: &str,
+        k2: &str,
+    ) -> Result<&'a str, MediaWikiError> {
         match self.get_site_info_value(k1, k2).as_str() {
             Some(s) => Ok(s),
-            None => Err(format!("No 'query.{}.{}' value in site info", k1, k2)),
+            None => Err(MediaWikiError::String(format!(
+                "No 'query.{}.{}' value in site info",
+                k1, k2
+            ))),
         }
     }
 
@@ -680,21 +694,32 @@ impl ApiSync {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::blocking::RequestBuilder, MediaWikiError> {
-        // Use OAuth if set
+        // Use OAuth 1.0 if set
         if self.oauth.is_some() {
             return self.oauth_request_builder(method, api_url, params);
         }
 
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::USER_AGENT,
+            self.user_agent_full().parse()?,
+        );
+        if let Some(access_token) = &self.oauth2 {
+            headers.insert(
+                reqwest::header::AUTHORIZATION,
+                format!("Bearer {}", access_token).parse()?,
+            );
+        }
+
         Ok(match method {
-            "GET" => self
+            "GET" => self.client.get(api_url).headers(headers).query(&params),
+            "POST" => self.client.post(api_url).headers(headers).form(&params),
+            "PATCH" => self.client.patch(api_url).headers(headers).form(&params),
+            "PUT" => self.client.put(api_url).headers(headers).form(&params),
+            "DELETE" => self
                 .client
-                .get(api_url)
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
-                .query(&params),
-            "POST" => self
-                .client
-                .post(api_url)
-                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .delete(api_url)
+                .headers(headers)
                 .form(&params),
             other => return Err(From::from(format!("Unsupported method '{}'", other))),
         })
@@ -800,12 +825,31 @@ impl ApiSync {
     /// Performs a SPARQL query against a wikibase installation.
     /// Tries to get the SPARQL endpoint URL from the site info
     pub fn sparql_query(&self, query: &str) -> Result<Value, MediaWikiError> {
-        let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
+        let query_api_url = self
+            .get_site_info_string("general", "wikibase-sparql")?
+            .to_string();
+        self.sparql_query_endpoint(query, &query_api_url)
+    }
+
+    /// Performs a SPARQL query against a wikibase installation.
+    /// Uses the given SPARQL endpoint URL.
+    pub fn sparql_query_endpoint(
+        &self,
+        query: &str,
+        query_api_url: &str,
+    ) -> Result<Value, MediaWikiError> {
         let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self.query_raw_response(query_api_url, &params, "POST")?;
-        match response.json() {
+        let bytes = response
+            .bytes()
+            .map_err(|e| MediaWikiError::String(format!("{}", e)))?;
+        match serde_json::from_slice(&bytes) {
             Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
+            Err(e) => {
+                let bytes_start: Vec<u8> = bytes.iter().take(100).cloned().collect();
+                let bytes_start = String::from_utf8_lossy(&bytes_start);
+                Err(From::from(format!("{e}: {bytes_start}")))
+            }
         }
     }
 
