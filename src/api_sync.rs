@@ -700,15 +700,30 @@ impl ApiSync {
         })
     }
 
-    /// Performs a query, pauses if required, and returns the raw response
+    /// Performs a query, pauses if required, and returns the raw response.
+    /// Retries automatically on HTTP 429 (Too Many Requests), respecting
+    /// the `Retry-After` header when present.
     fn query_raw_response(
         &self,
         api_url: &str,
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::blocking::Response, MediaWikiError> {
-        let req = self.request_builder(api_url, params, method)?;
-        let resp = req.send()?;
+        let resp = loop {
+            let req = self.request_builder(api_url, params, method)?;
+            let resp = req.send()?;
+            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let wait_sec: u64 = resp
+                    .headers()
+                    .get("Retry-After")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(30);
+                thread::sleep(time::Duration::from_secs(wait_sec));
+                continue;
+            }
+            break resp;
+        };
         self.enact_edit_delay(params, method);
         Ok(resp)
     }
