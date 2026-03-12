@@ -108,7 +108,8 @@ mod query_redirects;
 mod query_revisions;
 mod query_templates;
 mod query_transcludedin;
-mod wbgetentities;
+mod action_wbgetentities;
+use action_wbgetentities as wbgetentities;
 
 mod action_block;
 mod action_checktoken;
