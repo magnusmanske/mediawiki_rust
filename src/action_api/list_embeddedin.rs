@@ -1,4 +1,7 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable,
+    NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -94,7 +97,10 @@ impl ActionApiListEmbeddedinBuilder<NoTitlesOrGenerator> {
     }
 
     /// Title of the template or page to find transclusions of (`eititle`).
-    pub fn eititle<S: AsRef<str>>(mut self, eititle: S) -> ActionApiListEmbeddedinBuilder<Runnable> {
+    pub fn eititle<S: AsRef<str>>(
+        mut self,
+        eititle: S,
+    ) -> ActionApiListEmbeddedinBuilder<Runnable> {
         self.data.eititle = Some(eititle.as_ref().to_string());
         ActionApiListEmbeddedinBuilder {
             _phantom: PhantomData,
@@ -155,7 +161,10 @@ mod tests {
 
     #[test]
     fn eititle_set() {
-        let params = new_builder().eititle("Template:Infobox scientist").data.params();
+        let params = new_builder()
+            .eititle("Template:Infobox scientist")
+            .data
+            .params();
         assert_eq!(params["eititle"], "Template:Infobox scientist");
     }
 
@@ -167,19 +176,31 @@ mod tests {
 
     #[test]
     fn einamespace_set() {
-        let params = new_builder().einamespace(&[0]).eititle("Template:Foo").data.params();
+        let params = new_builder()
+            .einamespace(&[0])
+            .eititle("Template:Foo")
+            .data
+            .params();
         assert_eq!(params["einamespace"], "0");
     }
 
     #[test]
     fn eifilterredir_set() {
-        let params = new_builder().eifilterredir("nonredirects").eititle("Template:Foo").data.params();
+        let params = new_builder()
+            .eifilterredir("nonredirects")
+            .eititle("Template:Foo")
+            .data
+            .params();
         assert_eq!(params["eifilterredir"], "nonredirects");
     }
 
     #[test]
     fn eilimit_set() {
-        let params = new_builder().eilimit(50).eititle("Template:Foo").data.params();
+        let params = new_builder()
+            .eilimit(50)
+            .eititle("Template:Foo")
+            .data
+            .params();
         assert_eq!(params["eilimit"], "50");
     }
 
@@ -193,9 +214,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_embeddedin() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "embeddedin"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

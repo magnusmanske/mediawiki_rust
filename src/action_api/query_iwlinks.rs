@@ -157,7 +157,11 @@ mod tests {
 
     #[test]
     fn iwprop_url() {
-        let params = new_builder().iwprop(&["url"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .iwprop(&["url"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["iwprop"], "url");
     }
 
@@ -169,13 +173,22 @@ mod tests {
 
     #[test]
     fn iwtitle_set() {
-        let params = new_builder().iwtitle("Berlin").iwprefix("de").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .iwtitle("Berlin")
+            .iwprefix("de")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["iwtitle"], "Berlin");
     }
 
     #[test]
     fn iwdir_descending() {
-        let params = new_builder().iwdir("descending").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .iwdir("descending")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["iwdir"], "descending");
     }
 
@@ -195,9 +208,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_iwlinks() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "iwlinks"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

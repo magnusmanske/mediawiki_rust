@@ -1,4 +1,7 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiQueryCommonBuilder, ActionApiQueryCommonData,
+    ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+};
 use std::{collections::HashMap, marker::PhantomData};
 use strum::{Display, EnumString};
 
@@ -409,9 +412,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_by_title() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "info"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
@@ -441,9 +444,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_by_title_with_inprop() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "info"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
@@ -474,9 +477,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_by_pageid() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "info"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

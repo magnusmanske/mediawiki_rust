@@ -1,4 +1,6 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -150,10 +152,7 @@ impl ActionApiListUsercontribsBuilder<NoTitlesOrGenerator> {
     }
 
     /// One or more user IDs whose contributions to retrieve (`ucuserids`).
-    pub fn ucuserids(
-        mut self,
-        ucuserids: &[u64],
-    ) -> ActionApiListUsercontribsBuilder<Runnable> {
+    pub fn ucuserids(mut self, ucuserids: &[u64]) -> ActionApiListUsercontribsBuilder<Runnable> {
         self.data.ucuserids = Some(ucuserids.to_vec());
         ActionApiListUsercontribsBuilder {
             _phantom: PhantomData,
@@ -258,7 +257,11 @@ mod tests {
 
     #[test]
     fn ucnamespace_set() {
-        let params = new_builder().ucnamespace(&[0]).ucuser(&["Foo"]).data.params();
+        let params = new_builder()
+            .ucnamespace(&[0])
+            .ucuser(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["ucnamespace"], "0");
     }
 
@@ -288,9 +291,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_usercontribs() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "usercontribs"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

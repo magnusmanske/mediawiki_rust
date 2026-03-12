@@ -41,8 +41,8 @@ for entry in list.items() {
 
 use serde_json::Value;
 
-use crate::page_query::{PageContext, PageQueryResult, PageQueryResultList};
 use crate::Revision;
+use crate::page_query::{PageContext, PageQueryResult, PageQueryResultList};
 
 /// A single revision together with the page it belongs to.
 #[derive(Debug, Clone)]
@@ -203,11 +203,11 @@ mod tests {
 
     #[tokio::test]
     async fn integration_fetch_revisions() {
-        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use crate::Api;
-        use wiremock::{Mock, ResponseTemplate};
+        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "revisions"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

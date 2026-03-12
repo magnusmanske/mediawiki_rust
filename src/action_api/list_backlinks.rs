@@ -1,4 +1,7 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable,
+    NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -182,13 +185,21 @@ mod tests {
 
     #[test]
     fn blnamespace_set() {
-        let params = new_builder().blnamespace(&[0, 4]).bltitle("Foo").data.params();
+        let params = new_builder()
+            .blnamespace(&[0, 4])
+            .bltitle("Foo")
+            .data
+            .params();
         assert_eq!(params["blnamespace"], "0|4");
     }
 
     #[test]
     fn blfilterredir_set() {
-        let params = new_builder().blfilterredir("nonredirects").bltitle("Foo").data.params();
+        let params = new_builder()
+            .blfilterredir("nonredirects")
+            .bltitle("Foo")
+            .data
+            .params();
         assert_eq!(params["blfilterredir"], "nonredirects");
     }
 
@@ -214,9 +225,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_backlinks() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "backlinks"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

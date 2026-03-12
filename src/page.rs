@@ -6,7 +6,6 @@ The `Page` class deals with operations done on pages, like editing.
 
 use crate::Revision;
 use crate::api::Api;
-use crate::api_utils::MediaWikiApi;
 use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use serde_json::Value;
@@ -360,11 +359,11 @@ impl Page {
 mod tests {
     use super::*;
     use crate::api::*;
-    use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::query_param;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     async fn wd_api() -> (MockServer, Api) {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         let api = Api::new(&server.uri()).await.unwrap();
         (server, api)
     }

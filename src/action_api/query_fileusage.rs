@@ -170,19 +170,31 @@ mod tests {
 
     #[test]
     fn funamespace_set() {
-        let params = new_builder().funamespace(&[0, 4]).titles(&["File:Foo.jpg"]).data.params();
+        let params = new_builder()
+            .funamespace(&[0, 4])
+            .titles(&["File:Foo.jpg"])
+            .data
+            .params();
         assert_eq!(params["funamespace"], "0|4");
     }
 
     #[test]
     fn fushow_set() {
-        let params = new_builder().fushow(&["!redirect"]).titles(&["File:Foo.jpg"]).data.params();
+        let params = new_builder()
+            .fushow(&["!redirect"])
+            .titles(&["File:Foo.jpg"])
+            .data
+            .params();
         assert_eq!(params["fushow"], "!redirect");
     }
 
     #[test]
     fn fulimit_set() {
-        let params = new_builder().fulimit(100).titles(&["File:Foo.jpg"]).data.params();
+        let params = new_builder()
+            .fulimit(100)
+            .titles(&["File:Foo.jpg"])
+            .data
+            .params();
         assert_eq!(params["fulimit"], "100");
     }
 
@@ -196,9 +208,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_fileusage() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "fileusage"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

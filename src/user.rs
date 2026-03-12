@@ -129,13 +129,13 @@ impl User {
 mod tests {
     use super::*;
     use crate::api_sync::*;
-    use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::query_param;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn start_mock_sync() -> MockServer {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+            let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
             Mock::given(query_param("meta", "userinfo"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                     "batchcomplete": "",
@@ -239,7 +239,9 @@ mod tests {
     fn set_user_info() {
         let mut user = User::new();
         assert!(!user.has_user_info());
-        user.set_user_info(Some(json!({"query": {"userinfo": {"rights": ["bot", "edit"]}}})));
+        user.set_user_info(Some(
+            json!({"query": {"userinfo": {"rights": ["bot", "edit"]}}}),
+        ));
         assert!(user.has_user_info());
         assert!(user.is_bot());
         assert!(user.can_edit());

@@ -168,13 +168,21 @@ mod tests {
 
     #[test]
     fn tinamespace_set() {
-        let params = new_builder().tinamespace(&[0, 4]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .tinamespace(&[0, 4])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["tinamespace"], "0|4");
     }
 
     #[test]
     fn tishow_redirect_only() {
-        let params = new_builder().tishow(&["!redirect"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .tishow(&["!redirect"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["tishow"], "!redirect");
     }
 
@@ -194,9 +202,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_transcludedin() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "transcludedin"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

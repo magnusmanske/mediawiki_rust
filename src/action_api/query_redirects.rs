@@ -168,13 +168,21 @@ mod tests {
 
     #[test]
     fn rdnamespace_set() {
-        let params = new_builder().rdnamespace(&[0]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rdnamespace(&[0])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rdnamespace"], "0");
     }
 
     #[test]
     fn rdshow_fragment() {
-        let params = new_builder().rdshow(&["!fragment"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .rdshow(&["!fragment"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["rdshow"], "!fragment");
     }
 
@@ -194,9 +202,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_redirects() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "redirects"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

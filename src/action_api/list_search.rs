@@ -1,4 +1,6 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -126,10 +128,7 @@ impl ActionApiListSearchBuilder<NoTitlesOrGenerator> {
     }
 
     /// Search query string (`srsearch`).
-    pub fn srsearch<S: AsRef<str>>(
-        mut self,
-        srsearch: S,
-    ) -> ActionApiListSearchBuilder<Runnable> {
+    pub fn srsearch<S: AsRef<str>>(mut self, srsearch: S) -> ActionApiListSearchBuilder<Runnable> {
         self.data.srsearch = Some(srsearch.as_ref().to_string());
         ActionApiListSearchBuilder {
             _phantom: PhantomData,
@@ -178,7 +177,11 @@ mod tests {
 
     #[test]
     fn srnamespace_set() {
-        let params = new_builder().srnamespace(&[0, 4]).srsearch("Foo").data.params();
+        let params = new_builder()
+            .srnamespace(&[0, 4])
+            .srsearch("Foo")
+            .data
+            .params();
         assert_eq!(params["srnamespace"], "0|4");
     }
 
@@ -218,7 +221,11 @@ mod tests {
 
     #[test]
     fn srinterwiki_set() {
-        let params = new_builder().srinterwiki(true).srsearch("Foo").data.params();
+        let params = new_builder()
+            .srinterwiki(true)
+            .srsearch("Foo")
+            .data
+            .params();
         assert!(params.contains_key("srinterwiki"));
     }
 
@@ -232,9 +239,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_search() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "search"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

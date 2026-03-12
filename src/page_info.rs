@@ -618,11 +618,11 @@ mod tests {
 
     #[tokio::test]
     async fn integration_from_result() {
-        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use crate::Api;
-        use wiremock::{Mock, ResponseTemplate};
+        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "info"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
@@ -667,11 +667,11 @@ mod tests {
 
     #[tokio::test]
     async fn integration_fetch_all() {
-        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use crate::Api;
-        use wiremock::{Mock, ResponseTemplate};
+        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "info"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
@@ -698,9 +698,7 @@ mod tests {
         let builder = ActionApiQuery::info()
             .inprop(&["protection", "url", "displaytitle"])
             .titles(&["Albert Einstein", "Physics"]);
-        let list = PageInfoList::fetch_all(&builder, &api, None)
-            .await
-            .unwrap();
+        let list = PageInfoList::fetch_all(&builder, &api, None).await.unwrap();
         assert!(!list.is_empty());
         assert_eq!(list.len(), 2);
         for page in list.pages() {
@@ -710,13 +708,13 @@ mod tests {
 
     #[test]
     fn sync_integration_fetch_all() {
-        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use crate::ApiSync;
-        use wiremock::{Mock, ResponseTemplate};
+        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use wiremock::matchers::query_param;
+        use wiremock::{Mock, ResponseTemplate};
         let rt = tokio::runtime::Runtime::new().unwrap();
         let server = rt.block_on(async {
-            let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+            let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
             Mock::given(query_param("prop", "info"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                     "batchcomplete": "",

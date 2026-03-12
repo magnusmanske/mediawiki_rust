@@ -184,7 +184,11 @@ mod tests {
 
     #[test]
     fn clprop_single() {
-        let params = new_builder().clprop(&["sortkey"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .clprop(&["sortkey"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["clprop"], "sortkey");
     }
 
@@ -200,7 +204,11 @@ mod tests {
 
     #[test]
     fn clshow_set() {
-        let params = new_builder().clshow(&["!hidden"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .clshow(&["!hidden"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["clshow"], "!hidden");
     }
 
@@ -222,7 +230,11 @@ mod tests {
 
     #[test]
     fn cldir_descending() {
-        let params = new_builder().cldir("descending").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .cldir("descending")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["cldir"], "descending");
     }
 
@@ -236,9 +248,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_categories() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "categories"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

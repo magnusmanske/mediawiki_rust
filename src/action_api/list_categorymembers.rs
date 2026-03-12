@@ -1,4 +1,7 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable,
+    NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -67,7 +70,11 @@ impl ActionApiListCategorymembersData {
         Self::add_str(&self.cmend, "cmend", &mut params);
         Self::add_str(&self.cmstarthexsortkey, "cmstarthexsortkey", &mut params);
         Self::add_str(&self.cmendhexsortkey, "cmendhexsortkey", &mut params);
-        Self::add_str(&self.cmstartsortkeyprefix, "cmstartsortkeyprefix", &mut params);
+        Self::add_str(
+            &self.cmstartsortkeyprefix,
+            "cmstartsortkeyprefix",
+            &mut params,
+        );
         Self::add_str(&self.cmendsortkeyprefix, "cmendsortkeyprefix", &mut params);
         params
     }
@@ -248,13 +255,21 @@ mod tests {
 
     #[test]
     fn cmprop_set() {
-        let params = new_builder().cmprop(&["ids", "title"]).cmtitle("Category:Foo").data.params();
+        let params = new_builder()
+            .cmprop(&["ids", "title"])
+            .cmtitle("Category:Foo")
+            .data
+            .params();
         assert_eq!(params["cmprop"], "ids|title");
     }
 
     #[test]
     fn cmnamespace_set() {
-        let params = new_builder().cmnamespace(&[0]).cmtitle("Category:Foo").data.params();
+        let params = new_builder()
+            .cmnamespace(&[0])
+            .cmtitle("Category:Foo")
+            .data
+            .params();
         assert_eq!(params["cmnamespace"], "0");
     }
 
@@ -270,13 +285,21 @@ mod tests {
 
     #[test]
     fn cmlimit_set() {
-        let params = new_builder().cmlimit(50).cmtitle("Category:Foo").data.params();
+        let params = new_builder()
+            .cmlimit(50)
+            .cmtitle("Category:Foo")
+            .data
+            .params();
         assert_eq!(params["cmlimit"], "50");
     }
 
     #[test]
     fn cmsort_timestamp() {
-        let params = new_builder().cmsort("timestamp").cmtitle("Category:Foo").data.params();
+        let params = new_builder()
+            .cmsort("timestamp")
+            .cmtitle("Category:Foo")
+            .data
+            .params();
         assert_eq!(params["cmsort"], "timestamp");
     }
 
@@ -290,9 +313,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_categorymembers() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "categorymembers"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

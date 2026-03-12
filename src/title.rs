@@ -261,7 +261,7 @@ mod tests {
     use wiremock;
 
     async fn wd_api() -> (wiremock::MockServer, Api) {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         let api = Api::new(&server.uri()).await.unwrap();
         (server, api)
     }

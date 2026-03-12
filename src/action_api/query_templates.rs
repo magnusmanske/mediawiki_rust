@@ -158,7 +158,11 @@ mod tests {
 
     #[test]
     fn tlnamespace_set() {
-        let params = new_builder().tlnamespace(&[10]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .tlnamespace(&[10])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["tlnamespace"], "10");
     }
 
@@ -180,7 +184,11 @@ mod tests {
 
     #[test]
     fn tldir_descending() {
-        let params = new_builder().tldir("descending").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .tldir("descending")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["tldir"], "descending");
     }
 
@@ -194,9 +202,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_templates() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "templates"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

@@ -1,4 +1,7 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiGenerator, ActionApiRunnable,
+    NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -103,7 +106,10 @@ impl ActionApiListImageusageBuilder<NoTitlesOrGenerator> {
     }
 
     /// Title of the image to find usage for (`iutitle`).
-    pub fn iutitle<S: AsRef<str>>(mut self, iutitle: S) -> ActionApiListImageusageBuilder<Runnable> {
+    pub fn iutitle<S: AsRef<str>>(
+        mut self,
+        iutitle: S,
+    ) -> ActionApiListImageusageBuilder<Runnable> {
         self.data.iutitle = Some(iutitle.as_ref().to_string());
         ActionApiListImageusageBuilder {
             _phantom: PhantomData,
@@ -176,19 +182,31 @@ mod tests {
 
     #[test]
     fn iunamespace_set() {
-        let params = new_builder().iunamespace(&[0]).iutitle("File:Foo.jpg").data.params();
+        let params = new_builder()
+            .iunamespace(&[0])
+            .iutitle("File:Foo.jpg")
+            .data
+            .params();
         assert_eq!(params["iunamespace"], "0");
     }
 
     #[test]
     fn iulimit_set() {
-        let params = new_builder().iulimit(50).iutitle("File:Foo.jpg").data.params();
+        let params = new_builder()
+            .iulimit(50)
+            .iutitle("File:Foo.jpg")
+            .data
+            .params();
         assert_eq!(params["iulimit"], "50");
     }
 
     #[test]
     fn iuredirect_true() {
-        let params = new_builder().iuredirect(true).iutitle("File:Foo.jpg").data.params();
+        let params = new_builder()
+            .iuredirect(true)
+            .iutitle("File:Foo.jpg")
+            .data
+            .params();
         assert!(params.contains_key("iuredirect"));
     }
 
@@ -202,9 +220,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_imageusage() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "imageusage"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

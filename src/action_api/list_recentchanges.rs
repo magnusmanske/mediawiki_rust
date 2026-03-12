@@ -220,7 +220,10 @@ mod tests {
 
     #[test]
     fn rcprop_set() {
-        let params = new_builder().rcprop(&["ids", "title", "timestamp"]).data.params();
+        let params = new_builder()
+            .rcprop(&["ids", "title", "timestamp"])
+            .data
+            .params();
         assert_eq!(params["rcprop"], "ids|title|timestamp");
     }
 
@@ -251,9 +254,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_recentchanges() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "recentchanges"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

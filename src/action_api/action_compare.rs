@@ -156,7 +156,11 @@ mod tests {
 
     #[test]
     fn fromrev_set() {
-        let params = ActionApiCompareBuilder::new().fromrev(1).torev(2).data.params();
+        let params = ActionApiCompareBuilder::new()
+            .fromrev(1)
+            .torev(2)
+            .data
+            .params();
         assert_eq!(params["fromrev"], "1");
         assert_eq!(params["torev"], "2");
     }
@@ -185,14 +189,22 @@ mod tests {
 
     #[test]
     fn torelative_prev() {
-        let params = ActionApiCompareBuilder::new().fromrev(100).torelative("prev").data.params();
+        let params = ActionApiCompareBuilder::new()
+            .fromrev(100)
+            .torelative("prev")
+            .data
+            .params();
         assert_eq!(params["torelative"], "prev");
     }
 
     #[test]
     fn difftype_set() {
-        let params =
-            ActionApiCompareBuilder::new().fromrev(1).torev(2).difftype("inline").data.params();
+        let params = ActionApiCompareBuilder::new()
+            .fromrev(1)
+            .torev(2)
+            .difftype("inline")
+            .data
+            .params();
         assert_eq!(params["difftype"], "inline");
     }
 
@@ -204,9 +216,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_compare() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("action", "compare"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "compare": {

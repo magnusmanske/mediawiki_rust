@@ -1,8 +1,8 @@
 #[cfg(test)]
-pub mod test_helpers {
+pub mod test_helpers_mod {
     use serde_json::{Value, json};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::query_param;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     pub fn enwiki_siteinfo() -> Value {
         json!({

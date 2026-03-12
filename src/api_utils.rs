@@ -55,11 +55,7 @@ pub trait MediaWikiApi {
     }
 
     /// Returns a string from the site info, matching `["query"][k1][k2]`.
-    fn get_site_info_string<'a>(
-        &'a self,
-        k1: &str,
-        k2: &str,
-    ) -> Result<&'a str, MediaWikiError> {
+    fn get_site_info_string<'a>(&'a self, k1: &str, k2: &str) -> Result<&'a str, MediaWikiError> {
         match self.get_site_info_value(k1, k2).as_str() {
             Some(s) => Ok(s),
             None => Err(MediaWikiError::String(format!(
@@ -101,8 +97,7 @@ pub trait MediaWikiApi {
 
     /// Given a URI pointing to a Wikibase entity on this installation, returns the entity ID.
     fn extract_entity_from_uri(&self, uri: &str) -> Result<String, MediaWikiError> {
-        let concept_base_uri =
-            self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
+        let concept_base_uri = self.get_site_info_string("general", "wikibase-conceptbaseuri")?;
         match uri.strip_prefix(concept_base_uri) {
             Some(s) => Ok(s.to_string()),
             None => Err(From::from(format!(
@@ -136,7 +131,7 @@ pub trait MediaWikiApi {
 ///
 /// If an array already exists in `a`, it is expanded with the array from `b`.
 /// This allows combining multiple paginated API results via the `continue` parameter.
-pub(crate) fn json_merge(a: &mut Value, b: Value) {
+pub fn json_merge(a: &mut Value, b: Value) {
     match (a, b) {
         (a @ &mut Value::Object(_), Value::Object(b)) => {
             if let Some(a) = a.as_object_mut() {
@@ -157,12 +152,12 @@ pub(crate) fn json_merge(a: &mut Value, b: Value) {
 }
 
 /// Returns `true` if the query is an edit (POST with a `token` parameter).
-pub(crate) fn is_edit_query(params: &HashMap<String, String>, method: &str) -> bool {
+pub fn is_edit_query(params: &HashMap<String, String>, method: &str) -> bool {
     method == "POST" && params.contains_key("token")
 }
 
 /// Checks for a maxlag error; returns the lag in seconds if present.
-pub(crate) fn check_maxlag(v: &Value, maxlag_seconds: Option<u64>) -> Option<u64> {
+pub fn check_maxlag(v: &Value, maxlag_seconds: Option<u64>) -> Option<u64> {
     match v["error"]["code"].as_str() {
         Some("maxlag") => v["error"]["lag"].as_u64().or(maxlag_seconds),
         _ => None,
@@ -170,7 +165,7 @@ pub(crate) fn check_maxlag(v: &Value, maxlag_seconds: Option<u64>) -> Option<u64
 }
 
 /// Inserts the cumulative `maxlag` parameter into an edit query's params.
-pub(crate) fn set_cumulative_maxlag_params(
+pub fn set_cumulative_maxlag_params(
     params: &mut HashMap<String, String>,
     method: &str,
     maxlag_seconds: Option<u64>,
@@ -185,7 +180,7 @@ pub(crate) fn set_cumulative_maxlag_params(
 }
 
 /// Percent-encodes a string.
-pub(crate) fn rawurlencode(s: &str) -> String {
+pub fn rawurlencode(s: &str) -> String {
     urlencoding::encode(s).into_owned()
 }
 

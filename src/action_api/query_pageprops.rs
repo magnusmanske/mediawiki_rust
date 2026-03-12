@@ -109,7 +109,11 @@ mod tests {
 
     #[test]
     fn ppprop_single() {
-        let params = new_builder().ppprop(&["wikibase_item"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .ppprop(&["wikibase_item"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["ppprop"], "wikibase_item");
     }
 
@@ -133,9 +137,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_pageprops() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "pageprops"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

@@ -151,13 +151,21 @@ mod tests {
 
     #[test]
     fn elprotocol_set() {
-        let params = new_builder().elprotocol("https").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .elprotocol("https")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["elprotocol"], "https");
     }
 
     #[test]
     fn elquery_set() {
-        let params = new_builder().elquery("example.com").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .elquery("example.com")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["elquery"], "example.com");
     }
 
@@ -171,9 +179,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_extlinks() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "extlinks"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

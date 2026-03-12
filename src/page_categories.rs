@@ -81,7 +81,8 @@ impl PageQueryResult for PageCategoryEntry {
             .map(|arr| {
                 arr.iter()
                     .filter_map(|v| {
-                        let mut entry: PageCategoryEntry = serde_json::from_value(v.clone()).ok()?;
+                        let mut entry: PageCategoryEntry =
+                            serde_json::from_value(v.clone()).ok()?;
                         entry.page = ctx.clone();
                         Some(entry)
                     })
@@ -239,11 +240,11 @@ mod tests {
 
     #[tokio::test]
     async fn integration_fetch_categories() {
-        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use crate::Api;
-        use wiremock::{Mock, ResponseTemplate};
+        use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "categories"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

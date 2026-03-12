@@ -218,7 +218,10 @@ mod tests {
 
     #[test]
     fn page_set() {
-        let params = ActionApiParseBuilder::new().page("Albert Einstein").data.params();
+        let params = ActionApiParseBuilder::new()
+            .page("Albert Einstein")
+            .data
+            .params();
         assert_eq!(params["page"], "Albert Einstein");
     }
 
@@ -235,8 +238,11 @@ mod tests {
 
     #[test]
     fn prop_set() {
-        let params =
-            ActionApiParseBuilder::new().page("Foo").prop(&["text", "links"]).data.params();
+        let params = ActionApiParseBuilder::new()
+            .page("Foo")
+            .prop(&["text", "links"])
+            .data
+            .params();
         assert_eq!(params["prop"], "text|links");
     }
 
@@ -254,7 +260,11 @@ mod tests {
 
     #[test]
     fn disabletoc_set() {
-        let params = ActionApiParseBuilder::new().page("Foo").disabletoc(true).data.params();
+        let params = ActionApiParseBuilder::new()
+            .page("Foo")
+            .disabletoc(true)
+            .data
+            .params();
         assert!(params.contains_key("disabletoc"));
     }
 
@@ -266,9 +276,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_page() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("action", "parse"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "parse": {

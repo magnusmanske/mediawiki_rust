@@ -974,12 +974,12 @@ impl Api {
 #[cfg(test)]
 mod tests {
     use super::{Api, Title};
-    use wiremock::{Mock, ResponseTemplate};
     use wiremock::matchers::query_param;
+    use wiremock::{Mock, ResponseTemplate};
 
     #[tokio::test]
     async fn site_info() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
@@ -990,7 +990,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_token() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         Mock::given(query_param("meta", "tokens"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
@@ -1007,7 +1007,7 @@ mod tests {
 
     #[tokio::test]
     async fn api_limit() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         // Return exactly 20 search results, no continue
         let results: Vec<serde_json::Value> = (1..=20)
             .map(|i| json!({"ns": 0, "title": format!("Result {}", i), "pageid": i}))
@@ -1031,10 +1031,10 @@ mod tests {
 
     #[tokio::test]
     async fn api_no_limit() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
-        let page1 = crate::test_helpers::test_helpers::load_test_data("search_page1.json");
-        let page2 = crate::test_helpers::test_helpers::load_test_data("search_page2.json");
-        let page3 = crate::test_helpers::test_helpers::load_test_data("search_page3.json");
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        let page1 = crate::test_helpers::test_helpers_mod::load_test_data("search_page1.json");
+        let page2 = crate::test_helpers::test_helpers_mod::load_test_data("search_page2.json");
+        let page3 = crate::test_helpers::test_helpers_mod::load_test_data("search_page3.json");
         Mock::given(query_param("list", "search"))
             .respond_with(ResponseTemplate::new(200).set_body_json(page1))
             .up_to_n_times(1)
@@ -1065,8 +1065,9 @@ mod tests {
 
     #[tokio::test]
     async fn sparql_query() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
-        let sparql_results = crate::test_helpers::test_helpers::load_test_data("sparql_results.json");
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        let sparql_results =
+            crate::test_helpers::test_helpers_mod::load_test_data("sparql_results.json");
         Mock::given(wiremock::matchers::path("/sparql"))
             .respond_with(ResponseTemplate::new(200).set_body_json(sparql_results))
             .mount(&server)
@@ -1076,13 +1077,14 @@ mod tests {
             .sparql_query("SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 . }")
             .await
             .unwrap();
-        assert!(res["results"]["bindings"].as_array().unwrap().len() >= 1);
+        assert!(!res["results"]["bindings"].as_array().unwrap().is_empty());
     }
 
     #[tokio::test]
     async fn entities_from_sparql_result() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
-        let sparql_results = crate::test_helpers::test_helpers::load_test_data("sparql_results.json");
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        let sparql_results =
+            crate::test_helpers::test_helpers_mod::load_test_data("sparql_results.json");
         Mock::given(wiremock::matchers::path("/sparql"))
             .respond_with(ResponseTemplate::new(200).set_body_json(sparql_results))
             .mount(&server)
@@ -1098,7 +1100,7 @@ mod tests {
 
     #[tokio::test]
     async fn extract_entity_from_uri() {
-        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(
             api.extract_entity_from_uri("http://www.wikidata.org/entity/Q123")
@@ -1132,7 +1134,7 @@ mod tests {
 
     #[tokio::test]
     async fn result_namespaces() {
-        let server = crate::test_helpers::test_helpers::start_dewiki_mock().await;
+        let server = crate::test_helpers::test_helpers_mod::start_dewiki_mock().await;
         let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(api.get_local_namespace_name(0), Some(""));
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));

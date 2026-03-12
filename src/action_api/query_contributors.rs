@@ -158,25 +158,41 @@ mod tests {
 
     #[test]
     fn pcgroup_set() {
-        let params = new_builder().pcgroup(&["sysop", "bot"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .pcgroup(&["sysop", "bot"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["pcgroup"], "sysop|bot");
     }
 
     #[test]
     fn pcexcludegroup_set() {
-        let params = new_builder().pcexcludegroup(&["bot"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .pcexcludegroup(&["bot"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["pcexcludegroup"], "bot");
     }
 
     #[test]
     fn pcrights_set() {
-        let params = new_builder().pcrights(&["edit"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .pcrights(&["edit"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["pcrights"], "edit");
     }
 
     #[test]
     fn pcexcluderights_set() {
-        let params = new_builder().pcexcluderights(&["delete"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .pcexcluderights(&["delete"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["pcexcluderights"], "delete");
     }
 
@@ -196,9 +212,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_contributors() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "contributors"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

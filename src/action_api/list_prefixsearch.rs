@@ -1,4 +1,6 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+};
 use crate::api::NamespaceID;
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -133,7 +135,11 @@ mod tests {
 
     #[test]
     fn psnamespace_set() {
-        let params = new_builder().psnamespace(&[0, 4]).pssearch("Foo").data.params();
+        let params = new_builder()
+            .psnamespace(&[0, 4])
+            .pssearch("Foo")
+            .data
+            .params();
         assert_eq!(params["psnamespace"], "0|4");
     }
 
@@ -165,9 +171,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_prefixsearch() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "prefixsearch"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

@@ -183,7 +183,10 @@ mod tests {
 
     #[test]
     fn leprop_set() {
-        let params = new_builder().leprop(&["ids", "title", "type", "user"]).data.params();
+        let params = new_builder()
+            .leprop(&["ids", "title", "type", "user"])
+            .data
+            .params();
         assert_eq!(params["leprop"], "ids|title|type|user");
     }
 
@@ -238,9 +241,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_logevents() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("list", "logevents"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",

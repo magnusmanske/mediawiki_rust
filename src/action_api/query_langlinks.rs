@@ -170,7 +170,11 @@ mod tests {
 
     #[test]
     fn llprop_set() {
-        let params = new_builder().llprop(&["url", "langname"]).titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .llprop(&["url", "langname"])
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["llprop"], "url|langname");
     }
 
@@ -182,13 +186,22 @@ mod tests {
 
     #[test]
     fn lltitle_set() {
-        let params = new_builder().lltitle("Berlin").lllang("de").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .lltitle("Berlin")
+            .lllang("de")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["lltitle"], "Berlin");
     }
 
     #[test]
     fn llinlanguagecode_set() {
-        let params = new_builder().llinlanguagecode("fr").titles(&["Foo"]).data.params();
+        let params = new_builder()
+            .llinlanguagecode("fr")
+            .titles(&["Foo"])
+            .data
+            .params();
         assert_eq!(params["llinlanguagecode"], "fr");
     }
 
@@ -208,9 +221,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_langlinks() {
-        use wiremock::{Mock, ResponseTemplate};
         use wiremock::matchers::query_param;
-        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        use wiremock::{Mock, ResponseTemplate};
+        let server = crate::test_helpers::test_helpers_mod::start_enwiki_mock().await;
         Mock::given(query_param("prop", "langlinks"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "batchcomplete": "",
