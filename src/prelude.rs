@@ -2,6 +2,7 @@
 ///
 /// Brings into scope:
 /// - Core types: `Api`, `ApiSync`, `Page`, `Revision`, `Title`, `User`, `MediaWikiError`
+/// - Page info: `PageInfo`, `PageInfoList`
 /// - Action API entry points: `ActionApi`, `ActionApiQuery`, `ActionApiList`
 /// - Required traits: `ActionApiRunnable`, `ActionApiQueryCommonBuilder`,
 ///   `ActionApiGenerator`
@@ -11,4 +12,5 @@ pub use crate::{
         ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiQuery,
         ActionApiQueryCommonBuilder, ActionApiRunnable,
     },
+    page_info::{PageInfo, PageInfoList},
 };

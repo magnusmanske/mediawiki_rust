@@ -86,6 +86,29 @@ let res = ActionApi::edit()
     .unwrap();
 ```
 
+## Get typed page info (no raw JSON needed)
+```rust
+use mediawiki::prelude::*;
+
+let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+
+let result = ActionApiQuery::info()
+    .inprop(&["protection", "url", "displaytitle"])
+    .titles(&["Albert Einstein", "Physics"])
+    .run(&api)
+    .await
+    .unwrap();
+
+let list = PageInfoList::from_result(&result);
+for page in list.pages() {
+    println!("{} (id {}): {}",
+        page.title,
+        page.pageid.unwrap_or(0),
+        page.fullurl.as_deref().unwrap_or("n/a"),
+    );
+}
+```
+
 ## Query Wikidata using SPARQL
 ```rust
 use mediawiki::prelude::*;
