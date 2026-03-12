@@ -9,6 +9,9 @@ version = "0.4.2"
 authors = ["Magnus Manske <magnusmanske@proton.me>"]
 edition = "2024"
 
+[lib]
+doctest = false
+
 [features]
 default = ["default-tls"]
 default-tls = ["reqwest/default-tls"]
