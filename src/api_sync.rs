@@ -758,19 +758,15 @@ impl ApiSync {
     /// From an API result that has a list of entries with "title" and "ns" (e.g. search), returns a vector of `Title` objects.
     pub fn result_array_to_titles(data: &Value) -> Vec<Title> {
         // See if it's the "root" of the result, then try each sub-object separately
-        if data.is_object() {
-            return data
-                .as_object()
-                .unwrap() // OK
-                .iter()
+        if let Some(obj) = data.as_object() {
+            obj.iter()
                 .flat_map(|(_k, v)| ApiSync::result_array_to_titles(v))
-                .collect();
+                .collect()
+        } else if let Some(arr) = data.as_array() {
+            arr.iter().map(Title::new_from_api_result).collect()
+        } else {
+            vec![]
         }
-        data.as_array()
-            .unwrap_or(&vec![])
-            .iter()
-            .map(Title::new_from_api_result)
-            .collect()
     }
 
     /// Performs a SPARQL query against a wikibase installation.
