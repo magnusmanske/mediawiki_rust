@@ -554,7 +554,7 @@ impl ApiSync {
         let mut url_string = url.scheme().to_owned() + "://";
         url_string += url.host_str().ok_or("url.host_str is None")?;
         if let Some(port) = url.port() {
-            write!(url_string, ":{}", port).unwrap()
+            write!(url_string, ":{}", port)?
         }
         url_string += url.path();
 
@@ -609,9 +609,20 @@ impl ApiSync {
 
         headers.insert(
             "oauth_consumer_key",
-            oauth.g_consumer_key.as_ref().unwrap().parse()?,
+            oauth
+                .g_consumer_key
+                .as_ref()
+                .ok_or("Failed to get ref for oauth_consumer_key")?
+                .parse()?,
         );
-        headers.insert("oauth_token", oauth.g_token_key.as_ref().unwrap().parse()?);
+        headers.insert(
+            "oauth_token",
+            oauth
+                .g_token_key
+                .as_ref()
+                .ok_or("Failed to get ref for g_token_key")?
+                .parse()?,
+        );
         headers.insert("oauth_version", "1.0".parse()?);
         headers.insert("oauth_nonce", nonce.parse()?);
         headers.insert("oauth_timestamp", timestamp.parse()?);
@@ -634,16 +645,15 @@ impl ApiSync {
 
         // Collapse headers
         let mut header = "OAuth ".to_string();
-        let parts: Vec<String> = headers
-            .iter()
-            .map(|(key, value)| {
-                let key = key.to_string();
-                let value = value.to_str().unwrap();
-                let key = self.rawurlencode(&key);
-                let value = self.rawurlencode(value);
-                key + "=\"" + &value + "\""
-            })
-            .collect();
+        let mut parts = Vec::new();
+        for (key, value) in &headers {
+            let key = key.to_string();
+            let value = value.to_str().map_err(|e| e.to_string())?;
+            let key = self.rawurlencode(&key);
+            let value = self.rawurlencode(value);
+            let part = key + "=\"" + &value + "\"";
+            parts.push(part);
+        }
         header += &parts.join(", ");
 
         let mut headers = HeaderMap::new();
@@ -656,7 +666,10 @@ impl ApiSync {
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
             "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
-            other => panic!("Unsupported method '{}'", other),
+            other => Err(MediaWikiError::String(format!(
+                "Unsupported method '{}' for OAuth requests",
+                other
+            ))),
         }
     }
 
