@@ -10,7 +10,7 @@ This crate lets you interact with a MediaWiki API service.
 To establish a connection to a MediaWiki API, use `Api` (async) or `ApiSync`.
 Optionally, log in, as a bot or via OAuth2 (recommended).
 You can then query the API directly via `get_query_api_json` and similar methods. You can get an edit token via `get_edit_token`.
-Alternatively, use the high-level `ActionApi` and `ActionApiQuery` structs to interact with the API. All MediaWiki and Wikibase API actions are supported.
+Alternatively, use the high-level `ActionApi` and `ActionApiQuery` structs to interact with the API through structs instead of JSON. All MediaWiki and Wikibase API actions are implemented. Use `PageInfo` and `PageInfoList` to parse page info results.
 
 # Examples
 
