@@ -1099,4 +1099,160 @@ mod tests {
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
         assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));
     }
+
+    #[test]
+    fn json_merge_objects() {
+        let mut a = json!({"key1": "val1"});
+        Api::json_merge(&mut a, json!({"key2": "val2"}));
+        assert_eq!(a, json!({"key1": "val1", "key2": "val2"}));
+    }
+
+    #[test]
+    fn json_merge_objects_overwrite() {
+        let mut a = json!({"key": "old"});
+        Api::json_merge(&mut a, json!({"key": "new"}));
+        assert_eq!(a, json!({"key": "new"}));
+    }
+
+    #[test]
+    fn json_merge_arrays() {
+        let mut a = json!([1, 2]);
+        Api::json_merge(&mut a, json!([3, 4]));
+        assert_eq!(a, json!([1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn json_merge_nested() {
+        let mut a = json!({"query": {"pages": [{"id": 1}]}});
+        Api::json_merge(&mut a, json!({"query": {"pages": [{"id": 2}]}}));
+        assert_eq!(a, json!({"query": {"pages": [{"id": 1}, {"id": 2}]}}));
+    }
+
+    #[test]
+    fn json_merge_scalar_overwrite() {
+        let mut a = json!("old");
+        Api::json_merge(&mut a, json!("new"));
+        assert_eq!(a, json!("new"));
+    }
+
+    #[test]
+    fn json_merge_null_base() {
+        let mut a = json!(null);
+        Api::json_merge(&mut a, json!({"key": "val"}));
+        assert_eq!(a, json!({"key": "val"}));
+    }
+
+    #[test]
+    fn is_edit_query_post_with_token() {
+        let api = Api {
+            api_url: String::new(),
+            site_info: json!({}),
+            client: reqwest::Client::new(),
+            user: crate::user::User::new(),
+            user_agent: String::new(),
+            maxlag_seconds: None,
+            edit_delay_ms: None,
+            max_retry_attempts: 5,
+            oauth: None,
+            oauth2: None,
+        };
+        let mut params = std::collections::HashMap::new();
+        params.insert("token".to_string(), "abc".to_string());
+        assert!(api.is_edit_query(&params, "POST"));
+        assert!(!api.is_edit_query(&params, "GET"));
+
+        let no_token = std::collections::HashMap::new();
+        assert!(!api.is_edit_query(&no_token, "POST"));
+    }
+
+    #[test]
+    fn check_maxlag_detects_lag() {
+        let api = Api {
+            api_url: String::new(),
+            site_info: json!({}),
+            client: reqwest::Client::new(),
+            user: crate::user::User::new(),
+            user_agent: String::new(),
+            maxlag_seconds: Some(5),
+            edit_delay_ms: None,
+            max_retry_attempts: 5,
+            oauth: None,
+            oauth2: None,
+        };
+        let v = json!({"error": {"code": "maxlag", "lag": 10}});
+        assert_eq!(api.check_maxlag(&v), Some(10));
+
+        let v_no_lag = json!({"error": {"code": "maxlag"}});
+        assert_eq!(api.check_maxlag(&v_no_lag), Some(5)); // falls back to maxlag_seconds
+
+        let v_ok = json!({"query": {}});
+        assert_eq!(api.check_maxlag(&v_ok), None);
+    }
+
+    #[test]
+    fn user_agent_full_format() {
+        let api = Api {
+            api_url: String::new(),
+            site_info: json!({}),
+            client: reqwest::Client::new(),
+            user: crate::user::User::new(),
+            user_agent: "TestBot".to_string(),
+            maxlag_seconds: None,
+            edit_delay_ms: None,
+            max_retry_attempts: 5,
+            oauth: None,
+            oauth2: None,
+        };
+        let ua = api.user_agent_full();
+        assert!(ua.starts_with("TestBot; "));
+        assert!(ua.contains("mediawiki-rust/"));
+    }
+
+    #[test]
+    fn params_into_converts_correctly() {
+        let api = Api {
+            api_url: String::new(),
+            site_info: json!({}),
+            client: reqwest::Client::new(),
+            user: crate::user::User::new(),
+            user_agent: String::new(),
+            maxlag_seconds: None,
+            edit_delay_ms: None,
+            max_retry_attempts: 5,
+            oauth: None,
+            oauth2: None,
+        };
+        let params = api.params_into(&[("action", "query"), ("meta", "siteinfo")]);
+        assert_eq!(params.len(), 2);
+        assert_eq!(params["action"], "query");
+        assert_eq!(params["meta"], "siteinfo");
+    }
+
+    #[test]
+    fn no_params_is_empty() {
+        let api = Api {
+            api_url: String::new(),
+            site_info: json!({}),
+            client: reqwest::Client::new(),
+            user: crate::user::User::new(),
+            user_agent: String::new(),
+            maxlag_seconds: None,
+            edit_delay_ms: None,
+            max_retry_attempts: 5,
+            oauth: None,
+            oauth2: None,
+        };
+        assert!(api.no_params().is_empty());
+    }
+
+    #[test]
+    fn result_array_to_titles_empty_object() {
+        assert!(Api::result_array_to_titles(&json!({})).is_empty());
+    }
+
+    #[test]
+    fn result_array_to_titles_non_array_non_object() {
+        assert!(Api::result_array_to_titles(&json!(42)).is_empty());
+        assert!(Api::result_array_to_titles(&json!(null)).is_empty());
+    }
 }

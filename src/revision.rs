@@ -101,3 +101,62 @@ impl Revision {
         &self.tags
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn from_json_full() {
+        let j = json!({
+            "revid": 42,
+            "parentid": 41,
+            "slots": {"main": {"content": "hello world"}},
+            "timestamp": "2024-01-15T10:30:00Z",
+            "size": 1234,
+            "sha1": "abc123",
+            "user": "TestUser",
+            "userid": 99,
+            "tags": ["tag1", "tag2"]
+        });
+        let rev = Revision::from_json(&j).unwrap();
+        assert_eq!(rev.id(), 42);
+        assert_eq!(rev.parent_id(), Some(41));
+        assert_eq!(rev.wikitext(), Some("hello world"));
+        assert!(rev.timestamp().is_some());
+        assert_eq!(rev.size(), Some(1234));
+        assert_eq!(rev.sha1(), Some("abc123"));
+        assert_eq!(rev.user(), Some("TestUser"));
+        assert_eq!(rev.userid(), Some(99));
+        assert_eq!(rev.tags(), &["tag1", "tag2"]);
+    }
+
+    #[test]
+    fn from_json_minimal() {
+        let j = json!({"revid": 1});
+        let rev = Revision::from_json(&j).unwrap();
+        assert_eq!(rev.id(), 1);
+        assert_eq!(rev.parent_id(), None);
+        assert_eq!(rev.wikitext(), None);
+        assert!(rev.timestamp().is_none());
+        assert_eq!(rev.size(), None);
+        assert_eq!(rev.sha1(), None);
+        assert_eq!(rev.user(), None);
+        assert_eq!(rev.userid(), None);
+        assert!(rev.tags().is_empty());
+    }
+
+    #[test]
+    fn from_json_missing_revid_is_error() {
+        let j = json!({"parentid": 1});
+        assert!(Revision::from_json(&j).is_err());
+    }
+
+    #[test]
+    fn from_json_empty_tags() {
+        let j = json!({"revid": 1, "tags": []});
+        let rev = Revision::from_json(&j).unwrap();
+        assert!(rev.tags().is_empty());
+    }
+}

@@ -122,3 +122,61 @@ impl From<std::time::SystemTimeError> for MediaWikiError {
         Self::Time(e)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_string() {
+        let err = MediaWikiError::from("test error".to_string());
+        assert!(matches!(err, MediaWikiError::String(s) if s == "test error"));
+    }
+
+    #[test]
+    fn from_str() {
+        let err = MediaWikiError::from("test error");
+        assert!(matches!(err, MediaWikiError::String(s) if s == "test error"));
+    }
+
+    #[test]
+    fn display_string_error() {
+        let err = MediaWikiError::String("something went wrong".to_string());
+        assert_eq!(format!("{}", err), "something went wrong");
+    }
+
+    #[test]
+    fn display_missing() {
+        let title = Title::new("Test Page", 0);
+        let err = MediaWikiError::Missing(title);
+        let msg = format!("{}", err);
+        assert!(msg.contains("missing"));
+    }
+
+    #[test]
+    fn display_login() {
+        let err = MediaWikiError::Login("bad credentials".to_string());
+        assert_eq!(format!("{}", err), "bad credentials");
+    }
+
+    #[test]
+    fn from_url_parse_error() {
+        let url_err = url::Url::parse("not a url :::").unwrap_err();
+        let err = MediaWikiError::from(url_err);
+        assert!(matches!(err, MediaWikiError::Url(_)));
+    }
+
+    #[test]
+    fn from_serde_error() {
+        let serde_err = serde_json::from_str::<Value>("not json{{{").unwrap_err();
+        let err = MediaWikiError::from(serde_err);
+        assert!(matches!(err, MediaWikiError::Serde(_)));
+    }
+
+    #[test]
+    fn error_trait_implemented() {
+        let err = MediaWikiError::String("test".to_string());
+        // Verify it implements std::error::Error
+        let _: &dyn Error = &err;
+    }
+}
