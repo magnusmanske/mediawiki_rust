@@ -121,7 +121,7 @@ impl Api {
     ) -> Result<Api, MediaWikiError> {
         let mut ret = Api {
             api_url: api_url.to_string(),
-            site_info: serde_json::from_str(r"{}")?,
+            site_info: Value::Object(Default::default()),
             client: builder.cookie_store(true).build()?,
             user: User::new(),
             user_agent: DEFAULT_USER_AGENT.to_string(),
