@@ -742,7 +742,7 @@ impl Api {
 
         match method {
             "GET" => Ok(self.client.get(api_url).headers(headers).query(&params)),
-            "POST" => Ok(self.client.get(api_url).headers(headers).form(&params)),
+            "POST" => Ok(self.client.post(api_url).headers(headers).form(&params)),
             other => Err(MediaWikiError::String(format!(
                 "Unsupported method '{}' for OAuth requests",
                 other
