@@ -4,6 +4,14 @@
 
 # A MediaWiki client library in Rust
 
+# Introduction
+
+This crate lets you interact with a MediaWiki API service.
+To establish a connection to a MediaWiki API, use `Api` (async) or `ApiSync`.
+Optionally, log in, as a bot or via OAuth2 (recommended).
+You can then query the API directly via `get_query_api_json` and similar methods. You can get an edit token via `get_edit_token`.
+Alternatively, use the high-level `ActionApi` and `ActionApiQuery` structs to interact with the API. All MediaWiki and Wikibase API actions are supported.
+
 # Examples
 
 ## Get all categories of "Albert Einstein" on English Wikipedia
