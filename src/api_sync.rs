@@ -426,16 +426,6 @@ impl ApiSync {
     }
 
     /// Sets the maxlag parameter for a query, if necessary
-    fn _set_maxlag_params(&self, params: &mut HashMap<String, String>, method: &str) {
-        if !self.is_edit_query(params, method) {
-            return;
-        }
-        if let Some(maxlag_seconds) = self.maxlag_seconds {
-            params.insert("maxlag".to_string(), maxlag_seconds.to_string());
-        }
-    }
-
-    /// Sets the maxlag parameter for a query, if necessary
     fn set_cumulative_maxlag_params(
         &self,
         params: &mut HashMap<String, String>,
