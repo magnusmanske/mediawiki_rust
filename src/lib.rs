@@ -33,12 +33,8 @@
 )]
 
 #[cfg(test)]
-extern crate lazy_static;
-#[cfg(test)]
 #[macro_use]
 extern crate serde_json;
-extern crate hmac;
-extern crate nanoid;
 
 #[macro_export]
 /// To quickly create a hashmap.
