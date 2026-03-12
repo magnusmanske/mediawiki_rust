@@ -61,8 +61,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::action_api::{ActionApiContinuable, ActionApiRunnable};
-use crate::{Api, ApiSync, MediaWikiError};
+use crate::page_query::{PageQueryResult, PageQueryResultList};
 
 /// A single protection entry as returned by `inprop=protection`.
 ///
@@ -224,6 +223,12 @@ pub struct PageInfo {
     pub extra: HashMap<String, Value>,
 }
 
+impl PageQueryResult for PageInfo {
+    fn from_page_value(page: &Value) -> Vec<Self> {
+        serde_json::from_value(page.clone()).into_iter().collect()
+    }
+}
+
 /// Custom deserializer for MediaWiki boolean fields.
 ///
 /// In `formatversion=1`, boolean flags are present as `""` (empty string) when
@@ -243,10 +248,11 @@ where
 
 /// A collection of [`PageInfo`] items parsed from one or more API responses.
 ///
-/// Use [`from_result`](Self::from_result) to create from a single response,
-/// [`add_from_result`](Self::add_from_result) to append from additional pages,
-/// or [`fetch_all`](Self::fetch_all) / [`fetch_all_sync`](Self::fetch_all_sync)
-/// to automatically paginate through all results.
+/// This is a type alias for [`PageQueryResultList<PageInfo>`]. Use
+/// [`from_result`](PageQueryResultList::from_result) to create from a single response,
+/// [`add_from_result`](PageQueryResultList::add_from_result) to append from additional pages,
+/// or [`fetch_all`](PageQueryResultList::fetch_all) /
+/// [`fetch_all_sync`](PageQueryResultList::fetch_all_sync) to automatically paginate.
 ///
 /// # Example
 ///
@@ -268,182 +274,21 @@ where
 /// assert!(!list.pages().is_empty());
 /// # });
 /// ```
-#[derive(Debug, Clone, Default)]
-pub struct PageInfoList {
-    pages: Vec<PageInfo>,
-}
+pub type PageInfoList = PageQueryResultList<PageInfo>;
 
 impl PageInfoList {
-    /// Creates an empty `PageInfoList`.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Creates a `PageInfoList` from a single API response.
-    ///
-    /// Extracts all page objects from `result["query"]["pages"]` regardless
-    /// of whether `formatversion` is 1 (object keyed by pageid) or 2 (array).
-    pub fn from_result(result: &Value) -> Self {
-        let mut list = Self::new();
-        list.add_from_result(result);
-        list
-    }
-
-    /// Appends pages from an API response to this list.
-    ///
-    /// Handles both `formatversion=1` (object) and `formatversion=2` (array)
-    /// response shapes.
-    pub fn add_from_result(&mut self, result: &Value) {
-        let pages = &result["query"]["pages"];
-        if let Some(obj) = pages.as_object() {
-            // formatversion=1: pages is {"12345": {...}, ...}
-            for page_value in obj.values() {
-                if let Ok(info) = serde_json::from_value(page_value.clone()) {
-                    self.pages.push(info);
-                }
-            }
-        } else if let Some(arr) = pages.as_array() {
-            // formatversion=2: pages is [{...}, {...}, ...]
-            for page_value in arr {
-                if let Ok(info) = serde_json::from_value(page_value.clone()) {
-                    self.pages.push(info);
-                }
-            }
-        }
-    }
-
     /// Returns a slice of all collected [`PageInfo`] items.
+    ///
+    /// This is a convenience alias for [`items()`](PageQueryResultList::items).
     pub fn pages(&self) -> &[PageInfo] {
-        &self.pages
+        self.items()
     }
 
     /// Returns a mutable reference to the inner `Vec<PageInfo>`.
+    ///
+    /// This is a convenience alias for [`items_mut()`](PageQueryResultList::items_mut).
     pub fn pages_mut(&mut self) -> &mut Vec<PageInfo> {
-        &mut self.pages
-    }
-
-    /// Returns the number of pages in this list.
-    pub fn len(&self) -> usize {
-        self.pages.len()
-    }
-
-    /// Returns `true` if this list contains no pages.
-    pub fn is_empty(&self) -> bool {
-        self.pages.is_empty()
-    }
-
-    /// Drives pagination to completion, collecting all pages from a
-    /// continuable query builder.
-    ///
-    /// - `builder` — a `Runnable` + `ActionApiContinuable` query builder (e.g.
-    ///   from `ActionApiQuery::info().titles(…)` or with a generator).
-    /// - `api` — the async API handle.
-    /// - `max` — optional maximum number of pages to collect. `None` = unlimited.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
-    /// use mediawiki::prelude::*;
-    /// use mediawiki::page_info::PageInfoList;
-    ///
-    /// let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
-    ///
-    /// let builder = ActionApiQuery::info()
-    ///     .inprop(&["protection", "url", "displaytitle"])
-    ///     .titles(&["Albert Einstein", "Physics"]);
-    ///
-    /// let list = PageInfoList::fetch_all(&builder, &api, None).await.unwrap();
-    /// assert!(!list.pages().is_empty());
-    /// # });
-    /// ```
-    pub async fn fetch_all<B>(
-        builder: &B,
-        api: &Api,
-        max: Option<usize>,
-    ) -> Result<Self, MediaWikiError>
-    where
-        B: ActionApiRunnable + ActionApiContinuable + Clone + Sync,
-    {
-        let mut list = Self::new();
-        let mut builder = builder.clone();
-        loop {
-            let result = builder.run(api).await?;
-            list.add_from_result(&result);
-            if let Some(max) = max {
-                if list.len() >= max {
-                    list.pages.truncate(max);
-                    break;
-                }
-            }
-            if !builder.has_more(&result) {
-                break;
-            }
-            builder = builder.continue_from(&result);
-        }
-        Ok(list)
-    }
-
-    /// Synchronous version of [`fetch_all`](Self::fetch_all).
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use mediawiki::prelude::*;
-    /// use mediawiki::page_info::PageInfoList;
-    ///
-    /// let api = ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
-    ///
-    /// let builder = ActionApiQuery::info()
-    ///     .inprop(&["protection", "url", "displaytitle"])
-    ///     .titles(&["Albert Einstein", "Physics"]);
-    ///
-    /// let list = PageInfoList::fetch_all_sync(&builder, &api, None).unwrap();
-    /// assert!(!list.pages().is_empty());
-    /// ```
-    pub fn fetch_all_sync<B>(
-        builder: &B,
-        api: &ApiSync,
-        max: Option<usize>,
-    ) -> Result<Self, MediaWikiError>
-    where
-        B: ActionApiRunnable + ActionApiContinuable + Clone + Sync,
-    {
-        let mut list = Self::new();
-        let mut builder = builder.clone();
-        loop {
-            let result = builder.run_sync(api)?;
-            list.add_from_result(&result);
-            if let Some(max) = max {
-                if list.len() >= max {
-                    list.pages.truncate(max);
-                    break;
-                }
-            }
-            if !builder.has_more(&result) {
-                break;
-            }
-            builder = builder.continue_from(&result);
-        }
-        Ok(list)
-    }
-}
-
-impl IntoIterator for PageInfoList {
-    type Item = PageInfo;
-    type IntoIter = std::vec::IntoIter<PageInfo>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pages.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a PageInfoList {
-    type Item = &'a PageInfo;
-    type IntoIter = std::slice::Iter<'a, PageInfo>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pages.iter()
+        self.items_mut()
     }
 }
 
@@ -774,6 +619,7 @@ mod tests {
     #[tokio::test]
     async fn integration_from_result() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
+        use crate::Api;
         let api = Api::new("https://en.wikipedia.org/w/api.php")
             .await
             .unwrap();
@@ -797,6 +643,7 @@ mod tests {
     #[tokio::test]
     async fn integration_fetch_all() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
+        use crate::Api;
         let api = Api::new("https://en.wikipedia.org/w/api.php")
             .await
             .unwrap();
@@ -816,6 +663,7 @@ mod tests {
     #[test]
     fn sync_integration_fetch_all() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
+        use crate::ApiSync;
         let api = ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
         let builder = ActionApiQuery::info()
             .inprop(&["protection", "url", "displaytitle"])

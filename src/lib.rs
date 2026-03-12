@@ -51,10 +51,12 @@ pub use reqwest;
 
 pub mod action_api;
 pub mod api;
-pub mod prelude;
 pub mod api_sync;
 pub mod media_wiki_error;
 pub mod page;
+pub mod page_info;
+pub mod page_query;
+pub mod prelude;
 pub mod revision;
 pub mod title;
 pub mod user;
