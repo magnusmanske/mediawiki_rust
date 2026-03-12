@@ -816,7 +816,9 @@ impl ApiSync {
         if let Some(bindings) = sparql_result["results"]["bindings"].as_array() {
             for b in bindings {
                 if let Some(entity_url) = b[variable_name]["value"].as_str() {
-                    entities.push(self.extract_entity_from_uri(entity_url).unwrap());
+                    if let Ok(entity) = self.extract_entity_from_uri(entity_url) {
+                        entities.push(entity);
+                    }
                 }
             }
         }
