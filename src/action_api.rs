@@ -350,7 +350,6 @@ pub trait ActionApiRunnable {
     /// Executes the request asynchronously and returns the raw API JSON response.
     async fn run(&self, api: &Api) -> Result<Value, MediaWikiError> {
         let params = self.params();
-        println!("{:#?}", params);
         let ret = api.query_api_json(&params, self.http_method()).await?;
         if let Some(_continue) = ret.get("continue") {
             // TODO use continue["continue"] and e.g. continue["lhcontinue"]
@@ -363,7 +362,6 @@ pub trait ActionApiRunnable {
     /// Executes the request synchronously and returns the raw API JSON response.
     fn run_sync(&self, api: &ApiSync) -> Result<Value, MediaWikiError> {
         let params = self.params();
-        println!("{:#?}", params);
         api.query_api_json(&params, self.http_method())
     }
 }
