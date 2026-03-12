@@ -351,4 +351,79 @@ mod tests {
             Some("User_talk:Magnus_Manske".to_string())
         );
     }
+
+    #[test]
+    fn display_trait() {
+        let title = Title::new("Test Page", 0);
+        assert_eq!(format!("{}", title), "Test Page");
+    }
+
+    #[test]
+    fn toggle_namespace_id_content_to_talk() {
+        assert_eq!(toggle_namespace_id(0), Some(1));
+        assert_eq!(toggle_namespace_id(2), Some(3));
+        assert_eq!(toggle_namespace_id(4), Some(5));
+    }
+
+    #[test]
+    fn toggle_namespace_id_talk_to_content() {
+        assert_eq!(toggle_namespace_id(1), Some(0));
+        assert_eq!(toggle_namespace_id(3), Some(2));
+        assert_eq!(toggle_namespace_id(5), Some(4));
+    }
+
+    #[test]
+    fn toggle_namespace_id_special() {
+        assert_eq!(toggle_namespace_id(-1), None);
+        assert_eq!(toggle_namespace_id(-2), None);
+    }
+
+    #[test]
+    fn title_with_underscores() {
+        let title = Title::new("Test Page", 0);
+        assert_eq!(title.with_underscores(), "Test_Page");
+    }
+
+    #[test]
+    fn title_pretty() {
+        let title = Title::new("Test_Page", 0);
+        assert_eq!(title.pretty(), "Test Page");
+    }
+
+    #[test]
+    fn title_namespace_id() {
+        let title = Title::new("Test", 6);
+        assert_eq!(title.namespace_id(), 6);
+    }
+
+    #[test]
+    fn new_from_api_result_with_namespace() {
+        let data = json!({"title": "Talk:Test Page", "ns": 1});
+        let title = Title::new_from_api_result(&data);
+        assert_eq!(title.pretty(), "Test Page");
+        assert_eq!(title.namespace_id(), 1);
+    }
+
+    #[test]
+    fn new_from_api_result_main_namespace() {
+        let data = json!({"title": "Main Page", "ns": 0});
+        let title = Title::new_from_api_result(&data);
+        assert_eq!(title.pretty(), "Main Page");
+        assert_eq!(title.namespace_id(), 0);
+    }
+
+    #[test]
+    fn new_from_api_result_missing_fields() {
+        let data = json!({});
+        let title = Title::new_from_api_result(&data);
+        assert_eq!(title.pretty(), "");
+        assert_eq!(title.namespace_id(), 0);
+    }
+
+    #[test]
+    fn title_equality() {
+        assert_eq!(Title::new("Foo", 0), Title::new("Foo", 0));
+        assert_ne!(Title::new("Foo", 0), Title::new("Bar", 0));
+        assert_ne!(Title::new("Foo", 0), Title::new("Foo", 1));
+    }
 }

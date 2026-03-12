@@ -170,4 +170,68 @@ mod tests {
         wd_api().load_user_info(&mut user).unwrap();
         assert!(user.has_user_info());
     }
+
+    #[test]
+    fn user_default_values() {
+        let user = User::new();
+        assert_eq!(user.user_name(), "");
+        assert_eq!(user.user_id(), 0);
+        assert!(!user.logged_in());
+        assert!(!user.has_user_info());
+    }
+
+    #[test]
+    fn set_from_login_failure() {
+        let mut user = User::new();
+        let login = json!({"result": "Failed"});
+        user.set_from_login(&login).unwrap();
+        assert!(!user.logged_in());
+    }
+
+    #[test]
+    fn set_from_login_missing_username() {
+        let mut user = User::new();
+        let login = json!({"result": "Success", "lguserid": 123});
+        assert!(user.set_from_login(&login).is_err());
+    }
+
+    #[test]
+    fn set_from_login_missing_userid() {
+        let mut user = User::new();
+        let login = json!({"result": "Success", "lgusername": "test"});
+        assert!(user.set_from_login(&login).is_err());
+    }
+
+    #[test]
+    fn has_right_without_user_info() {
+        let user = User::new();
+        assert!(!user.has_right("bot"));
+        assert!(!user.is_bot());
+        assert!(!user.is_autoconfirmed());
+        assert!(!user.can_edit());
+        assert!(!user.can_create_page());
+        assert!(!user.can_upload());
+        assert!(!user.can_move());
+        assert!(!user.can_patrol());
+    }
+
+    #[test]
+    fn set_user_info() {
+        let mut user = User::new();
+        assert!(!user.has_user_info());
+        user.set_user_info(Some(json!({"query": {"userinfo": {"rights": ["bot", "edit"]}}})));
+        assert!(user.has_user_info());
+        assert!(user.is_bot());
+        assert!(user.can_edit());
+        assert!(!user.can_upload());
+    }
+
+    #[test]
+    fn set_user_info_to_none() {
+        let mut user = User::new();
+        user.set_user_info(Some(json!({})));
+        assert!(user.has_user_info());
+        user.set_user_info(None);
+        assert!(!user.has_user_info());
+    }
 }
