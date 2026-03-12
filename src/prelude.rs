@@ -2,18 +2,19 @@
 ///
 /// Brings into scope:
 /// - Core types: `Api`, `ApiSync`, `Page`, `Revision`, `Title`, `User`, `MediaWikiError`
-/// - Page info: `PageInfo`, `PageInfoList`
+/// - Core traits: `MediaWikiApi`
+/// - Page info: `PageInfo`, `PageInfoList`, `ProtectionEntry`
 /// - Action API entry points: `ActionApi`, `ActionApiQuery`, `ActionApiList`
 /// - Required traits: `ActionApiRunnable`, `ActionApiQueryCommonBuilder`,
 ///   `ActionApiGenerator`
 pub use crate::{
-    Api, ApiSync, MediaWikiError, Page, Revision, Title, User,
+    Api, ApiSync, MediaWikiError, MediaWikiApi, Page, Revision, Title, User,
     action_api::{
         ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiQuery,
         ActionApiQueryCommonBuilder, ActionApiRunnable,
     },
     page_categories::{PageCategoryEntry, PageCategoryList},
-    page_info::{PageInfo, PageInfoList},
+    page_info::{PageInfo, PageInfoList, ProtectionEntry},
     page_links::{
         PageContributorEntry, PageContributorList, PageExtLinkEntry, PageExtLinkList,
         PageFileUsageEntry, PageFileUsageList, PageImageEntry, PageImageList, PageIwLinkEntry,

@@ -204,8 +204,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_compare() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
-        // Use torelative=prev to compare a recent revision to its predecessor
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("action", "compare"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "compare": {
+                    "fromid": 736, "fromrevid": 1000, "fromns": 0, "fromtitle": "Albert Einstein",
+                    "toid": 736, "torevid": 999, "tons": 0, "totitle": "Albert Einstein",
+                    "body": "<tr><td>diff content</td></tr>"
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApi::compare()
             .fromtitle("Albert Einstein")
             .torelative("prev")

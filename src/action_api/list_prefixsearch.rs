@@ -165,7 +165,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_prefixsearch() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "prefixsearch"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "prefixsearch": [
+                        {"ns": 0, "title": "Albert Einstein", "pageid": 736},
+                        {"ns": 0, "title": "Albert Einstein Award", "pageid": 1000},
+                        {"ns": 0, "title": "Albert Einstein Medal", "pageid": 1001}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::prefixsearch()
             .pssearch("Albert Einstein")
             .pslimit(5)

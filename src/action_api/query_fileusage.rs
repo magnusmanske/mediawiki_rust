@@ -196,7 +196,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_fileusage() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "fileusage"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "1000": {
+                            "pageid": 1000, "ns": 6, "title": "File:Einstein1921 by F Schmutzer 2.jpg",
+                            "fileusage": [
+                                {"pageid": 736, "ns": 0, "title": "Albert Einstein"},
+                                {"pageid": 500, "ns": 0, "title": "Theory of relativity"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::fileusage()
             .titles(&["File:Einstein1921 by F Schmutzer 2.jpg"])
             .run(&api)

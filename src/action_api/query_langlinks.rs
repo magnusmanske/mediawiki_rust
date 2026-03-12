@@ -208,7 +208,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_langlinks() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "langlinks"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "langlinks": [
+                                {"lang": "de", "*": "Albert Einstein"},
+                                {"lang": "fr", "*": "Albert Einstein"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::langlinks()
             .titles(&["Albert Einstein"])
             .lllang("de")

@@ -6,6 +6,7 @@ The `Page` class deals with operations done on pages, like editing.
 
 use crate::Revision;
 use crate::api::Api;
+use crate::api_utils::MediaWikiApi;
 use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use serde_json::Value;
@@ -359,25 +360,46 @@ impl Page {
 mod tests {
     use super::*;
     use crate::api::*;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::query_param;
 
-    async fn wd_api() -> Api {
-        Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap()
+    async fn wd_api() -> (MockServer, Api) {
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let api = Api::new(&server.uri()).await.unwrap();
+        (server, api)
     }
 
     #[tokio::test]
     async fn page_text_main_page_nonempty() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("rvslots", "*"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": [{
+                    "pageid": 1234, "ns": 4, "title": "Wikidata:Main Page",
+                    "revisions": [{"revid": 100, "slots": {"main": {"content": "Some non-empty page content."}}}]
+                }]}
+            })))
+            .mount(&server)
+            .await;
         let mut page = Page::new(Title::new("Main Page", 4));
-        let text = page.text(&wd_api().await).await.unwrap();
+        let text = page.text(&api).await.unwrap();
         assert!(!text.is_empty());
     }
 
     #[tokio::test]
     async fn page_text_nonexistent() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("rvslots", "*"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": [{"ns": 0, "title": "This page does not exist", "missing": true}]}
+            })))
+            .mount(&server)
+            .await;
         let title = Title::new("This page does not exist", 0);
         let mut page = Page::new(title.clone());
-        match page.text(&wd_api().await).await {
+        match page.text(&api).await {
             Err(MediaWikiError::Missing(t)) => assert!(t == title),
             x => panic!("expected missing error, found {:?}", x),
         }
@@ -385,28 +407,82 @@ mod tests {
 
     #[tokio::test]
     async fn page_categories() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "categories"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 4, "title": "Wikidata:Community portal",
+                    "categories": [
+                        {"ns": 14, "title": "Category:Wikidata"},
+                        {"ns": 14, "title": "Category:Community"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.categories(&wd_api().await).await.unwrap();
+        let result = page.categories(&api).await.unwrap();
         assert!(result.len() > 1);
     }
 
     #[tokio::test]
     async fn page_templates() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "templates"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 4, "title": "Wikidata:Community portal",
+                    "templates": [
+                        {"ns": 10, "title": "Template:Protected"},
+                        {"ns": 10, "title": "Template:Documentation"},
+                        {"ns": 10, "title": "Template:Navbox"},
+                        {"ns": 10, "title": "Template:Reflist"},
+                        {"ns": 10, "title": "Template:Cite web"},
+                        {"ns": 10, "title": "Template:Short description"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.templates(&wd_api().await).await.unwrap();
+        let result = page.templates(&api).await.unwrap();
         assert!(result.len() > 5);
-        assert!(result.contains(&Title::new("Protected", 10)))
+        assert!(result.contains(&Title::new("Protected", 10)));
     }
 
     #[tokio::test]
     async fn page_coordinates() {
-        let page = Page::new(Title::new("Q64", 0)); // Berlin
-        let result = page.coordinates(&wd_api().await).await.unwrap();
+        let (server, api) = wd_api().await;
+        // Simple coordinates mock (served first, up_to_n_times=1)
+        Mock::given(query_param("prop", "coordinates"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 0, "title": "Q64",
+                    "coordinates": [{"lat": 52.5166667, "lon": 13.3833333, "primary": "", "globe": "earth"}]
+                }}}
+            })))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        // Distance-including mock (served for the second coordinates call)
+        Mock::given(query_param("prop", "coordinates"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 0, "title": "Q64",
+                    "coordinates": [{"lat": 52.5166667, "lon": 13.3833333, "primary": "", "globe": "earth", "dist": 475700.5}]
+                }}}
+            })))
+            .mount(&server)
+            .await;
+        let page = Page::new(Title::new("Q64", 0));
+        let result = page.coordinates(&api).await.unwrap();
         assert!(!result.is_empty());
-
-        // Distance to Cologne
         let result = page
-            .coordinates_distance(&wd_api().await, 50.94222222, 6.95777778)
+            .coordinates_distance(&api, 50.94222222, 6.95777778)
             .await
             .unwrap();
         result
@@ -420,37 +496,106 @@ mod tests {
 
     #[tokio::test]
     async fn page_external_links() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "extlinks"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 0, "title": "Q64",
+                    "extlinks": [
+                        {"*": "https://www.berlin.de/stadtplan/"},
+                        {"*": "https://www.berlin.de/en/"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Q64", 0));
-        let result = page.external_links(&wd_api().await).await.unwrap();
+        let result = page.external_links(&api).await.unwrap();
         assert!(result.contains(&"https://www.berlin.de/stadtplan/".to_string()));
     }
 
     #[tokio::test]
     async fn page_links() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "links"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 4, "title": "Wikidata:Community portal",
+                    "links": [
+                        {"ns": 4, "title": "Wikidata:Bot requests"},
+                        {"ns": 4, "title": "Wikidata:Help"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Community portal", 4));
-        let result = page.links(&wd_api().await).await.unwrap();
-        assert!(result.contains(&Title::new("Bot requests", 4)))
+        let result = page.links(&api).await.unwrap();
+        assert!(result.contains(&Title::new("Bot requests", 4)));
     }
 
     #[tokio::test]
     async fn page_images() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "images"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 0, "title": "Q64",
+                    "images": [
+                        {"ns": 6, "title": "File:Cityscape Berlin.jpg"},
+                        {"ns": 6, "title": "File:Berlin map.png"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Q64", 0));
-        let result = page.images(&wd_api().await).await.unwrap();
-        assert!(result.contains(&Title::new("Cityscape Berlin.jpg", 6)))
+        let result = page.images(&api).await.unwrap();
+        assert!(result.contains(&Title::new("Cityscape Berlin.jpg", 6)));
     }
 
     #[tokio::test]
     async fn page_links_here() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "linkshere"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 0, "title": "Q1481",
+                    "linkshere": [
+                        {"ns": 0, "title": "Q7894"},
+                        {"ns": 0, "title": "Q12345"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Q1481", 0));
-        let result = page.links_here(&wd_api().await, true, false).await.unwrap();
-        assert!(result.contains(&Title::new("Q7894", 0)))
+        let result = page.links_here(&api, true, false).await.unwrap();
+        assert!(result.contains(&Title::new("Q7894", 0)));
     }
 
     #[tokio::test]
     async fn page_interwiki_links() {
+        let (server, api) = wd_api().await;
+        Mock::given(query_param("prop", "iwlinks"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"pages": {"1": {
+                    "pageid": 1, "ns": 10, "title": "Template:Wikidata list",
+                    "iwlinks": [
+                        {"prefix": "mw", "*": "Wikidata_query_service/User_Manual"},
+                        {"prefix": "mw", "*": "Help:Contents"}
+                    ]
+                }}}
+            })))
+            .mount(&server)
+            .await;
         let page = Page::new(Title::new("Wikidata list", 10));
-        let result = page.interwiki_links(&wd_api().await).await.unwrap();
-        // println!("{:?}", &result);
+        let result = page.interwiki_links(&api).await.unwrap();
         assert!(result.contains(&json!({"prefix":"mw","*":"Wikidata_query_service/User_Manual"})));
     }
 }

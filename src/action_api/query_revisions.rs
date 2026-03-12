@@ -289,9 +289,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_revisions() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "revisions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "revisions": [
+                                {"revid": 1001, "parentid": 1000, "user": "Editor1",
+                                 "timestamp": "2024-01-01T00:00:00Z"},
+                                {"revid": 1000, "parentid": 999, "user": "Editor2",
+                                 "timestamp": "2023-12-01T00:00:00Z"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::revisions()
             .titles(&["Albert Einstein"])
             .rvprop(&["ids", "timestamp", "user"])

@@ -288,7 +288,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_usercontribs() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "usercontribs"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "usercontribs": [
+                        {"userid": 1, "user": "Magnus Manske", "pageid": 736,
+                         "revid": 1001, "ns": 0, "title": "Albert Einstein",
+                         "timestamp": "2024-01-01T00:00:00Z", "sizediff": 100}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::usercontribs()
             .ucuser(&["Magnus Manske"])
             .uclimit(5)

@@ -283,7 +283,25 @@ mod tests {
 
     #[tokio::test]
     async fn test_allpages() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "allpages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "allpages": [
+                        {"pageid": 1, "ns": 0, "title": "Albert Aachen"},
+                        {"pageid": 2, "ns": 0, "title": "Albert Adams"},
+                        {"pageid": 3, "ns": 0, "title": "Albert Allen"},
+                        {"pageid": 4, "ns": 0, "title": "Albert Anderson"},
+                        {"pageid": 5, "ns": 0, "title": "Albert Armstrong"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::allpages()
             .apprefix("Albert")
             .aplimit(5)
@@ -295,10 +313,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_allpages_continue() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "allpages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "continue": {"apcontinue": "Albert_Baker", "continue": "-||"},
+                "query": {
+                    "allpages": [
+                        {"pageid": 1, "ns": 0, "title": "Albert Aachen"},
+                        {"pageid": 2, "ns": 0, "title": "Albert Adams"}
+                    ]
+                }
+            })))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(query_param("list", "allpages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "allpages": [
+                        {"pageid": 3, "ns": 0, "title": "Albert Baker"},
+                        {"pageid": 4, "ns": 0, "title": "Albert Ball"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let builder = ActionApiList::allpages().apprefix("Albert").aplimit(2);
         let result = builder.run(&api).await.unwrap();
-        // If there are more results, verify we can continue
         if builder.has_more(&result) {
             let result2 = builder.continue_from(&result).run(&api).await.unwrap();
             assert!(result2["query"]["allpages"].is_array());

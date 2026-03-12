@@ -194,7 +194,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_templates() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "templates"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "templates": [
+                                {"ns": 10, "title": "Template:Infobox scientist"},
+                                {"ns": 10, "title": "Template:Reflist"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::templates()
             .titles(&["Albert Einstein"])
             .tlnamespace(&[10])

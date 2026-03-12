@@ -167,9 +167,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_expandtemplates() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("action", "expandtemplates"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "expandtemplates": {
+                    "wikitext": "Wikipedia"
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApi::expandtemplates()
             .text("{{SITENAME}}")
             .prop(&["wikitext"])

@@ -266,7 +266,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_page() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("action", "parse"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "parse": {
+                    "title": "Albert Einstein",
+                    "pageid": 736,
+                    "text": {"*": "<div>Einstein article content</div>"}
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApi::parse()
             .page("Albert Einstein")
             .prop(&["text"])

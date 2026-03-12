@@ -214,7 +214,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_backlinks() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "backlinks"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "backlinks": [
+                        {"pageid": 100, "ns": 0, "title": "Theory of relativity"},
+                        {"pageid": 200, "ns": 0, "title": "Nobel Prize in Physics"},
+                        {"pageid": 300, "ns": 0, "title": "Photoelectric effect"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::backlinks()
             .bltitle("Albert Einstein")
             .blnamespace(&[0])

@@ -512,9 +512,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_wbgetentities() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        Mock::given(query_param("action", "wbgetentities"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "entities": {
+                    "Q5": {
+                        "type": "item", "id": "Q5",
+                        "labels": {"en": {"language": "en", "value": "human"}},
+                        "descriptions": {},
+                        "aliases": {},
+                        "claims": {},
+                        "sitelinks": {}
+                    }
+                },
+                "success": 1
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApi::wbgetentities()
             .ids(&["Q5"])
             .run(&api)

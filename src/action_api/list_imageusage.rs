@@ -202,7 +202,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_imageusage() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "imageusage"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "imageusage": [
+                        {"pageid": 736, "ns": 0, "title": "Albert Einstein"},
+                        {"pageid": 500, "ns": 0, "title": "Theory of relativity"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::imageusage()
             .iutitle("File:Einstein1921 by F Schmutzer 2.jpg")
             .iulimit(5)

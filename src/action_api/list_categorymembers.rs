@@ -290,7 +290,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_categorymembers() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "categorymembers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "categorymembers": [
+                        {"pageid": 1, "ns": 0, "title": "Albert Einstein"},
+                        {"pageid": 2, "ns": 0, "title": "Isaac Newton"},
+                        {"pageid": 3, "ns": 0, "title": "Richard Feynman"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::categorymembers()
             .cmtitle("Category:Physics")
             .cmlimit(5)

@@ -150,9 +150,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_opensearch() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("action", "opensearch"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                "Albert Einstein",
+                ["Albert Einstein", "Albert Einstein (film)", "Albert Einstein Memorial"],
+                ["German-born physicist", "1931 film", "Bronze memorial"],
+                ["https://en.wikipedia.org/wiki/Albert_Einstein",
+                 "https://en.wikipedia.org/wiki/Albert_Einstein_(film)",
+                 "https://en.wikipedia.org/wiki/Albert_Einstein_Memorial"]
+            ])))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApi::opensearch()
             .search("Albert Einstein")
             .limit(3)

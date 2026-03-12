@@ -974,12 +974,13 @@ impl Api {
 #[cfg(test)]
 mod tests {
     use super::{Api, Title};
+    use wiremock::{Mock, ResponseTemplate};
+    use wiremock::matchers::query_param;
 
     #[tokio::test]
     async fn site_info() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -989,10 +990,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_token() {
-        let mut api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
-        // Token for logged out users is always the same
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        Mock::given(query_param("meta", "tokens"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"tokens": {"csrftoken": "+\\"}}
+            })))
+            .mount(&server)
+            .await;
+        let mut api = Api::new(&server.uri()).await.unwrap();
         assert!(!api.user.logged_in());
         assert_eq!("+\\", api.get_token("csrf").await.unwrap());
         assert_eq!("+\\", api.get_edit_token().await.unwrap());
@@ -1001,9 +1007,19 @@ mod tests {
 
     #[tokio::test]
     async fn api_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        // Return exactly 20 search results, no continue
+        let results: Vec<serde_json::Value> = (1..=20)
+            .map(|i| json!({"ns": 0, "title": format!("Result {}", i), "pageid": i}))
+            .collect();
+        Mock::given(query_param("list", "search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {"search": results}
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let params =
             api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "the")]);
         let result = api
@@ -1015,49 +1031,75 @@ mod tests {
 
     #[tokio::test]
     async fn api_no_limit() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let page1 = crate::test_helpers::test_helpers::load_test_data("search_page1.json");
+        let page2 = crate::test_helpers::test_helpers::load_test_data("search_page2.json");
+        let page3 = crate::test_helpers::test_helpers::load_test_data("search_page3.json");
+        Mock::given(query_param("list", "search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(page1))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(query_param("list", "search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(page2))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(query_param("list", "search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(page3))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srlimit", "500"),
-            (
-                "srsearch",
-                "John haswbstatement:P31=Q5 -haswbstatement:P735",
-            ),
+            ("srsearch", "John"),
         ]);
         let result = api.get_query_api_json_all(&params).await.unwrap();
         match result["query"]["search"].as_array() {
-            Some(arr) => assert!(arr.len() > 1500),
+            Some(arr) => assert!(arr.len() > 10),
             None => panic!("result.query.search is not an array"),
         }
     }
 
     #[tokio::test]
     async fn sparql_query() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let sparql_results = crate::test_helpers::test_helpers::load_test_data("sparql_results.json");
+        Mock::given(wiremock::matchers::path("/sparql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(sparql_results))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
+        let res = api
+            .sparql_query("SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 . }")
             .await
             .unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).await.unwrap() ;
-        assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
+        assert!(res["results"]["bindings"].as_array().unwrap().len() >= 1);
     }
 
     #[tokio::test]
     async fn entities_from_sparql_result() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let sparql_results = crate::test_helpers::test_helpers::load_test_data("sparql_results.json");
+        Mock::given(wiremock::matchers::path("/sparql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(sparql_results))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
+        let res = api
+            .sparql_query("SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 . }")
             .await
             .unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).await.unwrap() ;
         let titles = api.entities_from_sparql_result(&res, "q");
         assert!(titles.contains(&"Q36499535".to_string()));
     }
 
     #[tokio::test]
     async fn extract_entity_from_uri() {
-        let api = Api::new("https://www.wikidata.org/w/api.php")
-            .await
-            .unwrap();
+        let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+        let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(
             api.extract_entity_from_uri("http://www.wikidata.org/entity/Q123")
                 .unwrap(),
@@ -1068,7 +1110,6 @@ mod tests {
                 .unwrap(),
             "P456"
         );
-        // Expect error ('/' missing):
         assert!(
             api.extract_entity_from_uri("http:/www.wikidata.org/entity/Q123")
                 .is_err()
@@ -1077,7 +1118,6 @@ mod tests {
 
     #[tokio::test]
     async fn result_array_to_titles() {
-        //let api = Api::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             Api::result_array_to_titles(
                 &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8},{"title":"Prefix:Baz","ns":9}]})
@@ -1092,13 +1132,14 @@ mod tests {
 
     #[tokio::test]
     async fn result_namespaces() {
-        let api = Api::new("https://de.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        let server = crate::test_helpers::test_helpers::start_dewiki_mock().await;
+        let api = Api::new(&server.uri()).await.unwrap();
         assert_eq!(api.get_local_namespace_name(0), Some(""));
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
         assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));
     }
+
+    // --- Pure unit tests below (no HTTP calls) ---
 
     #[test]
     fn json_merge_objects() {

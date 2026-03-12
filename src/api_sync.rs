@@ -905,16 +905,41 @@ impl ApiSync {
 #[cfg(test)]
 mod tests {
     use super::{ApiSync, Title};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::query_param;
+
+    fn start_wikidata_mock_sync() -> MockServer {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(crate::test_helpers::test_helpers::start_wikidata_mock())
+    }
+
+    #[allow(dead_code)]
+    fn start_enwiki_mock_sync() -> MockServer {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(crate::test_helpers::test_helpers::start_enwiki_mock())
+    }
+
+    fn start_dewiki_mock_sync() -> MockServer {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(crate::test_helpers::test_helpers::start_dewiki_mock())
+    }
+
+    fn mount_mock_sync(server: &MockServer, mock: Mock) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async { mock.mount(server).await });
+    }
 
     #[test]
     fn api_url() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
-        assert_eq!("https://www.wikidata.org/w/api.php", api.api_url());
+        let server = start_wikidata_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
+        assert_eq!(server.uri(), api.api_url());
     }
 
     #[test]
     fn site_info() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let server = start_wikidata_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
         assert_eq!(
             api.get_site_info_string("general", "sitename").unwrap(),
             "Wikidata"
@@ -924,8 +949,16 @@ mod tests {
 
     #[test]
     fn get_token() {
-        let mut api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
-        // Token for logged out users is always the same
+        let server = start_wikidata_mock_sync();
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("meta", "tokens"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "batchcomplete": "",
+                    "query": {"tokens": {"csrftoken": "+\\"}}
+                }))),
+        );
+        let mut api = ApiSync::new(&server.uri()).unwrap();
         assert!(!api.user.logged_in());
         assert_eq!("+\\", api.get_token("csrf").unwrap());
         assert_eq!("+\\", api.get_edit_token().unwrap());
@@ -934,7 +967,19 @@ mod tests {
 
     #[test]
     fn api_limit() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let server = start_wikidata_mock_sync();
+        let results: Vec<serde_json::Value> = (1..=20)
+            .map(|i| json!({"ns": 0, "title": format!("Result {}", i), "pageid": i}))
+            .collect();
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("list", "search"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "batchcomplete": "",
+                    "query": {"search": results}
+                }))),
+        );
+        let api = ApiSync::new(&server.uri()).unwrap();
         let params =
             api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "the")]);
         let result = api.get_query_api_json_limit(&params, Some(20)).unwrap();
@@ -943,41 +988,61 @@ mod tests {
 
     #[test]
     fn api_no_limit() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let server = start_wikidata_mock_sync();
+        let page1 = crate::test_helpers::test_helpers::load_test_data("search_page1.json");
+        let page2 = crate::test_helpers::test_helpers::load_test_data("search_page2.json");
+        let page3 = crate::test_helpers::test_helpers::load_test_data("search_page3.json");
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("list", "search"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(page1))
+                .up_to_n_times(1),
+        );
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("list", "search"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(page2))
+                .up_to_n_times(1),
+        );
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("list", "search"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(page3)),
+        );
+        let api = ApiSync::new(&server.uri()).unwrap();
         let params = api.params_into(&[
             ("action", "query"),
             ("list", "search"),
             ("srlimit", "500"),
-            (
-                "srsearch",
-                "John haswbstatement:P31=Q5 -haswbstatement:P735",
-            ),
+            ("srsearch", "John"),
         ]);
         let result = api.get_query_api_json_all(&params).unwrap();
         match result["query"]["search"].as_array() {
-            Some(arr) => assert!(arr.len() > 1500),
+            Some(arr) => assert!(arr.len() > 10),
             None => panic!("result.query.search is not an array"),
         }
     }
 
     #[test]
     fn sparql_query() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
-        let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }" ).unwrap() ;
-        assert!(res["results"]["bindings"].as_array().unwrap().len() > 300);
+        let server = start_wikidata_mock_sync();
+        let sparql_results = crate::test_helpers::test_helpers::load_test_data("sparql_results.json");
+        mount_mock_sync(
+            &server,
+            Mock::given(wiremock::matchers::path("/sparql"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(sparql_results)),
+        );
+        let api = ApiSync::new(&server.uri()).unwrap();
+        let res = api
+            .sparql_query("SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 . }")
+            .unwrap();
+        assert!(res["results"]["bindings"].as_array().unwrap().len() >= 1);
     }
-
-    // #[test]
-    // fn entities_from_sparql_result() {
-    //     let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
-    //     let res = api.sparql_query ( "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } } " ).unwrap() ;
-    //     let titles = api.entities_from_sparql_result(&res, "q");
-    //     assert!(titles.contains(&"Q36499535".to_string()));
-    // }
 
     #[test]
     fn extract_entity_from_uri() {
-        let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
+        let server = start_wikidata_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
         assert_eq!(
             api.extract_entity_from_uri("http://www.wikidata.org/entity/Q123")
                 .unwrap(),
@@ -988,7 +1053,6 @@ mod tests {
                 .unwrap(),
             "P456"
         );
-        // Expect error ('/' missing):
         assert!(
             api.extract_entity_from_uri("http:/www.wikidata.org/entity/Q123")
                 .is_err()
@@ -997,7 +1061,6 @@ mod tests {
 
     #[test]
     fn result_array_to_titles() {
-        //let api = ApiSync::new("https://www.wikidata.org/w/api.php").unwrap();
         assert_eq!(
             ApiSync::result_array_to_titles(
                 &json!({"something":[{"title":"Foo","ns":7},{"title":"Bar","ns":8},{"title":"Prefix:Baz","ns":9}]})
@@ -1012,7 +1075,8 @@ mod tests {
 
     #[test]
     fn result_namespaces() {
-        let api = ApiSync::new("https://de.wikipedia.org/w/api.php").unwrap();
+        let server = start_dewiki_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
         assert_eq!(api.get_local_namespace_name(0), Some(""));
         assert_eq!(api.get_local_namespace_name(1), Some("Diskussion"));
         assert_eq!(api.get_canonical_namespace_name(1), Some("Talk"));

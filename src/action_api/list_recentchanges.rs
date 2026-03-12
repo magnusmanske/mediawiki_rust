@@ -251,7 +251,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_recentchanges() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "recentchanges"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "recentchanges": [
+                        {"type": "edit", "ns": 0, "title": "Some Article", "rcid": 1,
+                         "timestamp": "2024-01-01T00:00:00Z"},
+                        {"type": "edit", "ns": 0, "title": "Other Article", "rcid": 2,
+                         "timestamp": "2024-01-01T00:00:01Z"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::recentchanges()
             .rcnamespace(&[0])
             .rclimit(5)

@@ -183,7 +183,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_images() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "images"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "images": [
+                                {"ns": 6, "title": "File:Einstein1921 by F Schmutzer 2.jpg"},
+                                {"ns": 6, "title": "File:Max planck 1933.jpg"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::images()
             .titles(&["Albert Einstein"])
             .run(&api)

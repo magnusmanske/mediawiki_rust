@@ -193,7 +193,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_embeddedin() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "embeddedin"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "embeddedin": [
+                        {"pageid": 736, "ns": 0, "title": "Albert Einstein"},
+                        {"pageid": 100, "ns": 0, "title": "Marie Curie"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::embeddedin()
             .eititle("Template:Infobox scientist")
             .eilimit(5)

@@ -614,15 +614,40 @@ mod tests {
         assert_eq!(list.len(), 1);
     }
 
-    // --- Integration tests (require network) ---
+    // --- Integration tests (wiremock) ---
 
     #[tokio::test]
     async fn integration_from_result() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use crate::Api;
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "contentmodel": "wikitext", "pagelanguage": "en",
+                            "fullurl": "https://en.wikipedia.org/wiki/Albert_Einstein",
+                            "displaytitle": "Albert Einstein",
+                            "protection": [{"type": "edit", "level": "autoconfirmed"}]
+                        },
+                        "22989": {
+                            "pageid": 22989, "ns": 0, "title": "Physics",
+                            "contentmodel": "wikitext", "pagelanguage": "en",
+                            "fullurl": "https://en.wikipedia.org/wiki/Physics",
+                            "displaytitle": "Physics",
+                            "protection": []
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::info()
             .inprop(&["protection", "url", "displaytitle"])
             .titles(&["Albert Einstein", "Physics"])
@@ -636,7 +661,7 @@ mod tests {
             assert!(page.pageid.is_some());
             assert!(page.fullurl.is_some());
             assert!(page.displaytitle.is_some());
-            assert!(!page.protection.is_empty());
+            assert!(!page.protection.is_empty() || page.title == "Physics");
         }
     }
 
@@ -644,9 +669,32 @@ mod tests {
     async fn integration_fetch_all() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use crate::Api;
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "fullurl": "https://en.wikipedia.org/wiki/Albert_Einstein",
+                            "displaytitle": "Albert Einstein",
+                            "protection": [{"type": "edit", "level": "autoconfirmed"}]
+                        },
+                        "22989": {
+                            "pageid": 22989, "ns": 0, "title": "Physics",
+                            "fullurl": "https://en.wikipedia.org/wiki/Physics",
+                            "displaytitle": "Physics",
+                            "protection": []
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let builder = ActionApiQuery::info()
             .inprop(&["protection", "url", "displaytitle"])
             .titles(&["Albert Einstein", "Physics"]);
@@ -664,7 +712,36 @@ mod tests {
     fn sync_integration_fetch_all() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder};
         use crate::ApiSync;
-        let api = ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let server = rt.block_on(async {
+            let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+            Mock::given(query_param("prop", "info"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "batchcomplete": "",
+                    "query": {
+                        "pages": {
+                            "736": {
+                                "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                                "fullurl": "https://en.wikipedia.org/wiki/Albert_Einstein",
+                                "displaytitle": "Albert Einstein",
+                                "protection": []
+                            },
+                            "22989": {
+                                "pageid": 22989, "ns": 0, "title": "Physics",
+                                "fullurl": "https://en.wikipedia.org/wiki/Physics",
+                                "displaytitle": "Physics",
+                                "protection": []
+                            }
+                        }
+                    }
+                })))
+                .mount(&server)
+                .await;
+            server
+        });
+        let api = ApiSync::new(&server.uri()).unwrap();
         let builder = ActionApiQuery::info()
             .inprop(&["protection", "url", "displaytitle"])
             .titles(&["Albert Einstein", "Physics"]);

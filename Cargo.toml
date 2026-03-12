@@ -42,3 +42,4 @@ strum = { version = "^0.28", features = ["derive"] }
 
 [dev-dependencies]
 lazy_static = "^1.4"
+wiremock = "^0.6"

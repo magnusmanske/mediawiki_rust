@@ -241,9 +241,28 @@ mod tests {
     async fn integration_fetch_categories() {
         use crate::action_api::{ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable};
         use crate::Api;
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "categories"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "categories": [
+                                {"ns": 14, "title": "Category:1879 births"},
+                                {"ns": 14, "title": "Category:German physicists"},
+                                {"ns": 14, "title": "Category:Nobel laureates in Physics"}
+                            ]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::categories()
             .cllimit(10)
             .titles(&["Albert Einstein"])

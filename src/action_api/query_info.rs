@@ -409,25 +409,58 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_by_title() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "contentmodel": "wikitext", "pagelanguage": "en",
+                            "touched": "2024-01-01T00:00:00Z", "lastrevid": 1001,
+                            "length": 12345
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::info()
             .titles(&["Albert Einstein"])
             .run(&api)
             .await
             .unwrap();
         assert!(result["query"]["pages"].is_object());
-        // Albert Einstein page should be present
         let pages = result["query"]["pages"].as_object().unwrap();
         assert!(!pages.is_empty());
     }
 
     #[tokio::test]
     async fn test_info_by_title_with_inprop() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "fullurl": "https://en.wikipedia.org/wiki/Albert_Einstein",
+                            "editurl": "https://en.wikipedia.org/w/index.php?title=Albert_Einstein&action=edit",
+                            "protection": [{"type": "edit", "level": "autoconfirmed"}]
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::info()
             .titles(&["Albert Einstein"])
             .inprop(&["protection", "url"])
@@ -441,10 +474,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_by_pageid() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php")
-            .await
-            .unwrap();
-        // Page ID 736 is Albert Einstein on English Wikipedia
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("prop", "info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "pages": {
+                        "736": {
+                            "pageid": 736, "ns": 0, "title": "Albert Einstein",
+                            "contentmodel": "wikitext"
+                        }
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiQuery::info()
             .pageids(&[736])
             .run(&api)

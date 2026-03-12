@@ -238,7 +238,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_logevents() {
-        let api = Api::new("https://en.wikipedia.org/w/api.php").await.unwrap();
+        use wiremock::{Mock, ResponseTemplate};
+        use wiremock::matchers::query_param;
+        let server = crate::test_helpers::test_helpers::start_enwiki_mock().await;
+        Mock::given(query_param("list", "logevents"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "batchcomplete": "",
+                "query": {
+                    "logevents": [
+                        {"logid": 1, "ns": 0, "title": "Page A", "type": "move", "action": "move",
+                         "user": "Editor1", "timestamp": "2024-01-01T00:00:00Z"},
+                        {"logid": 2, "ns": 0, "title": "Page B", "type": "move", "action": "move",
+                         "user": "Editor2", "timestamp": "2024-01-02T00:00:00Z"}
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
         let result = ActionApiList::logevents()
             .letype("move")
             .lelimit(5)

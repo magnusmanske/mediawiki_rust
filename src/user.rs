@@ -129,9 +129,25 @@ impl User {
 mod tests {
     use super::*;
     use crate::api_sync::*;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::query_param;
 
-    fn wd_api() -> ApiSync {
-        ApiSync::new("https://www.wikidata.org/w/api.php").unwrap()
+    fn start_mock_sync() -> MockServer {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let server = crate::test_helpers::test_helpers::start_wikidata_mock().await;
+            Mock::given(query_param("meta", "userinfo"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "batchcomplete": "",
+                    "query": {"userinfo": {
+                        "id": 0, "anon": "", "name": "Anonymous",
+                        "rights": ["edit", "createaccount", "read", "writeapi", "createpage"]
+                    }}
+                })))
+                .mount(&server)
+                .await;
+            server
+        })
     }
 
     #[test]
@@ -154,8 +170,10 @@ mod tests {
 
     #[test]
     fn user_rights() {
+        let server = start_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
         let mut user = User::new();
-        wd_api().load_user_info(&mut user).unwrap();
+        api.load_user_info(&mut user).unwrap();
         assert!(!user.is_bot());
         assert!(user.can_edit());
         assert!(!user.can_upload());
@@ -165,9 +183,11 @@ mod tests {
 
     #[test]
     fn user_has_info() {
+        let server = start_mock_sync();
+        let api = ApiSync::new(&server.uri()).unwrap();
         let mut user = User::new();
         assert!(!user.has_user_info());
-        wd_api().load_user_info(&mut user).unwrap();
+        api.load_user_info(&mut user).unwrap();
         assert!(user.has_user_info());
     }
 
