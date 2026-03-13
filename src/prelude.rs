@@ -10,8 +10,8 @@
 pub use crate::{
     Api, ApiSync, MediaWikiError, MediaWikiApi, Page, Revision, Title, User,
     action_api::{
-        ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiQuery,
-        ActionApiQueryCommonBuilder, ActionApiRunnable,
+        ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiMeta,
+        ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable,
     },
     page_categories::{PageCategoryEntry, PageCategoryList},
     page_info::{PageInfo, PageInfoList, ProtectionEntry},

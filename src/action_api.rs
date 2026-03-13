@@ -24,8 +24,12 @@ use crate::{
         action_protect::ActionApiProtectBuilder,
         action_purge::ActionApiPurgeBuilder,
         action_rollback::ActionApiRollbackBuilder,
+        action_sitematrix::ActionApiSitematrixBuilder,
+        action_stashedit::ActionApiStasheditBuilder,
+        action_tag::ActionApiTagBuilder,
         action_thank::ActionApiThankBuilder,
         action_unblock::ActionApiUnblockBuilder,
+        action_undelete::ActionApiUndeleteBuilder,
         action_upload::ActionApiUploadBuilder,
         action_userrights::ActionApiUserrightsBuilder,
         action_watch::ActionApiWatchBuilder,
@@ -50,23 +54,47 @@ use crate::{
         action_wbsetreference::ActionApiWbsetreferenceBuilder,
         action_wbsetsitelink::ActionApiWbsetsitelinkBuilder,
         list_allcategories::ActionApiListAllcategoriesBuilder,
+        list_allfileusages::ActionApiListAllfileusagesBuilder,
+        list_allimages::ActionApiListAllimagesBuilder,
+        list_alllinks::ActionApiListAlllinksBuilder,
         list_allpages::ActionApiListAllpagesBuilder,
+        list_allredirects::ActionApiListAllredirectsBuilder,
+        list_alltransclusions::ActionApiListAlltranslusionsBuilder,
+        list_allusers::ActionApiListAllusersBuilder,
         list_backlinks::ActionApiListBacklinksBuilder,
+        list_blocks::ActionApiListBlocksBuilder,
         list_categorymembers::ActionApiListCategorymembersBuilder,
         list_embeddedin::ActionApiListEmbeddedinBuilder,
+        list_exturlusage::ActionApiListExturlusageBuilder,
         list_imageusage::ActionApiListImageusageBuilder,
         list_logevents::ActionApiListLogeventsBuilder,
+        list_pagepropnames::ActionApiListPagepropnamesBuilder,
+        list_pageswithprop::ActionApiListPageswithpropBuilder,
         list_prefixsearch::ActionApiListPrefixsearchBuilder,
+        list_protectedtitles::ActionApiListProtectedtitlesBuilder,
+        list_random::ActionApiListRandomBuilder,
         list_recentchanges::ActionApiListRecentchangesBuilder,
         list_search::ActionApiListSearchBuilder,
+        list_tags::ActionApiListTagsBuilder,
         list_usercontribs::ActionApiListUsercontribsBuilder,
         list_users::ActionApiListUsersBuilder,
+        list_watchlist::ActionApiListWatchlistBuilder,
+        list_watchlistraw::ActionApiListWatchlistrawBuilder,
+        meta_allmessages::ActionApiMetaAllmessagesBuilder,
+        meta_filerepoinfo::ActionApiMetaFilerepoinfoBuilder,
+        meta_languageinfo::ActionApiMetaLanguageinfoBuilder,
+        meta_siteinfo::ActionApiMetaSiteinfoBuilder,
+        meta_tokens::ActionApiMetaTokensBuilder,
+        meta_userinfo::ActionApiMetaUserinfoBuilder,
         query_categories::ActionApiQueryCategoriesBuilder,
         query_categoryinfo::ActionApiQueryCategoryinfoBuilder,
         query_contributors::ActionApiQueryContributorsBuilder,
+        query_deletedrevisions::ActionApiQueryDeletedrevisionsBuilder,
+        query_duplicatefiles::ActionApiQueryDuplicatefilesBuilder,
         query_extlinks::ActionApiQueryExtlinksBuilder,
         query_fileusage::ActionApiQueryFileusageBuilder,
         query_images::ActionApiQueryImagesBuilder,
+        query_imageinfo::ActionApiQueryImageinfoBuilder,
         query_info::ActionApiQueryInfoBuilder,
         query_iwlinks::ActionApiQueryIwlinksBuilder,
         query_langlinks::ActionApiQueryLanglinksBuilder,
@@ -81,22 +109,46 @@ use crate::{
 };
 
 mod list_allcategories;
+mod list_allfileusages;
+mod list_allimages;
+mod list_alllinks;
 mod list_allpages;
+mod list_allredirects;
+mod list_alltransclusions;
+mod list_allusers;
 mod list_backlinks;
+mod list_blocks;
 mod list_categorymembers;
 mod list_embeddedin;
+mod list_exturlusage;
 mod list_imageusage;
 mod list_logevents;
+mod list_pagepropnames;
+mod list_pageswithprop;
 mod list_prefixsearch;
+mod list_protectedtitles;
+mod list_random;
 mod list_recentchanges;
 mod list_search;
+mod list_tags;
 mod list_usercontribs;
 mod list_users;
+mod list_watchlist;
+mod list_watchlistraw;
+mod meta_allmessages;
+mod meta_filerepoinfo;
+mod meta_languageinfo;
+mod meta_siteinfo;
+mod meta_tokens;
+mod meta_userinfo;
 mod query_categories;
 mod query_categoryinfo;
 mod query_contributors;
+mod query_deletedrevisions;
+mod query_duplicatefiles;
 mod query_extlinks;
 mod query_fileusage;
+mod query_imageinfo;
 mod query_images;
 mod query_info;
 mod query_iwlinks;
@@ -129,8 +181,12 @@ mod action_patrol;
 mod action_protect;
 mod action_purge;
 mod action_rollback;
+mod action_sitematrix;
+mod action_stashedit;
+mod action_tag;
 mod action_thank;
 mod action_unblock;
+mod action_undelete;
 mod action_upload;
 mod action_userrights;
 mod action_watch;
@@ -608,6 +664,26 @@ impl ActionApi {
     pub fn parse() -> ActionApiParseBuilder {
         ActionApiParseBuilder::new()
     }
+
+    /// Returns the Wikimedia sitematrix (`action=sitematrix`).
+    pub fn sitematrix() -> ActionApiSitematrixBuilder {
+        ActionApiSitematrixBuilder::new()
+    }
+
+    /// Undeletes revisions of a deleted page (`action=undelete`).
+    pub fn undelete() -> ActionApiUndeleteBuilder<NoTitlesOrGenerator> {
+        ActionApiUndeleteBuilder::new()
+    }
+
+    /// Adds or removes change tags (`action=tag`).
+    pub fn tag() -> ActionApiTagBuilder<NoTitlesOrGenerator> {
+        ActionApiTagBuilder::new()
+    }
+
+    /// Prepares an edit in shared cache (`action=stashedit`).
+    pub fn stashedit() -> ActionApiStasheditBuilder<NoTitlesOrGenerator> {
+        ActionApiStasheditBuilder::new()
+    }
 }
 
 /// Entry point for `action=query` property modules (prop=…).
@@ -699,6 +775,21 @@ impl ActionApiQuery {
     pub fn transcludedin() -> ActionApiQueryTranscludedinBuilder<NoTitlesOrGenerator> {
         ActionApiQueryTranscludedinBuilder::new()
     }
+
+    /// Returns file information and upload history (`prop=imageinfo`).
+    pub fn imageinfo() -> ActionApiQueryImageinfoBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryImageinfoBuilder::new()
+    }
+
+    /// Finds all files that are duplicates of the given files (`prop=duplicatefiles`).
+    pub fn duplicatefiles() -> ActionApiQueryDuplicatefilesBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryDuplicatefilesBuilder::new()
+    }
+
+    /// Gets deleted revision information (`prop=deletedrevisions`).
+    pub fn deletedrevisions() -> ActionApiQueryDeletedrevisionsBuilder<NoTitlesOrGenerator> {
+        ActionApiQueryDeletedrevisionsBuilder::new()
+    }
 }
 
 /// Entry point for `action=query` list modules (list=…).
@@ -769,5 +860,120 @@ impl ActionApiList {
     /// Retrieves information about a list of users (`list=users`).
     pub fn users() -> ActionApiListUsersBuilder<NoTitlesOrGenerator> {
         ActionApiListUsersBuilder::new()
+    }
+
+    /// Enumerates all registered users (`list=allusers`).
+    pub fn allusers() -> ActionApiListAllusersBuilder {
+        ActionApiListAllusersBuilder::new()
+    }
+
+    /// Enumerates all images (`list=allimages`).
+    pub fn allimages() -> ActionApiListAllimagesBuilder {
+        ActionApiListAllimagesBuilder::new()
+    }
+
+    /// Enumerates all links pointing to a given namespace (`list=alllinks`).
+    pub fn alllinks() -> ActionApiListAlllinksBuilder {
+        ActionApiListAlllinksBuilder::new()
+    }
+
+    /// Lists all transclusions (`list=alltransclusions`).
+    pub fn alltransclusions() -> ActionApiListAlltranslusionsBuilder {
+        ActionApiListAlltranslusionsBuilder::new()
+    }
+
+    /// Enumerates all file usages (`list=allfileusages`).
+    pub fn allfileusages() -> ActionApiListAllfileusagesBuilder {
+        ActionApiListAllfileusagesBuilder::new()
+    }
+
+    /// Lists all redirects (`list=allredirects`).
+    pub fn allredirects() -> ActionApiListAllredirectsBuilder {
+        ActionApiListAllredirectsBuilder::new()
+    }
+
+    /// Lists all blocked users and IP addresses (`list=blocks`).
+    pub fn blocks() -> ActionApiListBlocksBuilder {
+        ActionApiListBlocksBuilder::new()
+    }
+
+    /// Enumerates pages containing a given URL (`list=exturlusage`).
+    pub fn exturlusage() -> ActionApiListExturlusageBuilder {
+        ActionApiListExturlusageBuilder::new()
+    }
+
+    /// Lists all page property names in use on the wiki (`list=pagepropnames`).
+    pub fn pagepropnames() -> ActionApiListPagepropnamesBuilder {
+        ActionApiListPagepropnamesBuilder::new()
+    }
+
+    /// Lists all pages using a certain page property (`list=pageswithprop`).
+    pub fn pageswithprop() -> ActionApiListPageswithpropBuilder {
+        ActionApiListPageswithpropBuilder::new()
+    }
+
+    /// Lists all titles protected from creation (`list=protectedtitles`).
+    pub fn protectedtitles() -> ActionApiListProtectedtitlesBuilder {
+        ActionApiListProtectedtitlesBuilder::new()
+    }
+
+    /// Gets a set of random pages (`list=random`).
+    pub fn random() -> ActionApiListRandomBuilder {
+        ActionApiListRandomBuilder::new()
+    }
+
+    /// Lists change tags (`list=tags`).
+    pub fn tags() -> ActionApiListTagsBuilder {
+        ActionApiListTagsBuilder::new()
+    }
+
+    /// Gets recent changes to pages in the current user's watchlist (`list=watchlist`).
+    pub fn watchlist() -> ActionApiListWatchlistBuilder {
+        ActionApiListWatchlistBuilder::new()
+    }
+
+    /// Gets all pages on the current user's watchlist (`list=watchlistraw`).
+    pub fn watchlistraw() -> ActionApiListWatchlistrawBuilder {
+        ActionApiListWatchlistrawBuilder::new()
+    }
+}
+
+/// Entry point for `action=query` meta modules (meta=…).
+///
+/// Each method returns a fully-configured builder that implements [`ActionApiRunnable`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ActionApiMeta {
+    _phantom: PhantomData<bool>,
+}
+
+impl ActionApiMeta {
+    /// Returns general site information (`meta=siteinfo`).
+    pub fn siteinfo() -> ActionApiMetaSiteinfoBuilder {
+        ActionApiMetaSiteinfoBuilder::new()
+    }
+
+    /// Returns information about the current user (`meta=userinfo`).
+    pub fn userinfo() -> ActionApiMetaUserinfoBuilder {
+        ActionApiMetaUserinfoBuilder::new()
+    }
+
+    /// Gets tokens for data-modifying actions (`meta=tokens`).
+    pub fn tokens() -> ActionApiMetaTokensBuilder {
+        ActionApiMetaTokensBuilder::new()
+    }
+
+    /// Returns messages from this site (`meta=allmessages`).
+    pub fn allmessages() -> ActionApiMetaAllmessagesBuilder {
+        ActionApiMetaAllmessagesBuilder::new()
+    }
+
+    /// Returns meta information about image repositories (`meta=filerepoinfo`).
+    pub fn filerepoinfo() -> ActionApiMetaFilerepoinfoBuilder {
+        ActionApiMetaFilerepoinfoBuilder::new()
+    }
+
+    /// Returns information about available languages (`meta=languageinfo`).
+    pub fn languageinfo() -> ActionApiMetaLanguageinfoBuilder {
+        ActionApiMetaLanguageinfoBuilder::new()
     }
 }
