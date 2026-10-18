@@ -28,6 +28,29 @@ const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
 
+/// The `Accept` header of a SPARQL query.
+pub(crate) const SPARQL_JSON: &str = "application/sparql-results+json";
+
+/// How much of a SPARQL response an error quotes.
+const SPARQL_SNIPPET_BYTES: usize = 300;
+
+/// The JSON result of a SPARQL request, or an error quoting the start of the
+/// response if the status is not a success or the body is not JSON.
+pub(crate) fn parse_sparql_response(
+    status: StatusCode,
+    bytes: &[u8],
+) -> Result<Value, MediaWikiError> {
+    let snippet =
+        || String::from_utf8_lossy(&bytes[..bytes.len().min(SPARQL_SNIPPET_BYTES)]).into_owned();
+    if !status.is_success() {
+        return Err(MediaWikiError::String(format!(
+            "SPARQL endpoint returned HTTP {status}: {}",
+            snippet()
+        )));
+    }
+    serde_json::from_slice(bytes).map_err(|e| MediaWikiError::String(format!("{e}: {}", snippet())))
+}
+
 type HmacSha1 = Hmac<sha1::Sha1>;
 
 /// `OAuthParams` contains parameters for OAuth requests.
@@ -788,10 +811,22 @@ impl Api {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::Response, MediaWikiError> {
+        let response = self
+            .send_waiting_out_rate_limits(|| self.request_builder(api_url, params, method))
+            .await?;
+        self.enact_edit_delay(params, method).await;
+        Ok(response)
+    }
+
+    /// Sends the request `build` returns, and again after the requested wait
+    /// for as long as the server answers 429 (Too Many Requests).
+    async fn send_waiting_out_rate_limits(
+        &self,
+        build: impl Fn() -> Result<RequestBuilder, MediaWikiError>,
+    ) -> Result<reqwest::Response, MediaWikiError> {
         let mut response;
         loop {
-            let req = self.request_builder(api_url, params, method)?;
-            response = req.send().await?;
+            response = build()?.send().await?;
 
             // If the API is overloaded, wait the requested time and try again
             if response.status() == StatusCode::TOO_MANY_REQUESTS {
@@ -808,7 +843,6 @@ impl Api {
 
             break;
         }
-        self.enact_edit_delay(params, method).await;
         Ok(response)
     }
 
@@ -882,44 +916,42 @@ impl Api {
     }
 
     /// Performs a SPARQL query against a wikibase installation.
-    /// Tries to get the SPARQL endpoint URL from the site info
+    /// Tries to get the SPARQL endpoint URL from the site info.
+    ///
+    /// See [`Self::sparql_query_endpoint`].
     pub async fn sparql_query(&self, query: &str) -> Result<Value, MediaWikiError> {
         let query_api_url = self.get_site_info_string("general", "wikibase-sparql")?;
-        let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self
-            .query_raw_response(query_api_url, &params, "POST")
-            .await?;
-        match response.json().await {
-            Ok(json) => Ok(json),
-            Err(e) => Err(From::from(format!("{}", e))),
-        }
+        self.sparql_query_endpoint(query, query_api_url).await
     }
 
     /// Performs a SPARQL query against a wikibase installation.
-    /// Uses the given sparql endpoint
+    /// Uses the given SPARQL endpoint URL.
+    ///
+    /// The request carries the user agent, but no OAuth credentials: those
+    /// are for the wiki, not for whichever endpoint is named here. An error
+    /// status is an error, with the start of the endpoint's explanation.
+    ///
+    /// This is for simple use. The `wikimisc` crate's `SparqlClient` also
+    /// handles the Wikidata Query Service's v2 endpoints, prefixes, telling
+    /// a query timeout from rate limiting, retries and result size limits.
     pub async fn sparql_query_endpoint(
         &self,
         query: &str,
         query_api_url: &str,
     ) -> Result<Value, MediaWikiError> {
-        let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
         let response = self
-            .query_raw_response(query_api_url, &params, "POST")
+            .send_waiting_out_rate_limits(|| {
+                Ok(self
+                    .client
+                    .post(query_api_url)
+                    .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                    .header(reqwest::header::ACCEPT, SPARQL_JSON)
+                    .form(&[("query", query), ("format", "json")]))
+            })
             .await?;
-        let bytes = match response.bytes().await {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(From::from(format!("{}", e)));
-            }
-        };
-        match serde_json::from_slice(&bytes) {
-            Ok(json) => Ok(json),
-            Err(e) => {
-                let bytes_start: Vec<u8> = bytes.iter().take(100).cloned().collect();
-                let bytes_start = String::from_utf8_lossy(&bytes_start);
-                Err(From::from(format!("{e}: {bytes_start}"))) // Error plus first 100 chars of response
-            }
-        }
+        let status = response.status();
+        let bytes = response.bytes().await?;
+        parse_sparql_response(status, &bytes)
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
@@ -1078,6 +1110,40 @@ mod tests {
             .await
             .unwrap();
         assert!(!res["results"]["bindings"].as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn sparql_query_error_status_is_an_error() {
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        Mock::given(wiremock::matchers::path("/sparql"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_string(r#"{"errorType":"parse_error","message":"Encountered EOF"}"#),
+            )
+            .mount(&server)
+            .await;
+        let api = Api::new(&server.uri()).await.unwrap();
+        let error = api.sparql_query("SELECT").await.unwrap_err().to_string();
+        assert!(error.contains("HTTP 400"), "{error}");
+        assert!(error.contains("Encountered EOF"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn sparql_query_sends_no_credentials() {
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        Mock::given(wiremock::matchers::path("/sparql"))
+            .and(wiremock::matchers::header("accept", super::SPARQL_JSON))
+            .and(|request: &wiremock::Request| {
+                !request.headers.contains_key(reqwest::header::AUTHORIZATION)
+            })
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"boolean": true})))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let mut api = Api::new(&server.uri()).await.unwrap();
+        api.set_oauth2("secret");
+        let res = api.sparql_query("ASK {}").await.unwrap();
+        assert_eq!(res["boolean"], true);
     }
 
     #[tokio::test]

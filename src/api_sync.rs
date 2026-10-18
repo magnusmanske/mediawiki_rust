@@ -5,7 +5,7 @@ This sync version is kept for backwards compatibility.
 
 #![deny(missing_docs)]
 
-use crate::api::OAuthParams;
+use crate::api::{OAuthParams, SPARQL_JSON, parse_sparql_response};
 use crate::media_wiki_error::MediaWikiError;
 use crate::title::Title;
 use crate::user::User;
@@ -727,9 +727,20 @@ impl ApiSync {
         params: &HashMap<String, String>,
         method: &str,
     ) -> Result<reqwest::blocking::Response, MediaWikiError> {
+        let resp =
+            self.send_waiting_out_rate_limits(|| self.request_builder(api_url, params, method))?;
+        self.enact_edit_delay(params, method);
+        Ok(resp)
+    }
+
+    /// Sends the request `build` returns, and again after the requested wait
+    /// for as long as the server answers 429 (Too Many Requests).
+    fn send_waiting_out_rate_limits(
+        &self,
+        build: impl Fn() -> Result<reqwest::blocking::RequestBuilder, MediaWikiError>,
+    ) -> Result<reqwest::blocking::Response, MediaWikiError> {
         let resp = loop {
-            let req = self.request_builder(api_url, params, method)?;
-            let resp = req.send()?;
+            let resp = build()?.send()?;
             if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 let wait_sec: u64 = resp
                     .headers()
@@ -742,7 +753,6 @@ impl ApiSync {
             }
             break resp;
         };
-        self.enact_edit_delay(params, method);
         Ok(resp)
     }
 
@@ -826,24 +836,25 @@ impl ApiSync {
 
     /// Performs a SPARQL query against a wikibase installation.
     /// Uses the given SPARQL endpoint URL.
+    ///
+    /// As [`crate::api::Api::sparql_query_endpoint`]: no OAuth credentials
+    /// are sent, and an error status is an error.
     pub fn sparql_query_endpoint(
         &self,
         query: &str,
         query_api_url: &str,
     ) -> Result<Value, MediaWikiError> {
-        let params = hashmap!["query".to_string()=>query.to_string(),"format".to_string()=>"json".to_string()];
-        let response = self.query_raw_response(query_api_url, &params, "POST")?;
-        let bytes = response
-            .bytes()
-            .map_err(|e| MediaWikiError::String(format!("{}", e)))?;
-        match serde_json::from_slice(&bytes) {
-            Ok(json) => Ok(json),
-            Err(e) => {
-                let bytes_start: Vec<u8> = bytes.iter().take(100).cloned().collect();
-                let bytes_start = String::from_utf8_lossy(&bytes_start);
-                Err(From::from(format!("{e}: {bytes_start}")))
-            }
-        }
+        let response = self.send_waiting_out_rate_limits(|| {
+            Ok(self
+                .client
+                .post(query_api_url)
+                .header(reqwest::header::USER_AGENT, self.user_agent_full())
+                .header(reqwest::header::ACCEPT, SPARQL_JSON)
+                .form(&[("query", query), ("format", "json")]))
+        })?;
+        let status = response.status();
+        let bytes = response.bytes()?;
+        parse_sparql_response(status, &bytes)
     }
 
     /// Given a `uri` (usually, an URL) that points to a Wikibase entity on this MediaWiki installation, returns the item ID
@@ -1033,6 +1044,20 @@ mod tests {
             .sparql_query("SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 . }")
             .unwrap();
         assert!(!res["results"]["bindings"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn sparql_query_error_status_is_an_error() {
+        let server = start_wikidata_mock_sync();
+        mount_mock_sync(
+            &server,
+            Mock::given(wiremock::matchers::path("/sparql"))
+                .respond_with(ResponseTemplate::new(504).set_body_string("timed out")),
+        );
+        let mut api = ApiSync::new(&server.uri()).unwrap();
+        api.set_oauth2("secret");
+        let error = api.sparql_query("ASK {}").unwrap_err().to_string();
+        assert!(error.contains("HTTP 504"), "{error}");
     }
 
     #[test]

@@ -117,10 +117,19 @@ use mediawiki::prelude::*;
 let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
 let res = api.sparql_query(
     "SELECT ?q ?qLabel ?fellow_id { ?q wdt:P31 wd:Q5 ; wdt:P6594 ?fellow_id . \
-     SERVICE wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],en'. } }"
+     OPTIONAL { ?q rdfs:label ?qLabel FILTER(LANG(?qLabel) = 'en') } }"
 ).await.unwrap();
 println!("{}", serde_json::to_string_pretty(&res).unwrap());
 ```
+
+The query is plain SPARQL 1.1, so it runs on both versions of the Wikidata
+Query Service; v2 (QLever) has no `SERVICE wikibase:label`. An error status
+is returned as an error, and no OAuth credentials are sent to the endpoint.
+
+This is meant for simple use. For the v2 endpoints (main and scholarly
+graphs), prefixes, telling timeouts from rate limiting, retries and result size
+limits, use `SparqlClient` from the [`wikimisc`](https://github.com/magnusmanske/wikimisc)
+crate (feature `sparql-client`).
 
 ## License
 
