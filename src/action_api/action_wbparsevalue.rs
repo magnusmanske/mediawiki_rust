@@ -111,7 +111,11 @@ mod tests {
 
     #[test]
     fn datatype_set() {
-        let params = new_builder().values(&["foo"]).datatype("string").data.params();
+        let params = new_builder()
+            .values(&["foo"])
+            .datatype("string")
+            .data
+            .params();
         assert_eq!(params["datatype"], "string");
     }
 

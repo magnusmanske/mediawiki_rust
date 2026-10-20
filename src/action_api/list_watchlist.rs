@@ -218,7 +218,10 @@ mod tests {
 
     #[test]
     fn wlprop_set() {
-        let params = new_builder().wlprop(&["ids", "title", "flags"]).data.params();
+        let params = new_builder()
+            .wlprop(&["ids", "title", "flags"])
+            .data
+            .params();
         assert_eq!(params["wlprop"], "ids|title|flags");
     }
 

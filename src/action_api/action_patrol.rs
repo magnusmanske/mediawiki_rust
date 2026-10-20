@@ -43,7 +43,6 @@ impl<T> ActionApiPatrolBuilder<T> {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
-
 }
 
 impl ActionApiPatrolBuilder<NoTarget> {

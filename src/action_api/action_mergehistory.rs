@@ -75,7 +75,6 @@ impl<T> ActionApiMergehistoryBuilder<T> {
         self.data.starttimestamp = Some(starttimestamp.as_ref().to_string());
         self
     }
-
 }
 
 impl ActionApiMergehistoryBuilder<NoSource> {

@@ -70,7 +70,6 @@ impl<T> ActionApiWbmergeitemsBuilder<T> {
         self.data.bot = bot;
         self
     }
-
 }
 
 impl ActionApiWbmergeitemsBuilder<NoSource> {

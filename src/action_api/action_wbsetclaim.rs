@@ -175,7 +175,9 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().claim(r#"{"type":"statement","mainsnak":{}}"#).token("csrf");
+        let builder = new_builder()
+            .claim(r#"{"type":"statement","mainsnak":{}}"#)
+            .token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

@@ -130,7 +130,10 @@ mod tests {
 
     #[test]
     fn titles_set() {
-        let params = new_builder().titles(&["Main Page", "Talk:Foo"]).data.params();
+        let params = new_builder()
+            .titles(&["Main Page", "Talk:Foo"])
+            .data
+            .params();
         assert_eq!(params["titles"], "Main Page|Talk:Foo");
     }
 

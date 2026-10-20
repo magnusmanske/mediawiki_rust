@@ -251,7 +251,6 @@ impl<T> ActionApiEditBuilder<T> {
         self.data.contentmodel = Some(contentmodel.as_ref().to_string());
         self
     }
-
 }
 
 impl ActionApiEditBuilder<NoTarget> {

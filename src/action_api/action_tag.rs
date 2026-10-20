@@ -182,7 +182,11 @@ mod tests {
 
     #[test]
     fn add_set() {
-        let params = new_builder().rcids(&[1]).add(&["tag1", "tag2"]).data.params();
+        let params = new_builder()
+            .rcids(&[1])
+            .add(&["tag1", "tag2"])
+            .data
+            .params();
         assert_eq!(params["add"], "tag1|tag2");
     }
 
@@ -194,7 +198,11 @@ mod tests {
 
     #[test]
     fn reason_set() {
-        let params = new_builder().rcids(&[1]).reason("Test reason").data.params();
+        let params = new_builder()
+            .rcids(&[1])
+            .reason("Test reason")
+            .data
+            .params();
         assert_eq!(params["reason"], "Test reason");
     }
 

@@ -91,10 +91,7 @@ impl ActionApiWbsetclaimvalueBuilder<NoClaim> {
     }
 
     /// Sets the GUID of the claim whose value is to be changed. `claim`
-    pub fn claim<S: AsRef<str>>(
-        mut self,
-        claim: S,
-    ) -> ActionApiWbsetclaimvalueBuilder<NoToken> {
+    pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbsetclaimvalueBuilder<NoToken> {
         self.data.claim = Some(claim.as_ref().to_string());
         ActionApiWbsetclaimvalueBuilder {
             _phantom: PhantomData,

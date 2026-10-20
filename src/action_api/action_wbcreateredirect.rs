@@ -57,10 +57,7 @@ impl ActionApiWbcreateredirectBuilder<NoSource> {
     }
 
     /// Sets the source entity ID to be redirected, advancing the builder state. `from`
-    pub fn from<S: AsRef<str>>(
-        mut self,
-        from: S,
-    ) -> ActionApiWbcreateredirectBuilder<NoToken> {
+    pub fn from<S: AsRef<str>>(mut self, from: S) -> ActionApiWbcreateredirectBuilder<NoToken> {
         self.data.from = Some(from.as_ref().to_string());
         ActionApiWbcreateredirectBuilder {
             _phantom: PhantomData,

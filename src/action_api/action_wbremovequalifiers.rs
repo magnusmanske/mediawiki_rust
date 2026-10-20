@@ -83,10 +83,7 @@ impl ActionApiWbremovequalifiersBuilder<NoClaim> {
     }
 
     /// Sets the GUID of the claim whose qualifiers are to be removed. `claim`
-    pub fn claim<S: AsRef<str>>(
-        mut self,
-        claim: S,
-    ) -> ActionApiWbremovequalifiersBuilder<NoToken> {
+    pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbremovequalifiersBuilder<NoToken> {
         self.data.claim = Some(claim.as_ref().to_string());
         ActionApiWbremovequalifiersBuilder {
             _phantom: PhantomData,

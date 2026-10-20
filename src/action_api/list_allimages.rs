@@ -239,7 +239,10 @@ mod tests {
 
     #[test]
     fn aiprop_set() {
-        let params = new_builder().aiprop(&["timestamp", "user", "url"]).data.params();
+        let params = new_builder()
+            .aiprop(&["timestamp", "user", "url"])
+            .data
+            .params();
         assert_eq!(params["aiprop"], "timestamp|user|url");
     }
 

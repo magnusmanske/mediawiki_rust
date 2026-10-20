@@ -81,7 +81,6 @@ impl<T> ActionApiRollbackBuilder<T> {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
-
 }
 
 impl ActionApiRollbackBuilder<NoTarget> {
@@ -173,7 +172,11 @@ mod tests {
 
     #[test]
     fn token_set() {
-        let params = new_builder().title("Foo").token("rollback+\\").data.params();
+        let params = new_builder()
+            .title("Foo")
+            .token("rollback+\\")
+            .data
+            .params();
         assert_eq!(params["token"], "rollback+\\");
     }
 

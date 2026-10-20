@@ -62,7 +62,10 @@ mod tests {
 
     #[test]
     fn friprop_set() {
-        let params = new_builder().friprop(&["name", "url", "local"]).data.params();
+        let params = new_builder()
+            .friprop(&["name", "url", "local"])
+            .data
+            .params();
         assert_eq!(params["friprop"], "name|url|local");
     }
 

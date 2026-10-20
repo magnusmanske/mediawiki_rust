@@ -81,7 +81,10 @@ mod tests {
 
     #[test]
     fn liprop_set() {
-        let params = new_builder().liprop(&["code", "name", "autonym"]).data.params();
+        let params = new_builder()
+            .liprop(&["code", "name", "autonym"])
+            .data
+            .params();
         assert_eq!(params["liprop"], "code|name|autonym");
     }
 

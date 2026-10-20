@@ -39,7 +39,11 @@ impl ActionApiQueryImageinfoData {
             params.insert("iiurlheight".to_string(), v.to_string());
         }
         Self::add_str(&self.iiurlparam, "iiurlparam", &mut params);
-        Self::add_str(&self.iibadfilecontexttitle, "iibadfilecontexttitle", &mut params);
+        Self::add_str(
+            &self.iibadfilecontexttitle,
+            "iibadfilecontexttitle",
+            &mut params,
+        );
         Self::add_boolean(self.iilocal, "iilocal", &mut params);
         Self::add_str(&self.iicontinue, "iicontinue", &mut params);
         params

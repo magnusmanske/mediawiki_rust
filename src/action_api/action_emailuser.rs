@@ -53,7 +53,6 @@ impl<T> ActionApiEmailuserBuilder<T> {
         self.data.ccme = ccme;
         self
     }
-
 }
 
 impl ActionApiEmailuserBuilder<NoTarget> {

@@ -46,7 +46,6 @@ impl<T> ActionApiWatchBuilder<T> {
         self.data.unwatch = unwatch;
         self
     }
-
 }
 
 impl ActionApiWatchBuilder<NoTitlesOrGenerator> {

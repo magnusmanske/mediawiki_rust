@@ -187,7 +187,10 @@ mod tests {
 
     #[test]
     fn bkprop_set() {
-        let params = new_builder().bkprop(&["id", "user", "reason"]).data.params();
+        let params = new_builder()
+            .bkprop(&["id", "user", "reason"])
+            .data
+            .params();
         assert_eq!(params["bkprop"], "id|user|reason");
     }
 

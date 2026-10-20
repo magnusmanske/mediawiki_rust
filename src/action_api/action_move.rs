@@ -105,7 +105,6 @@ impl<T> ActionApiMoveBuilder<T> {
         self.data.tags = Some(tags.iter().map(|s| s.clone().into()).collect());
         self
     }
-
 }
 
 impl ActionApiMoveBuilder<NoSource> {

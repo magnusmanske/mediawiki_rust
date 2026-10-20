@@ -165,15 +165,15 @@ impl<T> ActionApiBlockBuilder<T> {
     }
 
     /// Actions to restrict for a partial block (`actionrestrictions`).
-    pub fn actionrestrictions<S: Into<String> + Clone>(
-        mut self,
-        actionrestrictions: &[S],
-    ) -> Self {
-        self.data.actionrestrictions =
-            Some(actionrestrictions.iter().map(|s| s.clone().into()).collect());
+    pub fn actionrestrictions<S: Into<String> + Clone>(mut self, actionrestrictions: &[S]) -> Self {
+        self.data.actionrestrictions = Some(
+            actionrestrictions
+                .iter()
+                .map(|s| s.clone().into())
+                .collect(),
+        );
         self
     }
-
 }
 
 impl ActionApiBlockBuilder<NoTarget> {
@@ -232,7 +232,11 @@ mod tests {
 
     #[test]
     fn expiry_set() {
-        let params = new_builder().user("SomeUser").expiry("1 week").data.params();
+        let params = new_builder()
+            .user("SomeUser")
+            .expiry("1 week")
+            .data
+            .params();
         assert_eq!(params["expiry"], "1 week");
     }
 

@@ -65,7 +65,6 @@ impl<T> ActionApiUnblockBuilder<T> {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
-
 }
 
 impl ActionApiUnblockBuilder<NoTarget> {

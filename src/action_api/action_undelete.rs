@@ -137,13 +137,21 @@ mod tests {
 
     #[test]
     fn reason_set() {
-        let params = new_builder().title("TestPage").reason("Mistake").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .reason("Mistake")
+            .data
+            .params();
         assert_eq!(params["reason"], "Mistake");
     }
 
     #[test]
     fn tags_set() {
-        let params = new_builder().title("TestPage").tags(&["tag1", "tag2"]).data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .tags(&["tag1", "tag2"])
+            .data
+            .params();
         assert_eq!(params["tags"], "tag1|tag2");
     }
 
@@ -159,25 +167,41 @@ mod tests {
 
     #[test]
     fn fileids_set() {
-        let params = new_builder().title("TestPage").fileids(&[1, 2, 3]).data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .fileids(&[1, 2, 3])
+            .data
+            .params();
         assert_eq!(params["fileids"], "1|2|3");
     }
 
     #[test]
     fn watchlist_set() {
-        let params = new_builder().title("TestPage").watchlist("watch").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .watchlist("watch")
+            .data
+            .params();
         assert_eq!(params["watchlist"], "watch");
     }
 
     #[test]
     fn undeletetalk_flag() {
-        let params = new_builder().title("TestPage").undeletetalk(true).data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .undeletetalk(true)
+            .data
+            .params();
         assert_eq!(params["undeletetalk"], "");
     }
 
     #[test]
     fn token_set() {
-        let params = new_builder().title("TestPage").token("csrf+\\").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .token("csrf+\\")
+            .data
+            .params();
         assert_eq!(params["token"], "csrf+\\");
     }
 

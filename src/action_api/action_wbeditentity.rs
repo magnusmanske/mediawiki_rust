@@ -118,10 +118,7 @@ impl ActionApiWbeditentityBuilder<NoTarget> {
     }
 
     /// Sets the entity type to create a new entity of that type, advancing the builder state. `new`
-    pub fn new_type<S: AsRef<str>>(
-        mut self,
-        new_type: S,
-    ) -> ActionApiWbeditentityBuilder<NoToken> {
+    pub fn new_type<S: AsRef<str>>(mut self, new_type: S) -> ActionApiWbeditentityBuilder<NoToken> {
         self.data.new_type = Some(new_type.as_ref().to_string());
         ActionApiWbeditentityBuilder {
             _phantom: PhantomData,

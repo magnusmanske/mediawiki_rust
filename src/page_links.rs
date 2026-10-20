@@ -171,10 +171,7 @@ impl PageQueryResult for PageExtLinkEntry {
                 arr.iter()
                     .filter_map(|v| {
                         // formatversion=1: {"*": "url"}, formatversion=2: {"url": "url"}
-                        let url = v["url"]
-                            .as_str()
-                            .or_else(|| v["*"].as_str())?
-                            .to_string();
+                        let url = v["url"].as_str().or_else(|| v["*"].as_str())?.to_string();
                         Some(Self {
                             page: ctx.clone(),
                             url,

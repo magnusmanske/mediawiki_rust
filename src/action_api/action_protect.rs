@@ -89,7 +89,6 @@ impl<T> ActionApiProtectBuilder<T> {
         self.data.watchlistexpiry = Some(watchlistexpiry.as_ref().to_string());
         self
     }
-
 }
 
 impl ActionApiProtectBuilder<NoTarget> {

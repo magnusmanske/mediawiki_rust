@@ -102,8 +102,7 @@ impl ActionApiListAllusersBuilder {
 
     /// Exclude users in these groups (`auexcludegroup`).
     pub fn auexcludegroup<S: Into<String> + Clone>(mut self, auexcludegroup: &[S]) -> Self {
-        self.data.auexcludegroup =
-            Some(auexcludegroup.iter().map(|s| s.clone().into()).collect());
+        self.data.auexcludegroup = Some(auexcludegroup.iter().map(|s| s.clone().into()).collect());
         self
     }
 
@@ -188,7 +187,10 @@ mod tests {
 
     #[test]
     fn augroup_set() {
-        let params = new_builder().augroup(&["sysop", "bureaucrat"]).data.params();
+        let params = new_builder()
+            .augroup(&["sysop", "bureaucrat"])
+            .data
+            .params();
         assert_eq!(params["augroup"], "sysop|bureaucrat");
     }
 

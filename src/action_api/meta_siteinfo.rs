@@ -94,7 +94,10 @@ mod tests {
 
     #[test]
     fn siprop_set() {
-        let params = new_builder().siprop(&["general", "namespaces"]).data.params();
+        let params = new_builder()
+            .siprop(&["general", "namespaces"])
+            .data
+            .params();
         assert_eq!(params["siprop"], "general|namespaces");
     }
 

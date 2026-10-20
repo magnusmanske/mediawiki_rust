@@ -1,4 +1,6 @@
-use super::{ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable};
+use super::{
+    ActionApiContinuable, ActionApiData, ActionApiRunnable, NoTitlesOrGenerator, Runnable,
+};
 use std::{collections::HashMap, marker::PhantomData};
 
 type NoTarget = NoTitlesOrGenerator;

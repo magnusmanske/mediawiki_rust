@@ -8,7 +8,7 @@
 /// - Required traits: `ActionApiRunnable`, `ActionApiQueryCommonBuilder`,
 ///   `ActionApiGenerator`
 pub use crate::{
-    Api, ApiSync, MediaWikiError, MediaWikiApi, Page, Revision, Title, User,
+    Api, ApiSync, MediaWikiApi, MediaWikiError, Page, Revision, Title, User,
     action_api::{
         ActionApi, ActionApiContinuable, ActionApiGenerator, ActionApiList, ActionApiMeta,
         ActionApiQuery, ActionApiQueryCommonBuilder, ActionApiRunnable,

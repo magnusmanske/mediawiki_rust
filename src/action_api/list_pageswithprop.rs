@@ -119,7 +119,10 @@ mod tests {
 
     #[test]
     fn pwpprop_set() {
-        let params = new_builder().pwpprop(&["ids", "title", "value"]).data.params();
+        let params = new_builder()
+            .pwpprop(&["ids", "title", "value"])
+            .data
+            .params();
         assert_eq!(params["pwpprop"], "ids|title|value");
     }
 

@@ -107,10 +107,7 @@ impl ActionApiWbsetqualifierBuilder<NoClaim> {
     }
 
     /// Sets the GUID of the claim to which the qualifier belongs. `claim`
-    pub fn claim<S: AsRef<str>>(
-        mut self,
-        claim: S,
-    ) -> ActionApiWbsetqualifierBuilder<NoToken> {
+    pub fn claim<S: AsRef<str>>(mut self, claim: S) -> ActionApiWbsetqualifierBuilder<NoToken> {
         self.data.claim = Some(claim.as_ref().to_string());
         ActionApiWbsetqualifierBuilder {
             _phantom: PhantomData,

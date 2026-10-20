@@ -163,7 +163,11 @@ mod tests {
 
     #[test]
     fn entity_type_set() {
-        let params = new_builder().search("foo").entity_type("property").data.params();
+        let params = new_builder()
+            .search("foo")
+            .entity_type("property")
+            .data
+            .params();
         assert_eq!(params["type"], "property");
     }
 

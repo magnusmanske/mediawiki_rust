@@ -81,7 +81,6 @@ impl<T> ActionApiDeleteBuilder<T> {
         self.data.oldimage = Some(oldimage.as_ref().to_string());
         self
     }
-
 }
 
 impl ActionApiDeleteBuilder<NoTarget> {

@@ -192,7 +192,11 @@ mod tests {
 
     #[test]
     fn token_set() {
-        let params = new_builder().user("SomeUser").token("csrf+\\").data.params();
+        let params = new_builder()
+            .user("SomeUser")
+            .token("csrf+\\")
+            .data
+            .params();
         assert_eq!(params["token"], "csrf+\\");
     }
 

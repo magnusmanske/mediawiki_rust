@@ -137,7 +137,6 @@ impl<T> ActionApiUploadBuilder<T> {
         self.data.checkstatus = checkstatus;
         self
     }
-
 }
 
 impl ActionApiUploadBuilder<NoFilename> {

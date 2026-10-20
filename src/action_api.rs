@@ -93,8 +93,8 @@ use crate::{
         query_duplicatefiles::ActionApiQueryDuplicatefilesBuilder,
         query_extlinks::ActionApiQueryExtlinksBuilder,
         query_fileusage::ActionApiQueryFileusageBuilder,
-        query_images::ActionApiQueryImagesBuilder,
         query_imageinfo::ActionApiQueryImageinfoBuilder,
+        query_images::ActionApiQueryImagesBuilder,
         query_info::ActionApiQueryInfoBuilder,
         query_iwlinks::ActionApiQueryIwlinksBuilder,
         query_langlinks::ActionApiQueryLanglinksBuilder,
@@ -108,6 +108,7 @@ use crate::{
     },
 };
 
+mod action_wbgetentities;
 mod list_allcategories;
 mod list_allfileusages;
 mod list_allimages;
@@ -160,7 +161,6 @@ mod query_redirects;
 mod query_revisions;
 mod query_templates;
 mod query_transcludedin;
-mod action_wbgetentities;
 use action_wbgetentities as wbgetentities;
 
 mod action_block;

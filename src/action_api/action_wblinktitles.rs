@@ -169,7 +169,9 @@ mod tests {
 
     #[test]
     fn http_method_is_post() {
-        let builder = new_builder().link("enwiki", "Foo", "dewiki", "Foo").token("csrf");
+        let builder = new_builder()
+            .link("enwiki", "Foo", "dewiki", "Foo")
+            .token("csrf");
         assert_eq!(builder.http_method(), "POST");
     }
 }

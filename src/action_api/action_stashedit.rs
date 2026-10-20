@@ -150,31 +150,51 @@ mod tests {
 
     #[test]
     fn text_set() {
-        let params = new_builder().title("TestPage").text("Hello world").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .text("Hello world")
+            .data
+            .params();
         assert_eq!(params["text"], "Hello world");
     }
 
     #[test]
     fn contentmodel_set() {
-        let params = new_builder().title("TestPage").contentmodel("wikitext").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .contentmodel("wikitext")
+            .data
+            .params();
         assert_eq!(params["contentmodel"], "wikitext");
     }
 
     #[test]
     fn baserevid_set() {
-        let params = new_builder().title("TestPage").baserevid(12345).data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .baserevid(12345)
+            .data
+            .params();
         assert_eq!(params["baserevid"], "12345");
     }
 
     #[test]
     fn summary_set() {
-        let params = new_builder().title("TestPage").summary("My edit").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .summary("My edit")
+            .data
+            .params();
         assert_eq!(params["summary"], "My edit");
     }
 
     #[test]
     fn token_set() {
-        let params = new_builder().title("TestPage").token("csrf+\\").data.params();
+        let params = new_builder()
+            .title("TestPage")
+            .token("csrf+\\")
+            .data
+            .params();
         assert_eq!(params["token"], "csrf+\\");
     }
 
