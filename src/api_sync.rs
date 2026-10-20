@@ -54,7 +54,30 @@ impl ApiSync {
     /// let api = mediawiki::api_sync::ApiSync::new("https://en.wikipedia.org/w/api.php").unwrap();
     /// ```
     pub fn new(api_url: &str) -> Result<ApiSync, MediaWikiError> {
-        ApiSync::new_from_builder(api_url, reqwest::blocking::Client::builder())
+        ApiSync::new_with_user_agent(api_url, DEFAULT_USER_AGENT)
+    }
+
+    /// Returns a new `ApiSync` element with a bespoke user agent, and loads the MediaWiki site info from the `api_url` site.
+    /// The user agent is already used for the initial site info request.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let api = mediawiki::api_sync::ApiSync::new_with_user_agent(
+    ///     "https://en.wikipedia.org/w/api.php",
+    ///     "MyBot/1.0 (https://example.org/MyBot; mybot@example.org)",
+    /// )
+    /// .unwrap();
+    /// ```
+    pub fn new_with_user_agent<S: Into<String>>(
+        api_url: &str,
+        user_agent: S,
+    ) -> Result<ApiSync, MediaWikiError> {
+        ApiSync::new_from_builder_with_user_agent(
+            api_url,
+            reqwest::blocking::Client::builder(),
+            user_agent,
+        )
     }
 
     /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
@@ -64,12 +87,23 @@ impl ApiSync {
         api_url: &str,
         builder: reqwest::blocking::ClientBuilder,
     ) -> Result<ApiSync, MediaWikiError> {
+        ApiSync::new_from_builder_with_user_agent(api_url, builder, DEFAULT_USER_AGENT)
+    }
+
+    /// Returns a new `ApiSync` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Uses a bespoke reqwest::ClientBuilder and a bespoke user agent.
+    /// The user agent is already used for the initial site info request.
+    pub fn new_from_builder_with_user_agent<S: Into<String>>(
+        api_url: &str,
+        builder: reqwest::blocking::ClientBuilder,
+        user_agent: S,
+    ) -> Result<ApiSync, MediaWikiError> {
         let mut ret = ApiSync {
             api_url: api_url.to_string(),
             site_info: Value::Object(Default::default()),
             client: builder.cookie_store(true).build()?,
             user: User::new(),
-            user_agent: DEFAULT_USER_AGENT.to_string(),
+            user_agent: user_agent.into(),
             maxlag_seconds: DEFAULT_MAXLAG,
             max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
@@ -938,6 +972,32 @@ mod tests {
         let server = start_wikidata_mock_sync();
         let api = ApiSync::new(&server.uri()).unwrap();
         assert_eq!(server.uri(), api.api_url());
+    }
+
+    #[test]
+    fn new_with_user_agent_uses_it_for_site_info() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let server = rt.block_on(MockServer::start());
+        let expected_ua = format!(
+            "TestBot/1.0; {}-rust/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
+        mount_mock_sync(
+            &server,
+            Mock::given(query_param("meta", "siteinfo"))
+                .and(wiremock::matchers::header(
+                    "user-agent",
+                    expected_ua.as_str(),
+                ))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(crate::test_helpers::test_helpers_mod::enwiki_siteinfo()),
+                ),
+        );
+        let api = ApiSync::new_with_user_agent(&server.uri(), "TestBot/1.0").unwrap();
+        assert_eq!(api.user_agent(), "TestBot/1.0");
+        assert!(ApiSync::new(&server.uri()).is_err());
     }
 
     #[test]

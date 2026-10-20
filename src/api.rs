@@ -132,7 +132,34 @@ impl Api {
     /// # });
     /// ```
     pub async fn new(api_url: &str) -> Result<Api, MediaWikiError> {
-        Api::new_from_builder(api_url, reqwest::Client::builder().timeout(DEFAULT_TIMEOUT)).await
+        Api::new_with_user_agent(api_url, DEFAULT_USER_AGENT).await
+    }
+
+    /// Returns a new `Api` element with a bespoke user agent, and loads the MediaWiki site info from the `api_url` site.
+    /// The user agent is already used for the initial site info request.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+    /// let api = mediawiki::api::Api::new_with_user_agent(
+    ///     "https://en.wikipedia.org/w/api.php",
+    ///     "MyBot/1.0 (https://example.org/MyBot; mybot@example.org)",
+    /// )
+    /// .await
+    /// .unwrap();
+    /// # });
+    /// ```
+    pub async fn new_with_user_agent<S: Into<String>>(
+        api_url: &str,
+        user_agent: S,
+    ) -> Result<Api, MediaWikiError> {
+        Api::new_from_builder_with_user_agent(
+            api_url,
+            reqwest::Client::builder().timeout(DEFAULT_TIMEOUT),
+            user_agent,
+        )
+        .await
     }
 
     /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
@@ -142,12 +169,23 @@ impl Api {
         api_url: &str,
         builder: reqwest::ClientBuilder,
     ) -> Result<Api, MediaWikiError> {
+        Api::new_from_builder_with_user_agent(api_url, builder, DEFAULT_USER_AGENT).await
+    }
+
+    /// Returns a new `Api` element, and loads the MediaWiki site info from the `api_url` site.
+    /// Uses a bespoke reqwest::ClientBuilder and a bespoke user agent.
+    /// The user agent is already used for the initial site info request.
+    pub async fn new_from_builder_with_user_agent<S: Into<String>>(
+        api_url: &str,
+        builder: reqwest::ClientBuilder,
+        user_agent: S,
+    ) -> Result<Api, MediaWikiError> {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: Value::Object(Default::default()),
             client: builder.cookie_store(true).build()?,
             user: User::new(),
-            user_agent: DEFAULT_USER_AGENT.to_string(),
+            user_agent: user_agent.into(),
             maxlag_seconds: DEFAULT_MAXLAG,
             max_retry_attempts: DEFAULT_MAX_RETRY_ATTEMPTS,
             edit_delay_ms: None,
@@ -1018,6 +1056,32 @@ mod tests {
             "Wikidata"
         );
         assert!(api.get_site_info_string("general", "notarealkey").is_err());
+    }
+
+    #[tokio::test]
+    async fn new_with_user_agent_uses_it_for_site_info() {
+        let server = wiremock::MockServer::start().await;
+        let expected_ua = format!(
+            "TestBot/1.0; {}-rust/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
+        Mock::given(query_param("meta", "siteinfo"))
+            .and(wiremock::matchers::header(
+                "user-agent",
+                expected_ua.as_str(),
+            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(crate::test_helpers::test_helpers_mod::enwiki_siteinfo()),
+            )
+            .mount(&server)
+            .await;
+        let api = Api::new_with_user_agent(&server.uri(), "TestBot/1.0")
+            .await
+            .unwrap();
+        assert_eq!(api.user_agent(), "TestBot/1.0");
+        assert!(Api::new(&server.uri()).await.is_err());
     }
 
     #[tokio::test]
