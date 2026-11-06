@@ -27,6 +27,8 @@ const DEFAULT_MAXLAG: Option<u64> = Some(5);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u64 = 5;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 const DEFAULT_DELAY_FOR_TOO_MANY_REQUESTS: u64 = 30;
+/// The Action API's original JSON shape; callers can opt into 2.
+const DEFAULT_FORMATVERSION: u8 = 1;
 
 /// The `Accept` header of a SPARQL query.
 pub(crate) const SPARQL_JSON: &str = "application/sparql-results+json";
@@ -118,6 +120,7 @@ pub struct Api {
     max_retry_attempts: u64,
     oauth: Option<OAuthParams>,
     oauth2: Option<String>,
+    formatversion: u8,
 }
 
 impl Api {
@@ -180,10 +183,35 @@ impl Api {
         builder: reqwest::ClientBuilder,
         user_agent: S,
     ) -> Result<Api, MediaWikiError> {
+        let client = builder.cookie_store(true).build()?;
+        Api::new_from_client_with_user_agent(api_url, client, user_agent).await
+    }
+
+    /// Returns a new `Api` element around an existing HTTP client, and loads
+    /// the MediaWiki site info from the `api_url` site. Use this to share a
+    /// client (and its connection pool, proxy and timeout settings) with the
+    /// rest of an application.
+    ///
+    /// The client is used as it is; enable the cookie store on it if the API
+    /// needs to keep a session (for logins).
+    pub async fn new_from_client(
+        api_url: &str,
+        client: reqwest::Client,
+    ) -> Result<Api, MediaWikiError> {
+        Api::new_from_client_with_user_agent(api_url, client, DEFAULT_USER_AGENT).await
+    }
+
+    /// As [`new_from_client`](Self::new_from_client), with a bespoke user agent.
+    /// The user agent is already used for the initial site info request.
+    pub async fn new_from_client_with_user_agent<S: Into<String>>(
+        api_url: &str,
+        client: reqwest::Client,
+        user_agent: S,
+    ) -> Result<Api, MediaWikiError> {
         let mut ret = Api {
             api_url: api_url.to_string(),
             site_info: Value::Object(Default::default()),
-            client: builder.cookie_store(true).build()?,
+            client,
             user: User::new(),
             user_agent: user_agent.into(),
             maxlag_seconds: DEFAULT_MAXLAG,
@@ -191,6 +219,7 @@ impl Api {
             edit_delay_ms: None,
             oauth: None,
             oauth2: None,
+            formatversion: DEFAULT_FORMATVERSION,
         };
         ret.load_site_info().await?;
         Ok(ret)
@@ -299,7 +328,9 @@ impl Api {
     /// Loads the site info.
     /// Should only ever be called from `new()`
     async fn load_site_info(&mut self) -> Result<&Value, MediaWikiError> {
-        let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string()];
+        // Kept at formatversion=1: the namespace accessors and `Title` read
+        // the original shape. The query setting applies to callers.
+        let params = hashmap!["action".to_string()=>"query".to_string(),"meta".to_string()=>"siteinfo".to_string(),"siprop".to_string()=>"general|namespaces|namespacealiases|libraries|extensions|statistics".to_string(),"formatversion".to_string()=>"1".to_string()];
         self.site_info = self.get_query_api_json(&params).await?;
         Ok(&self.site_info)
     }
@@ -474,6 +505,9 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
+        params
+            .entry("formatversion".to_string())
+            .or_insert_with(|| self.formatversion.to_string());
         let mut cumulative: u64 = 0;
         loop {
             self.set_cumulative_maxlag_params(&mut params, method, cumulative);
@@ -506,6 +540,9 @@ impl Api {
         let mut params = params.clone();
         let mut attempts_left = self.max_retry_attempts;
         params.insert("format".to_string(), "json".to_string());
+        params
+            .entry("formatversion".to_string())
+            .or_insert_with(|| self.formatversion.to_string());
         let mut cumulative: u64 = 0;
         loop {
             self.set_cumulative_maxlag_params(&mut params, method, cumulative);
@@ -547,6 +584,19 @@ impl Api {
     /// Sets the maxlag in seconds (or `None`)
     pub fn set_maxlag(&mut self, maxlag_seconds: Option<u64>) {
         self.maxlag_seconds = maxlag_seconds;
+    }
+
+    /// Returns the `formatversion` sent with API queries: 1 (the original
+    /// JSON shape) or 2 (the modern one).
+    pub fn formatversion(&self) -> u8 {
+        self.formatversion
+    }
+
+    /// Sets the `formatversion` sent with API queries. Site info is always
+    /// loaded with version 1 internally, so the namespace accessors and
+    /// `Title` keep working.
+    pub fn set_formatversion(&mut self, formatversion: u8) {
+        self.formatversion = formatversion;
     }
 
     /// Checks if a query is an edit, based on parameters and method (GET/POST)
@@ -1085,6 +1135,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn new_from_client_uses_the_client() {
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        let client = reqwest::Client::builder().build().unwrap();
+        let api = Api::new_from_client(&server.uri(), client).await.unwrap();
+        assert_eq!(
+            api.get_site_info_string("general", "sitename").unwrap(),
+            "Wikidata"
+        );
+    }
+
+    #[tokio::test]
+    async fn formatversion_is_sent_and_explicit_wins() {
+        let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
+        Mock::given(query_param("list", "search"))
+            .and(query_param("formatversion", "2"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"batchcomplete": "", "query": {"search": []}})),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(query_param("list", "search"))
+            .and(query_param("formatversion", "1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"batchcomplete": "", "query": {"search": []}})),
+            )
+            .mount(&server)
+            .await;
+
+        let mut api = Api::new(&server.uri()).await.unwrap();
+        api.set_formatversion(2);
+        assert_eq!(api.formatversion(), 2);
+
+        let params = api.params_into(&[("action", "query"), ("list", "search"), ("srsearch", "x")]);
+        api.get_query_api_json(&params).await.unwrap();
+
+        let params = api.params_into(&[
+            ("action", "query"),
+            ("list", "search"),
+            ("srsearch", "x"),
+            ("formatversion", "1"),
+        ]);
+        api.get_query_api_json(&params).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn get_token() {
         let server = crate::test_helpers::test_helpers_mod::start_wikidata_mock().await;
         Mock::given(query_param("meta", "tokens"))
@@ -1328,6 +1425,7 @@ mod tests {
             max_retry_attempts: 5,
             oauth: None,
             oauth2: None,
+            formatversion: 1,
         };
         let mut params = std::collections::HashMap::new();
         params.insert("token".to_string(), "abc".to_string());
@@ -1351,6 +1449,7 @@ mod tests {
             max_retry_attempts: 5,
             oauth: None,
             oauth2: None,
+            formatversion: 1,
         };
         let v = json!({"error": {"code": "maxlag", "lag": 10}});
         assert_eq!(api.check_maxlag(&v), Some(10));
@@ -1375,6 +1474,7 @@ mod tests {
             max_retry_attempts: 5,
             oauth: None,
             oauth2: None,
+            formatversion: 1,
         };
         let ua = api.user_agent_full();
         assert!(ua.starts_with("TestBot; "));
@@ -1394,6 +1494,7 @@ mod tests {
             max_retry_attempts: 5,
             oauth: None,
             oauth2: None,
+            formatversion: 1,
         };
         let params = api.params_into(&[("action", "query"), ("meta", "siteinfo")]);
         assert_eq!(params.len(), 2);
@@ -1414,6 +1515,7 @@ mod tests {
             max_retry_attempts: 5,
             oauth: None,
             oauth2: None,
+            formatversion: 1,
         };
         assert!(api.no_params().is_empty());
     }
